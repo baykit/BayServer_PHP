@@ -1,0 +1,90 @@
+#
+# Parser errors
+#
+PAS_BRACE_NOT_CLOSED  Brace not closed
+PAS_INVALID_INDENT    Invalid indent
+PAS_INVALID_LINE      Invalid line
+PAS_INVALID_WHITESPACE Invalid whitespace
+
+#
+# Configuration errors
+#
+CFG_INVALID_PARAMETER    Invalid parameter: %s
+CFG_INVALID_DOCKER_CLASS Invalid docker class: %s
+CFG_INVALID_DESTINATION  Invalid destination: %s
+CFG_NO_PORT_DOCKER       No port docker defined
+CFG_INVALID_PORT_NAME    Invalid port name: %s
+CFG_LOCATION_NOT_FOUND   Location not found: %s
+CFG_LOCATION_NOT_DEFINED  Location not defined
+CFG_INVALID_LOCATION     Invalid location: %s
+CFG_INVALID_DOCKER       Invalid docker: %s
+CFG_DOCKER_NOT_FOUND     Docker not found: %s
+CFG_INVALID_LOG_FORMAT   Invalid log format: %s
+CFG_INVALID_PERMISSION_DESCRIPTION   Invalid permission description: %s
+CFG_GROUP_NOT_FOUND                  Group not found: %s
+CFG_FILE_NOT_FOUND                   File not found: %s
+CFG_WARP_DESTINATION_NOT_DEFINED     Warp destination not defined
+CFG_INVALID_WARP_DESTINATION         Invalid warp destination: %s
+CFG_INVALID_PARAMETER_VALUE          Invalid value: %s
+CFG_SSL_INIT_ERROR                   Initialize SSL error: %s
+CFG_SSL_KEY_FILE_NOT_SPECIFIED       Key file not specified
+CFG_SSL_CERT_FILE_NOT_SPECIFIED      Cert file not specified
+CFG_INVALID_IP_DESC                  Invalid IP description: %s
+CFG_IPV4_AND_IPV6_ARE_MIXED          IPv4 and IPv6 are mixed: %s
+CFG_PARAMETER_IS_NOT_A_NUMBER        Parameter is not a number: %s value="%s"
+CFG_MULTI_CORE_NOT_SUPPORTED         Multi core mode is not supported on this platform. Start in single core mode.
+CFG_SINGLE_CORE_NOT_SUPPORTED        Single core mode is not supported on this platform. Start in multi core mode.
+CFG_FILE_SEND_METHOD_SELECT_NOT_SUPPORTED  Send file by select is not supported on this platform. We send files by taxi.
+CFG_FILE_SEND_METHOD_SPIN_NOT_SUPPORTED    Send file by spin is not supported on this platform. We send files by taxi.
+CFG_LOG_WRITE_METHOD_SELECT_NOT_SUPPORTED  Write log by select is not supported on this platform. We send files by taxi.
+CFG_LOG_WRITE_METHOD_SPIN_NOT_SUPPORTED  Write log by spin is not supported on this platform. We send files by taxi.
+CFG_MAX_SHIPS_IS_TO_SMALL                maxShips is too small. Set it at %d
+CFG_TCP_NOT_SUPPORTED                TCP not supported
+CFG_UDP_NOT_SUPPORTED                UDP not supported
+CFG_CANNOT_SUPPORT_UNIX_DOMAIN_SOCKET    This version of JVM does not support Unix domain socket.
+
+
+#
+# HTTP errors
+#
+HTP_SENDING_HTTP_ERROR   Sending an HTTP error: conId=%s
+HTP_CANNOT_SUPPORT_HTTP2 This version of JVM does not support HTTP2
+HTP_INVALID_FIRST_LINE   Invalid first line: %s
+HTP_UNSUPPORTED_PROTOCOL Unsupported protocol: %s
+HTP_INVALID_HEADER_FORMAT Invalid header format: %s
+HTP_INVALID_PREFACE       Invalid HTTP/2 preface
+
+#
+# Internal errors
+#
+INT_UNKNOWN_LOG_LEVEL     Unknown log level: %s
+INT_CANNOT_OPEN_LOG_FILE  Cannot open log file: %s
+INT_CANNOT_OPEN_PORT      Cannot open port %s:%d: %s
+INT_CANNOT_SET_SIG_HANDLER  Cannot set signal handler: %s (sig=%s)
+INT_NO_MORE_TOURS           No more tours
+
+
+#
+# Network errors
+#
+NET_NOT_ALLOWED_TO_CONNECT_FROM     Not allowed to connect from: %s
+
+
+
+#
+# Messages
+#
+MSG_OPENING_LOCAL_PORT    Opening local port: %d
+MSG_CLOSING_LOCAL_PORT    Closing local port: %d
+MSG_OPENING_TCP_PORT      Opening TCP port: %s:%d [%s]
+MSG_OPENING_UDP_PORT      Opening UDP port: %s:%d [%s]
+MSG_CLOSING_TCP_PORT      Closing TCP port: %s:%d
+MSG_CLOSING_UDP_PORT      Closing UDP port: %s:%d
+MSG_RUNNING_GRAND_AGENT   Running grand agent: %s
+MSG_OPEN_CTL_PORT         Opening control port: %s
+MSG_SETTING_UP_TOWN       Setting up town: %s location: %s
+MSG_COMMAND_RECEIVED      Command received: %s
+MSG_SENDING_COMMAND       Sending command: cmd=%s
+MSG_GRAND_AGENT_SHUTDOWN  Grant agent shutdown: %d
+
+

@@ -1,0 +1,9 @@
+<?php
+namespace baykit\bayserver\docker\cgi;
+
+class CGISymbol
+{
+    # CGI Messages
+    const CGI_PROC_READ_METHOD_SELECT_NOT_SUPPORTED = "CGI_PROC_READ_METHOD_SELECT_NOT_SUPPORTED";
+    const CGI_PROC_READ_METHOD_SPIN_NOT_SUPPORTED = "CGI_PROC_READ_METHOD_SPIN_NOT_SUPPORTED";
+}

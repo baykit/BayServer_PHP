@@ -1,0 +1,14 @@
+0  The associated condition is not a result of an error.
+1  The endpoint detected an unspecific protocol error.
+2  The endpoint encountered an unexpected internal error.
+3  The endpoint detected that its peer violated the flow-control protocol.
+4  The endpoint sent a SETTINGS frame but did not receive a response in a timely manner.
+5  The endpoint received a frame after a stream was half-closed.
+6  The endpoint received a frame with an invalid size.
+7  The endpoint refused the stream prior to  performing any application processing.
+8  Used by the endpoint to indicate that the stream is no longer needed.
+9  The endpoint is unable to maintain the header compression context for the connection.
+10  The connection established in response to a CONNECT request was reset or abnormally closed.
+11  The endpoint detected that its peer is exhibiting a behavior that might be generating excessive load.
+12  The underlying transport has properties that do not meet minimum security requirements.
+13  The endpoint requires that HTTP/1.1 be used instead of HTTP/2.

@@ -1,0 +1,67 @@
+[harbor]
+    groups plan/groups.plan
+    grandAgents 4
+
+
+#
+#  Port settings
+#
+[port 2020]
+     docker http
+#     [permission]
+#          admit ip 127.0.0.1/255.0.0.0
+#          #admit ip ::1/::ffff:ffff
+#          refuse ip *
+
+[port 2024]
+    [secure]
+        cert      cert/oreore.crt
+        key       cert/oreore_key.p8
+    
+[port 2025]
+    docker ajp
+    [permission]
+          admit ip 127.0.0.1/255.0.0.0
+          refuse ip *
+
+[port 2029]
+    docker fcgi
+
+
+#
+#  Location settings
+#
+[city *]
+    [town /]
+        location www/root
+        welcome  index.html
+
+    [town /cgi-demo/]
+        location www/cgi-demo
+        welcome  index.html
+        [club *.cgi]
+            docker cgi
+
+        [club *.bat]
+            docker cgi
+
+        [club *.php]
+            docker phpCgi
+
+    [log log/access.log]
+        format %h %l %u %t "%r" %>s %b
+
+    [log log/agent.log]
+        format %{User-Agent}i
+
+    [log log/referer.log]
+        format %{Referer}i -> %U
+
+
+
+    #[permission]
+    #         admit ip 127.0.0.1/255.0.0.0
+    #         admit ip ::1/32
+    #         refuse ip *
+    #         group rocker
+ 

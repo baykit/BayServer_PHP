@@ -1,0 +1,91 @@
+#
+# パースエラー
+#
+PAS_BRACE_NOT_CLOSED  中カッコが正しく閉じていません
+PAS_INVALID_INDENT    インデントが不正です
+PAS_INVALID_LINE      不正な行です
+PAS_INVALID_WHITESPACE 不正なホワイトスペースです
+
+#
+# 構成エラー
+#
+CFG_INVALID_PARAMETER    パラメータが不正です: %s
+CFG_INVALID_DOCKER_CLASS Dockerクラスが不正です: %s
+CFG_INVALID_DESTINATION  destinationが不正です: %s
+CFG_NO_PORT_DOCKER       Port dockerが定義されていません
+CFG_INVALID_PORT_NAME    Port名が不正です: %s
+CFG_LOCATION_NOT_FOUND   Locationが見つかりません: %s
+CFG_LOCATION_NOT_DEFINED  Locationが定義されていません
+CFG_INVALID_LOCATION     不正なlocationです: %s
+CFG_INVALID_DOCKER       不正なdockerです: %s
+CFG_DOCKER_NOT_FOUND     Dockerが見つかりません: %s
+CFG_INVALID_LOG_FORMAT   不正なログフォーマットです: %s
+CFG_INVALID_PERMISSION_DESCRIPTION   不正なパーミッション定義です: %s
+CFG_GROUP_NOT_FOUND      グループが見つかりません: %s
+CFG_FILE_NOT_FOUND       ファイルが見つかりません: %s
+CFG_WARP_DESTINATION_NOT_DEFINED   Warpのdestinationが定義されていません
+CFG_INVALID_WARP_DESTINATION      Warpのdestinationが不正です: %s
+CFG_INVALID_PARAMETER_VALUE        不正な値です: %s
+CFG_SSL_INIT_ERROR       SSL初期化中のエラーです: %s
+CFG_SSL_KEY_FILE_NOT_SPECIFIED       Keyファイルが指定されていません
+CFG_SSL_CERT_FILE_NOT_SPECIFIED      Certファイルが指定されていません
+CFG_INVALID_IP_DESC                  不正なIP定義です: %s
+CFG_IPV4_AND_IPV6_ARE_MIXED          IPv4とIPv6が混在しています: %s
+CFG_PARAMETER_IS_NOT_A_NUMBER        Parameterは数値ではありません: %s value="%s"
+CFG_MULTI_CORE_NOT_SUPPORTED          このプラットフォームではマルチコアモードはサポートされません．シングルコアモードで起動します．
+CFG_SINGLE_CORE_NOT_SUPPORTED        このプラットフォームではシングルコアモードはサポートされません．マルチコアモードで起動します．
+CFG_FILE_SEND_METHOD_SELECT_NOT_SUPPORTED  このプラットフォームではselectでファイルを送信できません．タクシーで送信します.
+CFG_FILE_SEND_METHOD_SPIN_NOT_SUPPORTED    このプラットフォームではspinでファイルを送信できません．タクシーで送信します．
+CFG_LOG_WRITE_METHOD_SELECT_NOT_SUPPORTED  このプラットフォームではselectでログを書き込めません．タクシーで書き込みます.
+CFG_LOG_WRITE_METHOD_SPIN_NOT_SUPPORTED    このプラットフォームではspinでログを書き込めません．タクシーで書き込みます．
+CFG_MAX_SHIPS_IS_TO_SMALL                maxShipsが小さすぎます。次の値に設定します: %d
+CFG_TCP_NOT_SUPPORTED                TCPはサポートされません
+CFG_UDP_NOT_SUPPORTED                UDPはサポートされません
+CFG_CANNOT_SUPPORT_UNIX_DOMAIN_SOCKET   このバージョンのJVMはUnixメイン・ソケットをサポートしていません
+
+
+#
+# HTTPエラー
+#
+HTP_SENDING_HTTP_ERROR   HTTPエラーを送信しています: conId=%s
+HTP_CANNOT_SUPPORT_HTTP2 このバージョンのJVMはHTTP/2をサポートしていません
+HTP_INVALID_FIRST_LINE   最初の行が不正です: %s
+HTP_UNSUPPORTED_PROTOCOL サポートされないプロトコルです: %s
+HTP_INVALID_HEADER_FORMAT ヘッダの形式が不正です: %s
+HTP_INVALID_PREFACE       HTTP/2プリフェースが不正です
+
+
+
+#
+# Internal
+#
+INT_UNKNOWN_LOG_LEVEL     未知のlog levalです: %s
+INT_CANNOT_OPEN_LOG_FILE  ログファイルをオープンできません: %s
+INT_CANNOT_OPEN_PORT      ポートを開けません %s:%d: %s
+INT_CANNOT_SET_SIG_HANDLER  シグナルハンドラを設定できません: %s (sig=%s)
+INT_NO_MORE_TOURS           No more tours
+
+
+
+#
+# Network errors
+#
+NET_NOT_ALLOWED_TO_CONNECT_FROM     ここからの接続は許可されていません: %s
+
+
+#
+# Messages
+#
+MSG_OPENING_LOCAL_PORT    ローカルポートを開いています: %d
+MSG_CLOSING_LOCAL_PORT    ローカルポートを閉じています: %d
+MSG_OPENING_TCP_PORT      TCPポートを開いています: %s:%d [%s]
+MSG_OPENING_UDP_PORT      UDPポートを開いています: %s:%d [%s]
+MSG_CLOSING_TCP_PORT      TCPポートを閉じています: %s:%d
+MSG_CLOSING_UDP_PORT      UDPポートを閉じています: %s:%d
+MSG_RUNNING_GRAND_AGENT   グランドエージェントを開始します: %s
+MSG_OPEN_CTL_PORT         制御ポートを開いています: %s
+MSG_SETTING_UP_TOWN       町を初期化しています: %s 場所: %s
+MSG_SENDING_COMMAND       コマンドを送信しています: %s
+MSG_COMMAND_RECEIVED      コマンドを受信しました: %s
+MSG_GRAND_AGENT_SHUTDOWN  グランドエージェントがシャットダウンしました: %d
+

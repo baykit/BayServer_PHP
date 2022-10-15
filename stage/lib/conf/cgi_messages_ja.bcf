@@ -1,0 +1,6 @@
+#
+# CGI errors
+#
+
+CGI_PROC_READ_METHOD_SELECT_NOT_SUPPORTED  このプラットフォームではselectでプロセスの出力を読み込めません．タクシーで送信します.
+CGI_PROC_READ_METHOD_SPIN_NOT_SUPPORTED    このプラットフォームではspinでプロセスの出力を読み込めません．タクシーで送信します.

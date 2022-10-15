@@ -1,0 +1,16 @@
+#
+# Servlet errors
+#
+SVT_INVALID_PARAMETER            Invalid parameter: %s (line %s)
+SVT_INVALID_LOCATION             invalid location: %s
+SVT_LOCATION_NOT_FOUND           location not found: %s
+SVT_WEBXML_PARSE_ERROR           web.xml parse error: %s
+SVT_PATH_MUST_STARTS_WITH_SLASH  path must starts with '/'
+SVT_COULD_NOT_INITIALIZE_JASPER  Could not initialize Jasper: %s
+SVT_SERVLET_NOT_FOUND            Servlet not found: %s
+SVT_FILTER_NOT_FOUND             Filter not found: %s
+SVT_UNKNOWN_RESOURCE_TYPE        Unknown resource type: %s
+SVT_RESOURCE_TYPE_NOT_SPECIFIED  Resource type not specified
+SVT_CANNOT_CREATE_MAIL_SESSION   Cannot create mail session: %s
+SVT_CANNOT_CREATE_DATASOURCE     Cannot create datasource: %s
+SVT_CONTEXT_INITIALIZE_ERROR     Context initialize error: %s

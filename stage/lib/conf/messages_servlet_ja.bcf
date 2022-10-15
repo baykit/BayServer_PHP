@@ -1,0 +1,17 @@
+#
+# Servlet errors
+#
+SVT_INVALID_PARAMETER            パラメータが不正です: %s (%s行目)
+SVT_INVALID_LOCATION             locationが不正です: %s
+SVT_LOCATION_NOT_FOUND           locationが存在しません: %s
+SVT_WEBXML_PARSE_ERROR           web.xmlの解析エラー: %s
+SVT_PATH_MUST_STARTS_WITH_SLASH  ハスは'/'で始まらなければなりません
+SVT_COULD_NOT_INITIALIZE_JASPER  Jaspe を初期化できませんでしたr: %s
+SVT_SERVLET_NOT_FOUND            Servletが見つかりません: %s
+SVT_FILTER_NOT_FOUND             Filterが見つかりません: %s
+SVT_UNKNOWN_RESOURCE_TYPE        未知のリソースタイプです: %s
+SVT_RESOURCE_TYPE_NOT_SPECIFIED  リソースタイプが指定されていません
+SVT_CANNOT_CREATE_MAIL_SESSION   mail sessionを作成できません: %s
+SVT_CANNOT_CREATE_DATASOURCE     datasourceを作成できません: %s
+SVT_CONTEXT_INITIALIZE_ERROR     コンテキストの初期化エラー: %s
+
