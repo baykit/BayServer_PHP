@@ -88,7 +88,7 @@ class H2DataAccessor extends PacketPartAccessor
         }
         else {
             // ASCII
-            return pack("C*", $data);
+            return $data;
         }
     }
 
