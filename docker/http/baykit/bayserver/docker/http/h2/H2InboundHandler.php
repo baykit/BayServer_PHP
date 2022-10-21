@@ -350,7 +350,7 @@ class H2InboundHandler extends H2ProtocolHandler implements InboundHandler
 
     public function handleGoAway(CmdGoAway $cmd): int
     {
-        BayLog::error("%s received GoAway: lastStm=%d code=%d desc=%s debug=%s",
+        BayLog::debug("%s received GoAway: lastStm=%d code=%d desc=%s debug=%s",
             $this->ship, $cmd->lastStreamId, $cmd->errorCode, H2ErrorCode::$msg->get(strval($cmd->errorCode)), $cmd->debugData);
         return NextSocketAction::CLOSE;
     }
@@ -367,7 +367,7 @@ class H2InboundHandler extends H2ProtocolHandler implements InboundHandler
 
     public function handleRstStream(CmdRstStream $cmd): int
     {
-        BayLog::error("%s received RstStream: stmid=%d code=%d desc=%s",
+        BayLog::debug("%s received RstStream: stmid=%d code=%d desc=%s",
             $this->ship, $cmd->streamId, $cmd->errorCode, H2ErrorCode::$msg->get(strval($cmd->errorCode)));
         return NextSocketAction::CONTINUE;
     }
