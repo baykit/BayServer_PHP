@@ -123,7 +123,10 @@ class BayLog {
         }
 
         if ($err !== null) {
-            self::printStackTrace($err);
+            if (self::isDebugMode() || self::$logLevel == self::LOG_LEVEL_FATAL)
+                self::printStackTrace($err);
+            else
+                BayLog::log($lvl, 4, null, "%s", $msg);
         }
     }
 
