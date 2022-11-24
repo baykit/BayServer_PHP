@@ -288,7 +288,7 @@ class FcgWarpHandler extends FcgProtocolHandler implements WarpHandler
         });
 
         $scriptFname = "proxy:fcgi://" . $this->ship->docker->host . ":" .  $this->ship->docker->port . $scriptFname;
-        $cmd->addParam(CGIUtil::SCRIPT_FILENAME, $scriptFname[0]);
+        $cmd->addParam(CGIUtil::SCRIPT_FILENAME, $scriptFname);
 
         $cmd->addParam(FcgParams::CONTEXT_PREFIX, "");
         $cmd->addParam(FcgParams::UNIQUE_ID, strval(time()));

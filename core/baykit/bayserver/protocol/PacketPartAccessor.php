@@ -62,7 +62,7 @@ class PacketPartAccessor
         $buf = $this->getBytes(1);
         $val = unpack("C", $buf)[1];
         if($val === null)
-            BayLog::error("WEE)");
+            BayLog::error("Unpack Error");
         return $val;
     }
 
@@ -87,13 +87,14 @@ class PacketPartAccessor
     public function getInt() : int
     {
         $this->checkRead(4);
-        $val = unpack("N", $this->getBytes(4))[1];
+        $buf = $this->getBytes(4);
+        $val = unpack("N", $buf)[1];
         return $val;
     }
 
     public function checkRead(int $len) : void
     {
-        $maxLen = ($this->maxLen >= 0) ? $this->maxLen : strlen($this->packet->buf);
+        $maxLen = ($this->maxLen >= 0) ? $this->maxLen : strlen($this->packet->buf) - $this->start;
         if ($this->pos + $len > $maxLen)
             throw new \Exception("Invalid read length");
     }

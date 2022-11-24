@@ -187,7 +187,6 @@ class FcgInboundHandler extends FcgProtocolHandler implements InboundHandler
                 $tur->req->headers->set(Headers::CONNECTION, "Close");
             }
 
-            $reqContLen = $tur->req->headers->contentLength();
 
             // end params
             if (BayLog::isDebugMode())
