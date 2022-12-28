@@ -193,7 +193,8 @@ class InboundShip extends Ship
             // Don't send peer any data. Do nothing
             BayLog::debug("%s Aborted or zombie tour. do nothing: %s state=%s", $this, $tur, $tur->state);
             $tur->changeState($chkId, TourState::ENDED);
-            $callback();
+            if($callback != null)
+                $callback();
             return;
         }
 
