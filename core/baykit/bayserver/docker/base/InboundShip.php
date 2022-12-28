@@ -248,9 +248,9 @@ class InboundShip extends Ship
         }
     }
 
-    public function sendError(int $chekId, Tour $tour, int $status, String $message, ?\Throwable $e) : void
+    public function sendError(int $chkId, Tour $tour, int $status, String $message, ?\Throwable $e) : void
     {
-        $this->checkShipId($chekId);
+        $this->checkShipId($chkId);
 
         BayLog::debug("%s send error: status=%d, message=%s ex=%s", $this, $status, $message, $e === null ? "" : $e->getMessage(), $e);
         if ($e !== null)
@@ -263,10 +263,10 @@ class InboundShip extends Ship
         $body = "<h1>{$status} {$str}</h1>\r\n";
 
         $tour->res->headers->status = $status;
-        $this->sendErrorContent($chekId, $tour, $body);
+        $this->sendErrorContent($chkId, $tour, $body);
     }
 
-    protected function sendErrorContent(int $shipId, Tour $tur, string $content) : void
+    protected function sendErrorContent(int $chkId, Tour $tur, string $content) : void
     {
         // Get charset
         $charset = $tur->res->charset();
@@ -295,10 +295,10 @@ class InboundShip extends Ship
             }
             $tur->res->headers->setContentLength(strlen($bytes));
         }
-        $this->sendHeaders($shipId, $tur);
+        $this->sendHeaders($chkId, $tur);
 
         if ($bytes !== null)
-            $this->sendResContent($shipId, $tur, $bytes, 0, strlen($bytes), null);
+            $this->sendResContent($chkId, $tur, $bytes, 0, strlen($bytes), null);
     }
 
     public function endShip() : void
