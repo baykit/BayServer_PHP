@@ -5,7 +5,6 @@ namespace baykit\bayserver\protocol;
 use baykit\bayserver\agent\GrandAgent;
 use baykit\bayserver\agent\LifecycleListener;
 use baykit\bayserver\BayLog;
-use baykit\bayserver\util\ObjectFactory;
 use baykit\bayserver\util\ObjectStore;
 use baykit\bayserver\util\StringUtil;
 
