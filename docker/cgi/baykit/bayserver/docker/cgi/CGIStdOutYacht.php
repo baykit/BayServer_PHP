@@ -121,14 +121,14 @@ class CGIStdOutYacht extends Yacht
     // Custom methods
     ////////////////////////////////////////////////////////////////////
 
-    public function init(Tour $tur, Valve $tp) : void
+    public function init(Tour $tur, Valve $vv) : void
     {
         $this->initYacht();
         $this->tour = $tur;
         $this->tourId = $tur->tourId;
-        $this->tour->res->setConsumeListener(function ($len, $resume) use ($tp) {
+        $this->tour->res->setConsumeListener(function ($len, $resume) use ($vv) {
             if($resume) {
-                $tp->valveOpen();
+                $vv->valveOpen();
             }
         });
     }

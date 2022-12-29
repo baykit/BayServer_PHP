@@ -122,6 +122,8 @@ class Tour implements Reusable {
             } catch (HttpException $e) {
                 BayLog::error_e($e);
                 throw $e;
+            } catch (Sink $e) {
+                throw $e;
             } catch (\Exception $e) {
                 BayLog::error_e($e);
                 throw new HttpException(HttpStatus::INTERNAL_SERVER_ERROR, $e->getMessage());
