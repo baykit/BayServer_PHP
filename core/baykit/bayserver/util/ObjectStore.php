@@ -69,10 +69,10 @@ class ObjectStore implements Reusable
 
         ArrayUtil::remove($obj, $this->activeList);
 
-        if ($reuse)
+        if ($reuse) {
             $this->freeList[] = $obj;
-
-        $obj->reset();
+            $obj->reset();
+        }
     }
 
     public function printUsage(int $indent) : void
