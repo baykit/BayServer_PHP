@@ -1,5 +1,9 @@
 # BayServer for PHP
 
+# 2.0.3
+
+- Modifies bayserver.plan to avoid resolving host name
+
 
 # 2.0.2
 

@@ -19,7 +19,7 @@ cp -r test/simple/lib/conf/* stage/lib/conf
 cp -r test/simple/www/root stage/www
 cp -r test/simple/www/cgi-demo stage/www
 cp -r stage/* ${target_dir}
-cp LICENSE.* ${target_dir}
+cp LICENSE.* NEWS.md README.md ${target_dir}
 
 
 cd /tmp
