@@ -13,7 +13,7 @@ class HttpException extends BayException
         parent::__construct($fmt, ...$args);
         $this->status = $status;
         if ($status < 300 || $status >= 600)
-            throw new \Exception("Illegal Http error status code: %d", $status);
+            throw new \Exception("Illegal Http error status code:" . $status);
 
         $this->message = "HTTP " . $this->status . " " . HttpStatus::description($this->status) . ": "
             . (parent::getMessage() === null ? "" : parent::getMessage());
