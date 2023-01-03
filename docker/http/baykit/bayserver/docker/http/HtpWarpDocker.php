@@ -21,9 +21,12 @@ use baykit\bayserver\util\StringUtil;
 class HtpWarpDocker extends WarpDocker implements HtpDocker
 {
 
-    public $secure;
-    public $supportH2 = true;
-    public $sslCtx;
+    private $secure;
+    private $supportH2 = true;
+
+    private $traceSSL = false;
+
+    private $sslCtx;
 
 
     //////////////////////////////////////////////////////
@@ -58,6 +61,10 @@ class HtpWarpDocker extends WarpDocker implements HtpDocker
                 $this->supportH2 = StringUtil::parseBool($kv->value);
                 break;
 
+            case "tracessl":
+                $this->traceSSL = StringUtil::parseBool($kv->value);
+                break;
+
             case "secure":
                 $this->secure = StringUtil::parseBool($kv->value);
                 break;
@@ -90,7 +97,7 @@ class HtpWarpDocker extends WarpDocker implements HtpDocker
     protected function newTransporter(GrandAgent $agent, $ch)
     {
         if($this->secure) {
-            return new SecureTransporter($this->sslCtx, false, IOUtil::getSockRecvBufSize($ch), true);
+            return new SecureTransporter($this->sslCtx, false, IOUtil::getSockRecvBufSize($ch), $this->traceSSL);
         }
         else
             return new PlainTransporter(false, IOUtil::getSockRecvBufSize($ch));
