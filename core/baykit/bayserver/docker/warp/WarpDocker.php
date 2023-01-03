@@ -45,7 +45,7 @@ abstract class WarpDocker extends ClubBase
 {
     public $scheme;
     public $host;
-    public $port = 80;
+    public $port = 0;
     public $warpBase;
     public $maxShips = -1;
     private $hostAddr;
@@ -73,12 +73,13 @@ abstract class WarpDocker extends ClubBase
         if(StringUtil::isEmpty($this->warpBase))
             $this->warpBase = "/";
 
-        if($this->port == -1)
-            $this->port = 80;
-
         if(StringUtil::isSet($this->host) && StringUtil::startsWith($this->host, ":unix:")) {
             $this->host = substr($this->host, 6);
             $this->port = null;
+        }
+        else {
+            if($this->port <= 0)
+                $this->port = 80;
         }
 
         GrandAgent::addLifecycleListener(new WarpDocker_AgentListener($this));
@@ -133,6 +134,7 @@ abstract class WarpDocker extends ClubBase
         try {
             BayLog::trace("%s got from store", $wsip);
             $needConnect = false;
+            $tp = null;
             if (!$wsip->initialized) {
                 if($this->port == null) {
                     // Unix domain socket
@@ -161,7 +163,7 @@ abstract class WarpDocker extends ClubBase
             $wsip->startWarpTour($tur);
 
             if($needConnect) {
-                $agt->nonBlockingHandler->addChannelListener($wsip->socket, $wsip->postman);
+                $agt->nonBlockingHandler->addChannelListener($wsip->socket, $tp);
                 $agt->nonBlockingHandler->askToConnect($wsip->socket, $this->hostAddr);
             }
          }
