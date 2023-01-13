@@ -183,7 +183,11 @@ class H2InboundHandler extends H2ProtocolHandler implements InboundHandler
             $this->analyzer->analyzeHeaderBlock($blk, $this->reqHeaderTbl);
             if(BayServer::$harbor->traceHeader)
                 BayLog::info("%s req header: %s=%s :%s", $tur, $this->analyzer->name, $this->analyzer->value, $blk);
-            if($this->analyzer->name[0] != ':') {
+
+            if($this->analyzer->name == null) {
+                continue;
+            }
+            else if($this->analyzer->name[0] != ':') {
                 $tur->req->headers->add($this->analyzer->name, $this->analyzer->value);
             }
             else if($this->analyzer->method != null) {
@@ -375,7 +379,7 @@ class H2InboundHandler extends H2ProtocolHandler implements InboundHandler
     /////////////////////////////////////////////////
     // private
     /////////////////////////////////////////////////
-    private function getTour(int $key) : Tour
+    private function getTour(int $key) : ?Tour
     {
         return $this->ship->getTour($key);
     }
