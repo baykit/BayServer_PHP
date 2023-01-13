@@ -250,7 +250,7 @@ class H1InboundHandler extends H1ProtocolHandler implements InboundHandler {
             }
 
         } catch (HttpException $e) {
-            BayLog::debug($this . " Http error occurred: " . $e);
+            BayLog::trace($this . " Http error occurred: " . $e);
             if ($reqContLen <= 0) {
                 // no post data
                 $tur->res->sendHttpException(Tour::TOUR_ID_NOCHECK, $e);

@@ -252,7 +252,7 @@ class InboundShip extends Ship
     {
         $this->checkShipId($chkId);
 
-        BayLog::debug("%s send error: status=%d, message=%s ex=%s", $this, $status, $message, $e === null ? "" : $e->getMessage(), $e);
+        BayLog::debug("%s send error: status=%d, message=%s", $this, $status, $message, $e === null ? "" : $e->getMessage());
         if ($e !== null)
             BayLog::error($e);
 

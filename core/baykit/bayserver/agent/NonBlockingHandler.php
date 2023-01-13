@@ -92,7 +92,7 @@ class NonBlockingHandler
         $ch = $key->channel;
         $ch_state = $this->findChannelState($ch);
         if ($ch_state === null) {
-            BayLog::error("Channel state is not registered: ch=%s", $ch);
+            BayLog::error("%s Channel state is not registered: ch=%s op=%s", $this->agent, $ch, $key->operation);
             $this->agent->selector->unregister($ch);
             return;
         }

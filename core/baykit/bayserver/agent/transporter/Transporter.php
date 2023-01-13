@@ -114,7 +114,7 @@ abstract class Transporter implements ChannelListener, Reusable, Valve, Postman
         if (count($this->writeQueue) > 0)
             throw new Sink("Write queue is not empty");
 
-        BayLog::debug("Reset transporter ch=%d", $this->ch);
+        BayLog::debug("%s Reset transporter ch=%d", $this, $this->ch);
         $this->finale = false;
         $this->initialized = false;
         $this->ch = null;

@@ -49,7 +49,7 @@ class CommandPacker implements Reusable
                     }
                 });
         } catch (IOException $e) {
-            BayLog::debug_e($e, $e->getMessage());
+            //BayLog::debug_e($e, $e->getMessage());
             $this->pktStore->Return($pkt);
             throw $e;
         }
