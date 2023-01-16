@@ -1,5 +1,10 @@
 # BayServer for PHP
 
+# 2.0.4
+
+- Supports memusage command
+- Fixes some bugs
+
 # 2.0.3
 
 - Modifies bayserver.plan to avoid resolving host name
