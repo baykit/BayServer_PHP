@@ -72,7 +72,7 @@ class BayLog {
         BayLog::log(BayLog::LOG_LEVEL_WARN, 3, null, $fmt, $args);
     }
 
-    public static function warn_e(\Throwable $err, string $fmt, ...$args) : void
+    public static function warn_e(\Throwable $err, string $fmt=null, ...$args) : void
     {
         BayLog::log(BayLog::LOG_LEVEL_WARN, 3, $err, $fmt, $args);
     }
@@ -97,7 +97,7 @@ class BayLog {
         BayLog::log(BayLog::LOG_LEVEL_FATAL, 3, $err, $fmt, $args);
     }
 
-    public static function log(int $lvl, int $stack_idx, ?\Throwable $err, ?string $fmt, array $args) : void
+    public static function log(int $lvl, int $stack_idx, ?\Throwable $err, ?string $fmt, ?array $args) : void
     {
         list($file, $line) = BayLog::getCaller($stack_idx);
         if (!BayLog::$fullPath) {
@@ -113,7 +113,7 @@ class BayLog {
                     } else {
                         $msg = sprintf($fmt, ...$args);
                     }
-                } catch (Exception $e) {
+                } catch (\Exception $e) {
                     var_dump($e->getTrace());
                     $msg = $fmt;
                 }

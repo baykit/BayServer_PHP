@@ -148,7 +148,7 @@ class WarpShip extends Ship
                     $tur->res->sendError(Tour::TOUR_ID_NOCHECK, $status, $msg);
                 }
                 catch (IOException $e) {
-                    BayLog::error($e);
+                    BayLog::error_e($e);
                 }
             }
         }

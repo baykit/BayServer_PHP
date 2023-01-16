@@ -263,7 +263,7 @@ class BayServer
             InboundShipStore::init();
             ProtocolHandlerStore::init();
             TourStore::init(TourStore::MAX_TOURS);
-            #MemUsage.init()
+            MemUsage::init();
             self::createPidFile(SysUtil::pid());
             GrandAgent::init(self::$harbor->grandAgents, $anrhorablePortMap, $unanchorablePortMap, self::$harbor->maxShips, self::$harbor->multiCore);
             SignalAgent::init(self::$harbor->controlPort);
@@ -296,8 +296,7 @@ class BayServer
                     $selkeys = $sel->select();
                 }
                 catch (IOException $e) {
-                    BayLog::error("HOGEHOGE");
-                    BayLog::error_e($e);
+                    BayLog::warn_e($e);
                     pcntl_signal_dispatch();
                     continue;
                 }

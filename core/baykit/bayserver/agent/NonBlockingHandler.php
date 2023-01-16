@@ -250,8 +250,6 @@ class NonBlockingHandler
 
     public function askToConnect($ch, $addr) : void
     {
-        BayLog::debug("%s askToStart: ch=%s", $this->agent, $ch);
-
         $ch_state = $this->findChannelState($ch);
         BayLog::debug("%s askToConnect addr=%s ch=%s", $this->agent, $addr, $ch);
 

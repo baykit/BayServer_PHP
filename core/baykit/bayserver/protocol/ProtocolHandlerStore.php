@@ -79,7 +79,7 @@ class ProtocolHandlerStore extends ObjectStore
     public function printUsage(int $indent) : void
     {
         BayLog::info("%sProtocolHandlerStore(%s%s) Usage:", StringUtil::indent($indent), $this->protocol, $this->serverMode ? "s" : "c");
-        parent::print_usage($indent + 1);
+        parent::printUsage($indent + 1);
     }
 
     public static function init() : void

@@ -164,7 +164,7 @@ class InboundShip extends Ship
                 $this->protocolHandler->sendResHeaders($tur);
             }
             catch(IOException $e) {
-                BayLog::debug($e, "%s abort: %s", $tur, $e);
+                BayLog::debug_e($e, "%s abort: %s", $tur, $e->getMessage());
                 $tur->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ABORTED);
                 throw $e;
             }

@@ -9,7 +9,7 @@ class Cities
     public $anyCity = null;
 
     # City docker
-    public $cities = [];
+    private $cities = [];
 
     public function add(City $c) : void
     {
@@ -31,7 +31,7 @@ class Cities
 
     public function cities() : array
     {
-        $ret = $this->cities(); // copy
+        $ret = $this->cities; // copy
         if($this->anyCity != null)
             $ret[] = $this->anyCity;
         return $ret;

@@ -3,7 +3,7 @@ namespace baykit\bayserver\util;
 
 class ArrayUtil
 {
-    public static function remove(object $needle, array &$arr) : void
+    public static function remove($needle, array &$arr) : void
     {
         $pos = array_search($needle, $arr, true);
         if($pos !== false)

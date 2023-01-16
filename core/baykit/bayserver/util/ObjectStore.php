@@ -79,7 +79,7 @@ class ObjectStore implements Reusable
     {
         BayLog::info("%sfree list: %d", StringUtil::indent($indent), count($this->freeList));
         BayLog::info("%sactive list: %d", StringUtil::indent($indent), count($this->activeList));
-        if (BayLog::debugMode()) {
+        if (BayLog::isDebugMode()) {
             foreach ($this->activeList as $obj)
                 BayLog::debug("%s%s", StringUtil::indent($indent + 1), $obj);
         }

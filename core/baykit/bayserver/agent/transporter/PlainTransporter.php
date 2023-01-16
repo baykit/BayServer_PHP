@@ -36,7 +36,12 @@ class PlainTransporter extends Transporter
     public function readNonblock() : array
     {
         BayLog::debug("read ch=%s", $this->ch);
+
+        $level = error_reporting();
+        error_reporting(E_ERROR);
         $ret = fread($this->ch, $this->capacity);
+        error_reporting($level);
+
         if($ret === false)
             throw new IOException("Cannot receive data: " . SysUtil::lastErrorMessage());
         return [$ret, null];

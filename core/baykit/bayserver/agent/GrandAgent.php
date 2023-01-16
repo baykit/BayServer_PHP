@@ -2,6 +2,7 @@
 
 namespace baykit\bayserver\agent;
 
+use baykit\bayserver\MemUsage;
 use baykit\bayserver\util\BlockingIOException;
 use baykit\bayserver\util\IOException;
 use parallel\Runtime;
@@ -438,6 +439,7 @@ class GrandAgent
     {
         foreach(self::$monitors as $mon) {
             $mon->printUsage();
+            sleep(1); // lazy implementation
         }
     }
 

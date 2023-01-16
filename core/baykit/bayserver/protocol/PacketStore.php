@@ -109,7 +109,7 @@ class PacketStore implements Reusable
         BayLog::info("%sPacketStore(%s) usage nTypes=%d", StringUtil::indent($indent), $this->protocol, count($this->storeMap));
         foreach ($this->storeMap as $type => $store) {
             BayLog::info("%sType: %s", StringUtil::indent($indent + 1), $type);
-            $this->storeMap[$type]->print_usage($indent + 2);
+            $this->storeMap[$type]->printUsage($indent + 2);
         }
     }
 

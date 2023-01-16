@@ -82,4 +82,14 @@ class StringUtil {
     {
         return str_repeat(chr(0), $len);
     }
+
+    public static function repeat(string $str, int $count): string
+    {
+        return str_repeat($str, $count);
+    }
+
+    public static function indent(int $count): string
+    {
+        return StringUtil::repeat(" ", $count);
+    }
 }

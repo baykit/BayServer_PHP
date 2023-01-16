@@ -3,6 +3,7 @@ namespace baykit\bayserver\tour;
 
 use baykit\bayserver\agent\GrandAgent;
 use baykit\bayserver\agent\LifecycleListener;
+use baykit\bayserver\BayLog;
 use baykit\bayserver\Sink;
 use baykit\bayserver\util\StringUtil;
 
@@ -80,7 +81,7 @@ class TourStore {
     {
         BayLog::info("%sTour store usage:", StringUtil::indent($indent));
         BayLog::info("%sfreeList: %d", StringUtil::indent($indent+1), count($this->freeTours));
-        BayLog::info("%sactiveList: %d", StringUtil::indent(indent+1), count($this->activeTourMap));
+        BayLog::info("%sactiveList: %d", StringUtil::indent($indent+1), count($this->activeTourMap));
         if(BayLog::isDebugMode()) {
             foreach ($this->activeTourMap as $key => $obj) {
                 BayLog::debug("%s%s", StringUtil::indent($indent+1), $obj);
