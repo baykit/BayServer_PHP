@@ -1,5 +1,9 @@
 # BayServer for PHP
 
+# 2.0.5
+
+- Fixes problem of H2 docker
+
 # 2.0.4
 
 - Supports memusage command
