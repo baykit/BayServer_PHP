@@ -94,7 +94,7 @@ class PacketPartAccessor
 
     public function checkRead(int $len) : void
     {
-        $maxLen = ($this->maxLen >= 0) ? $this->maxLen : strlen($this->packet->buf) - $this->start;
+        $maxLen = ($this->maxLen >= 0) ? $this->maxLen : $this->packet->bufLen - $this->start;
         if ($this->pos + $len > $maxLen)
             throw new \Exception("Invalid read length");
     }
