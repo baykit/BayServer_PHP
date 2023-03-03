@@ -112,7 +112,7 @@ class Tour implements Reusable {
         $this->city = $this->ship->portDocker->findCity($this->req->reqHost);
         if($this->city == null)
             $this->city = BayServer::findCity($this->req->reqHost);
-        BayLog::debug("%s GO TOUR! ...( ^_^)/: url=%s", $this, $this->req->uri);
+        BayLog::debug("%s GO TOUR! ...( ^_^)/: city=%s url=%s", $this, $this->req->reqHost, $this->req->uri);
 
         if ($this->city === null)
             throw new HttpException(HttpStatus::NOT_FOUND, $this->req->uri);
