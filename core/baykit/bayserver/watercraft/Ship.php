@@ -92,7 +92,7 @@ abstract Class Ship implements Reusable
     public function resume($chk_id) : void
     {
         $this->checkShipId($chk_id);
-        $this->postman.openValve();
+        $this->postman->openValve();
     }
 
     public function checkShipId($chk_id) : void
