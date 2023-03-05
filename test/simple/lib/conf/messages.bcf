@@ -53,6 +53,7 @@ HTP_INVALID_FIRST_LINE   Invalid first line: %s
 HTP_UNSUPPORTED_PROTOCOL Unsupported protocol: %s
 HTP_INVALID_HEADER_FORMAT Invalid header format: %s
 HTP_INVALID_PREFACE       Invalid HTTP/2 preface
+HTP_READ_DATA_EXCEEDED    Read data exceeded content-length: %d/%d
 
 #
 # Internal errors

@@ -53,7 +53,7 @@ HTP_INVALID_FIRST_LINE   最初の行が不正です: %s
 HTP_UNSUPPORTED_PROTOCOL サポートされないプロトコルです: %s
 HTP_INVALID_HEADER_FORMAT ヘッダの形式が不正です: %s
 HTP_INVALID_PREFACE       HTTP/2プリフェースが不正です
-
+HTP_READ_DATA_EXCEEDED    読み込みデータがContent-Lengthを超えました: %d/%d
 
 
 #
