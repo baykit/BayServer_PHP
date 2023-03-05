@@ -140,6 +140,7 @@ class SysUtil
                 return true;
         } finally {
             proc_terminate($process);
+            proc_close($process);
         }
 
     }
@@ -172,6 +173,7 @@ class SysUtil
                 return true;
         } finally {
             proc_terminate($process);
+            proc_close($process);
         }
 
     }
