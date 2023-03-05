@@ -135,16 +135,16 @@ class CGIReqContentHandler implements ReqContentHandler
     {
         $ret = pcntl_waitpid($this->pid,$stat);
         if($ret == -1 || $ret == 0)
-            BayLog::error("Cannot wait pid: %d (%s)", $this->pid, SysUtil::lastErrorMessage());
+            BayLog::error("%s Cannot wait pid: %d (%s)", $this->tour, $this->pid, SysUtil::lastErrorMessage());
 
         $code = pcntl_wexitstatus($stat);
-        BayLog::debug("CGI Process finished: pid=%d code=%d", $this->pid, $code);
+        BayLog::debug("%s CGI Process nnn//: pid=%d code=%d", $this->tour, $this->pid, $code);
 
         try {
             if($code != 0) {
                 // Exec failed
-                BayLog::error("CGI Exec error pid=%d code=%d", $this->pid, $code & 0xff);
-                $this->tour->res->sendError($this->tourId, HttpStatus::INTERNAL_SERVER_ERROR, "Exec failed");
+                BayLog::error("%s CGI Exec error pid=%d code=%d", $this->tour, $this->pid, $code & 0xff);
+                $this->tour->res->sendError($this->tourId, HttpStatus::INTERNAL_SERVER_ERROR, "Invalid exit status");
             }
             else {
                 $this->tour->res->endContent($this->tourId);
