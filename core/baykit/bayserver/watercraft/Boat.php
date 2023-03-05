@@ -2,6 +2,7 @@
 namespace baykit\bayserver\watercraft;
 
 use baykit\bayserver\agent\transporter\DataListener;
+use baykit\bayserver\BayLog;
 use baykit\bayserver\protocol\ProtocolException;
 use baykit\bayserver\Sink;
 use baykit\bayserver\util\Counter;
@@ -61,7 +62,7 @@ abstract class Boat implements DataListener
 
     public function checkTimeout(int $durationSec) : bool
     {
-        throw new Sink();
+        return false;
     }
 }
 

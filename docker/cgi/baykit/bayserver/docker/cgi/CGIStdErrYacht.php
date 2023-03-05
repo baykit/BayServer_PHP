@@ -62,7 +62,8 @@ class CGIStdErrYacht extends Yacht
 
     public function checkTimeout(int $durationSec): bool
     {
-        throw new Sink();
+        BayLog::warn("%s invalid timeout check", $this);
+        return false;
     }
 
     ////////////////////////////////////////////////////////////////////
