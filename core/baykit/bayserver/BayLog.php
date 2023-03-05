@@ -52,6 +52,11 @@ class BayLog {
         BayLog::log(BayLog::LOG_LEVEL_INFO, 3, null, $fmt, $args);
     }
 
+    public static function info_e(\Throwable $err, string $fmt, ...$args) : void
+    {
+        BayLog::log(BayLog::LOG_LEVEL_INFO, 3, $err, $fmt, $args);
+    }
+
     public static function trace(string $fmt, ...$args) : void
     {
         BayLog::log(BayLog::LOG_LEVEL_TRACE, 3, null, $fmt, $args);
