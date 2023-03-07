@@ -39,8 +39,13 @@ class SecureTransporter extends Transporter
     public function readNonblock() : array
     {
         $ret = fread($this->ch, $this->capacity);
-        if($ret === false)
-            throw new IOException("Cannot receive data");
+        if($ret === false) {
+            while ($msg = openssl_error_string())
+                BayLog::error("%s SSL Error: %s", $this, $msg);
+            BayLog::error("%s Socket Error: %s", $this, SysUtil::lastSocketErrorMessage());
+            BayLog::error("%s System Error: %s", $this, SysUtil::lastErrorMessage());
+            throw new IOException("Cannot read data: " . SysUtil::lastErrorMessage());
+        }
         return [$ret, null];
     }
 
@@ -48,10 +53,19 @@ class SecureTransporter extends Transporter
     {
         #$ret = stream_socket_sendto($this->ch, $buf);
         $ret = fwrite($this->ch, $buf);
-        if($ret === false || $ret == -1) {
-            //throw new IOException("Cannot send data: " . socket_strerror(socket_last_error()));
-            BayLog::warn("Cannot send data: %s", SysUtil::lastErrorMessage());
-            return 0;
+        if($ret === false) {
+            if(SysUtil::lastSocketErrorMessage() == "Success") {
+                // Will be retried (ad-hoc code)
+                BayLog::debug("%s Write error (will be retried)", $this);
+                $ret = 0;
+            }
+            else {
+                while ($msg = openssl_error_string())
+                    BayLog::error("%s SSL Error: %s", $this, $msg);
+                BayLog::error("%s Socket Error: %s", $this, SysUtil::lastSocketErrorMessage());
+                BayLog::error("%s System Error: %s", $this, SysUtil::lastErrorMessage());
+                throw new IOException("Cannot write data: " . SysUtil::lastErrorMessage());
+            }
         }
         return $ret;
     }

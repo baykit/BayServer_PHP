@@ -254,7 +254,7 @@ class InboundShip extends Ship
 
         BayLog::debug("%s send error: status=%d, message=%s", $this, $status, $message, $e === null ? "" : $e->getMessage());
         if ($e !== null)
-            BayLog::error($e);
+            BayLog::error_e($e);
 
         // Create body
         $str = HttpStatus::description($status);

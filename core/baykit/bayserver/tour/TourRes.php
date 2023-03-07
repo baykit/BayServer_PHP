@@ -236,8 +236,8 @@ class TourRes implements Reusable {
             return;
 
         if ($this->headerSent) {
-            BayLog::error("Try to send error after response header is sent (Ignore)");
-            BayLog::error("%s: status=%d, message=%s", $this, $status, $message);
+            BayLog::warn("Try to send error after response header is sent (Ignore)");
+            BayLog::warn("%s: status=%d, message=%s", $this, $status, $message);
             if ($e !== null)
                 BayLog::error_e($e);
         } else {
@@ -353,7 +353,7 @@ class TourRes implements Reusable {
             $resume = true;
         }
 
-        if(!$this->tour->isZombie()) {
+        if($this->tour->isRunning()) {
             ($this->resConsumeListener)($length, $resume);
         }
     }

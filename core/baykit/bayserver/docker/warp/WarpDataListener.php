@@ -8,6 +8,7 @@ use baykit\bayserver\BayLog;
 use baykit\bayserver\protocol\ProtocolException;
 use baykit\bayserver\tour\Tour;
 use baykit\bayserver\util\HttpStatus;
+use baykit\bayserver\util\IOException;
 
 class WarpDataListener implements DataListener
 {
@@ -63,7 +64,12 @@ class WarpDataListener implements DataListener
             } else {
                 // NOT treat EOF as Error
                 BayLog::debug("%s EOF is not an error: tur=%s", $this, $tur);
-                $tur->res->endContent(Tour::TOUR_ID_NOCHECK);
+                try {
+                    $tur->res->endContent(Tour::TOUR_ID_NOCHECK);
+                }
+                catch(IOException $e) {
+                    BayLog::debug_e($e, "%s end content error: tur=%s", $this, $tur);
+                }
             }
         }
         $this->ship->tourMap = [];

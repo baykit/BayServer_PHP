@@ -152,7 +152,10 @@ class CmdHeader extends H1Command
         }
 
         if ($state == CmdHeader::STATE_READ_FIRST_LINE) {
-            throw new \Exception("Invalid HTTP header format");
+            throw new ProtocolException(
+                BayMessage::get(
+                    Symbol::HTP_INVALID_HEADER_FORMAT,
+                    substr($pkt->buf, $lineStartPos, $lineLen)));
         }
     }
 
@@ -243,7 +246,10 @@ class CmdHeader extends H1Command
         }
 
         if ($name === null)
-            throw new ProtocolException(BayMessage::get(Symbol::HTP_INVALID_HEADER_FORMAT, ""));
+            throw new ProtocolException(
+                BayMessage::get(
+                    Symbol::HTP_INVALID_HEADER_FORMAT,
+                    substr($buf, $start, $len)));
 
         $value = $buf;
 

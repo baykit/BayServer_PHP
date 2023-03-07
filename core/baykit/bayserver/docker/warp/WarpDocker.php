@@ -45,7 +45,7 @@ abstract class WarpDocker extends ClubBase
 {
     public $scheme;
     public $host;
-    public $port = 0;
+    public $port = -1;
     public $warpBase;
     public $maxShips = -1;
     private $hostAddr;

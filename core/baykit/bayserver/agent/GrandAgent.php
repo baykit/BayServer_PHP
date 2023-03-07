@@ -157,7 +157,7 @@ class GrandAgent
 
     public function __toString() : string
     {
-        return "Agt{$this->agentId}";
+        return "Agt#{$this->agentId}";
     }
 
     public function run()
@@ -185,70 +185,65 @@ class GrandAgent
 
         try {
             while (true) {
-                try {
-                    if ($this->acceptHandler != null) {
-                        $test_busy = $this->acceptHandler->chCount >= $this->maxInboundShips;
-                        if ($test_busy != $busy) {
-                            $busy = $test_busy;
-                            if ($busy)
-                                $this->acceptHandler->onBusy();
-                            else
-                                $this->acceptHandler->onFree();
+                if ($this->acceptHandler != null) {
+                    $test_busy = $this->acceptHandler->chCount >= $this->maxInboundShips;
+                    if ($test_busy != $busy) {
+                        $busy = $test_busy;
+                        if ($busy)
+                            $this->acceptHandler->onBusy();
+                        else
+                            $this->acceptHandler->onFree();
 
-                            if (!$busy and count($this->selector->keys) <= 1) {
-                                # agent finished
-                                BayLog::debug("%s Selector has no key", $this);
-                                break;
-                            }
+                        if (!$busy and count($this->selector->keys) <= 1) {
+                            # agent finished
+                            BayLog::debug("%s Selector has no key", $this);
+                            break;
                         }
                     }
+                }
 
-                    if ($this->aborted) {
-                        // agent finished
-                        BayLog::debug("%s End loop", $this);
-                        break;
-                    }
-
-                    if (!$this->spinHandler->isEmpty())
-                        $selkeys = $this->selector->select(0);
-                    else
-                        $selkeys = $this->selector->select($this->selectTimeoutSec);
-
-                    $processed = $this->nonBlockingHandler->registerChannelOps() > 0;
-
-                    if (count($selkeys) == 0)
-                        $processed |= $this->spinHandler->processData();
-
-                    # BayLog.trace("%s Selected keys: %s", self, selkeys)
-                    foreach ($selkeys as $key) {
-                        if ($key->channel == $this->wakeupPipe[0]) {
-                            # Waked up by ask_to_*
-                            $this->onWakedUp($key->channel);
-                        }
-                        elseif ($key->channel == $this->commandReceiver->readFd) {
-                            $this->commandReceiver->onPipeReadable();
-                        }
-                        elseif ($this->acceptHandler->isServerSocket($key->channel)) {
-                            $this->acceptHandler->onAcceptable($key->channel);
-                        }
-                        else {
-                            $this->nonBlockingHandler->handleChannel($key);
-                        }
-                        $processed = true;
-                    }
-
-                    if (!$processed) {
-                        # timeout check if there is nothing to do
-                        $this->nonBlockingHandler->closeTimeoutSockets();
-                        $this->spinHandler->stopTimeoutSpins();
-                    }
-
-                } catch (\Throwable $e) {
-                    BayLog::error("%s error: %s", $this, $e);
-                    BayLog::error_e($e);
+                if ($this->aborted) {
+                    // agent finished
+                    BayLog::debug("%s End loop", $this);
                     break;
                 }
+
+                if (!$this->spinHandler->isEmpty())
+                    $selkeys = $this->selector->select(0);
+                else
+                    $selkeys = $this->selector->select($this->selectTimeoutSec);
+
+                $processed = $this->nonBlockingHandler->registerChannelOps() > 0;
+
+                if (count($selkeys) == 0)
+                    $processed |= $this->spinHandler->processData();
+
+                # BayLog.trace("%s Selected keys: %s", self, selkeys)
+                foreach ($selkeys as $key) {
+                    if ($key->channel == $this->wakeupPipe[0]) {
+                        # Waked up by ask_to_*
+                        $this->onWakedUp($key->channel);
+                    } elseif ($key->channel == $this->commandReceiver->readFd) {
+                        $this->commandReceiver->onPipeReadable();
+                    } elseif ($this->acceptHandler->isServerSocket($key->channel)) {
+                        $this->acceptHandler->onAcceptable($key->channel);
+                    } else {
+                        $this->nonBlockingHandler->handleChannel($key);
+                    }
+                    $processed = true;
+                }
+
+                if (!$processed) {
+                    # timeout check if there is nothing to do
+                    $this->nonBlockingHandler->closeTimeoutSockets();
+                    $this->spinHandler->stopTimeoutSpins();
+                }
             }
+        }
+        catch (\Throwable $e) {
+            BayLog::error("%s error: %s", $this, $e);
+            BayLog::error_e($e);
+            throw $e;
         }
         finally {
             BayLog::debug("Agent end: %d", $this->agentId);

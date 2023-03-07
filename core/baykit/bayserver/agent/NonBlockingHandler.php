@@ -97,7 +97,7 @@ class NonBlockingHandler
             return;
         }
 
-        BayLog::debug("%s chState=%s Waked up: operation=%d connecting=%s closing=%s",
+        BayLog::debug("%s chState=%s Handle channel: operation=%d connecting=%s closing=%s",
                     $this->agent, $ch_state, $key->operation,
                     $ch_state->connecting, $ch_state->closing);
 
@@ -120,15 +120,25 @@ class NonBlockingHandler
                     $nextAction = $ch_state->listener->onReadable($ch);
                     if ($nextAction === null)
                         throw new  Sink("unknown next action");
-                    elseif ($nextAction == NextSocketAction::WRITE)
-                        $this->askToWrite($ch);
+                    elseif ($nextAction == NextSocketAction::WRITE) {
+                        $op = $this->agent->selector->getOp($ch);
+                        $op = $op | Selector::OP_WRITE;
+                        $this->agent->selector->modify($ch, $op);
+                    }
                 }
                 if (($nextAction != NextSocketAction::CLOSE) && $key->writable()) {
                     $nextAction = $ch_state->listener->onWritable($ch);
                     if ($nextAction === null)
                         throw new Sink("unknown next action");
-                    elseif ($nextAction == NextSocketAction::READ)
-                        $this->askToRead($ch);
+                    elseif ($nextAction == NextSocketAction::READ) {
+                        // Handle as "Write Off"
+                        $op = $this->agent->selector->getOp($ch);
+                        $op = $op & ~Selector::OP_WRITE;
+                        if ($op != Selector::OP_READ)
+                            $this->agent->selector->unregister($ch);
+                        else
+                            $this->agent->selector->modify($ch, $op);
+                    }
                 }
             }
 
@@ -137,12 +147,12 @@ class NonBlockingHandler
 
         }
         catch(\Exception $e) {
-            if ($e instanceof EofException)
-                BayLog::info("%s Socket closed by peer: skt=%s", $this->agent, $ch);
-            elseif ($e instanceof IOException)
+            if ($e instanceof IOException)
                 BayLog::info("%s I/O error: %s (skt=%s)", $this->agent, $e->getMessage(), $ch);
-            else
+            else {
                 BayLog::info("%s Unhandled error error: %s (skt=%s)", $this->agent, $e, $ch);
+                throw $e;
+            }
 
             # Cannot handle Exception any more
             $ch_state->listener->onError($ch, $e);
@@ -152,22 +162,23 @@ class NonBlockingHandler
         $cancel = false;
         $ch_state->access();
         BayLog::trace("%s next=%d chState=%s", $this->agent, $nextAction, $ch_state);
-        if ($nextAction == NextSocketAction::CLOSE) {
-            $this->closeChannel($ch, $ch_state);
-            $cancel = false;  # already canceled in close_channel method
-        }
-        elseif($nextAction == NextSocketAction::SUSPEND ||
-            $nextAction == NextSocketAction::READ ||
-            $nextAction == NextSocketAction::WRITE) {
-            $cancel = true;
-        }
+        switch ($nextAction) {
+            case NextSocketAction::CLOSE:
+                $this->closeChannel($ch, $ch_state);
+                $cancel = false;  # already canceled in close_channel method
+                break;
 
-        elseif ($nextAction == NextSocketAction::CONTINUE) {
+            case NextSocketAction::SUSPEND:
+                $cancel = true;
+                break;
 
-        }
+            case NextSocketAction::READ:
+            case NextSocketAction::WRITE:
+            case NextSocketAction::CONTINUE:
+                break; // do nothing
 
-        else {
-            throw new \Exception("IllegalState:: {$nextAction}");
+            default:
+                throw new \Exception("IllegalState:: {$nextAction}");
         }
 
         if ($cancel) {
@@ -229,7 +240,32 @@ class NonBlockingHandler
 
     public function closeTimeoutSockets() : void
     {
+        if(count($this->channelMap) == 0)
+            return;
 
+        $closeList = [];
+        $now = time();
+        foreach ($this->channelMap as $chState) {
+            if ($chState->listener != null) {
+                try {
+                    $duration = $now - $chState->lastAccessTime;
+                    if($chState->listener->checkTimeout($chState->channel, $duration)) {
+                        $closeList []= $chState;
+                    }
+                }
+                catch(Sink $e) {
+                    throw $e;
+                }
+                catch(\Throwable $e) {
+                    BayLog::error_e($e);
+                    $closeList []= $chState;
+                }
+            }
+        }
+
+        foreach ($closeList as $chState) {
+            $this->closeChannel($chState->channel, $chState);
+        }
     }
 
     public function addChannelListener($ch, $lis) : ChannelState
@@ -328,8 +364,8 @@ class NonBlockingHandler
         if ($chState->accepted)
             $this->agent->acceptHandler->onClosed();
 
-        $meta = stream_get_meta_data($ch);
-        $type = strtolower($meta["stream_type"]);
+//        $meta = stream_get_meta_data($ch);
+//        $type = strtolower($meta["stream_type"]);
 
 //        if(StringUtil::startsWith($type, "tcp_socket"))
 //            $ret = stream_socket_shutdown($ch,  STREAM_SHUT_RDWR);

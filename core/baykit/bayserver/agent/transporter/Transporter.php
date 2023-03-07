@@ -6,6 +6,7 @@ use baykit\bayserver\agent\ChannelListener;
 use baykit\bayserver\agent\NextSocketAction;
 use baykit\bayserver\agent\UpgradeException;
 use baykit\bayserver\BayLog;
+use baykit\bayserver\protocol\ProtocolException;
 use baykit\bayserver\Sink;
 use baykit\bayserver\util\ArrayUtil;
 use baykit\bayserver\util\EofException;
@@ -14,7 +15,6 @@ use baykit\bayserver\util\Postman;
 use baykit\bayserver\util\Reusable;
 use baykit\bayserver\util\SysUtil;
 use baykit\bayserver\util\Valve;
-use Cassandra\Exception\ProtocolException;
 
 class WriteUnit
 {
@@ -54,6 +54,7 @@ abstract class Transporter implements ChannelListener, Reusable, Valve, Postman
     public $capacity;
     public $nonBlockingHandler;
     private $wtOnly;
+    private $writeTryCount;
 
     public abstract function secure() : bool;
     //public abstract function handshakeNonblock();
@@ -121,6 +122,7 @@ abstract class Transporter implements ChannelListener, Reusable, Valve, Postman
         $this->setValid(false);
         $this->handshaked = false;
         $this->socketIo = null;
+        $this->writeTryCount = 0;
     }
 
     /////////////////////////////////////////////////////////////////////////////////
@@ -139,18 +141,14 @@ abstract class Transporter implements ChannelListener, Reusable, Valve, Postman
             $this->handshaked = true;
         }
 
-        try {
-            list($read_buf, $adr) = $this->readNonblock();
-        }
-        catch(EofException $e) {
-            BayLog::debug("%s EOF", $this);
-            $this->set_Valid(false);
-            return $this->dataListener->notifyEeof();
-        }
+        list($read_buf, $adr) = $this->readNonblock();
 
         BayLog::debug("%s read %d bytes", $this, strlen($read_buf));
-        if (strlen($read_buf) == 0)
+        if (strlen($read_buf) == 0) {
+            BayLog::debug("%s EOF", $this);
+            $this->setValid(false);
             return $this->dataListener->notifyEof();
+        }
 
         try {
             try {
@@ -211,12 +209,24 @@ abstract class Transporter implements ChannelListener, Reusable, Valve, Postman
 
             if ($this->chValid && strlen($wunit->buf) > 0) {
                 $len = $this->writeNonblock($wunit->buf, $wunit->adr);
-                BayLog::debug("%s write %d bytes", $this, $len);
-                $wunit->buf = substr($wunit->buf, $len);
 
-                if (strlen($wunit->buf) > 0)
+                BayLog::debug("%s write %d bytes", $this, $len);
+                if($len == 0) {
+                    $this->writeTryCount++;
+                    if ($this->writeTryCount > 100) {
+                        throw new IOException($this . " Too many retry count to write");
+                    }
                     # Data remains
                     break;
+                }
+                else {
+                    $this->writeTryCount = 0;
+                    $wunit->buf = substr($wunit->buf, $len);
+
+                    if (strlen($wunit->buf) > 0)
+                        # Data remains
+                        break;
+                }
             }
 
             # packet send complete

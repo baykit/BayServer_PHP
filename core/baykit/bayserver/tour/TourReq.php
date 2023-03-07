@@ -2,11 +2,13 @@
 namespace baykit\bayserver\tour;
 
 use baykit\bayserver\BayLog;
+use baykit\bayserver\BayMessage;
 use baykit\bayserver\BayServer;
 use baykit\bayserver\docker\base\InboundShip;
 use baykit\bayserver\HttpException;
 use baykit\bayserver\protocol\ProtocolException;
 use baykit\bayserver\Sink;
+use baykit\bayserver\Symbol;
 use baykit\bayserver\util\Counter;
 use baykit\bayserver\util\Headers;
 use baykit\bayserver\util\HttpStatus;
@@ -163,7 +165,11 @@ class TourReq implements Reusable {
         }
 
         if ($this->bytesPosted + $len > $this->bytesLimit) {
-            throw new ProtocolException("Read data exceed content-length: " . ($this->bytesPosted + $len) . "/" . $this->bytesLimit);
+            throw new ProtocolException(
+                BayMessage::get(
+                    Symbol::HTTP_READ_DATA_EXCEEDED,
+                    $this->bytesPosted + $len,
+                    $this->bytesLimit));
         }
 
         // If has error, only read content. (Do not call content handler)
@@ -230,6 +236,11 @@ class TourReq implements Reusable {
 
     public function abort() : bool
     {
+        if (!$this->tour->isPreparing()) {
+            BayLog::debug("%s cannot abort non-preparing tour", $this->tour);
+            return false;
+        }
+
         BayLog::debug("%s abort", $this->tour);
         if ($this->tour->isAborted())
             throw new Sink("tour already aborted");

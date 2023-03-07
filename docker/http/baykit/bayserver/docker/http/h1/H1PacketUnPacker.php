@@ -4,6 +4,7 @@ namespace baykit\bayserver\docker\http\h1;
 
 
 use baykit\bayserver\agent\NextSocketAction;
+use baykit\bayserver\BayLog;
 use baykit\bayserver\protocol\PacketStore;
 use baykit\bayserver\protocol\PacketUnPacker;
 use baykit\bayserver\protocol\ProtocolException;
@@ -66,6 +67,8 @@ class H1PacketUnpacker extends PacketUnPacker {
 
         $pos = 0;
         $lineLen = 0;
+        $suspend = false;
+
         if($this->state == self::STATE_READ_HEADERS) {
 
             while ($pos < strlen($buf)) {
@@ -85,14 +88,13 @@ class H1PacketUnpacker extends PacketUnPacker {
                             $this->pktStore->Return($pkt);
                         }
 
-                        $breakLoop = false;
                         switch($nextAct) {
                             case NextSocketAction::CONTINUE:
+                            case NextSocketAction::SUSPEND:
                                 if($this->cmdUnpacker->reqFinished())
                                     $this->changeState(self::STATE_END);
                                 else
                                     $this->changeState(self::STATE_READ_CONTENT);
-                                $breakLoop = true;
                                 break;
                             case NextSocketAction::CLOSE:
                                 // Maybe error
@@ -100,8 +102,8 @@ class H1PacketUnpacker extends PacketUnPacker {
                                 return $nextAct;
                         }
 
-                        if($breakLoop)
-                            break;
+                        $suspend = ($nextAct == NextSocketAction::SUSPEND);
+                        break;
                     }
                     $lineLen = 0;
                 }
@@ -115,7 +117,6 @@ class H1PacketUnpacker extends PacketUnPacker {
             }
         }
 
-        $suspend = false;
         if($this->state == self::STATE_READ_CONTENT) {
             while($pos < strlen($buf)) {
                 $pkt = $this->pktStore->rent(H1Type::CONTENT);
@@ -135,6 +136,7 @@ class H1PacketUnpacker extends PacketUnPacker {
 
                 switch($nextAct) {
                     case NextSocketAction::CONTINUE:
+                    case NextSocketAction::WRITE:
                         if($this->cmdUnpacker->reqFinished())
                             $this->changeState(self::STATE_END);
                         break;

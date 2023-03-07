@@ -121,9 +121,12 @@ class H1InboundHandler extends H1ProtocolHandler implements InboundHandler {
         # Send dummy end request command
         $cmd = new CmdEndContent();
 
-        $ensure_func = function() use ($callback, $keepAlive) {
-            if ($keepAlive && !$this->ship->postman->isZombie())
+        $sid = $this->ship->shipId;
+        $ensure_func = function() use ($callback, $keepAlive, $sid) {
+            if ($keepAlive && !$this->ship->postman->isZombie()) {
                 $this->ship->keeping = true;
+                $this->ship->resume($sid);
+            }
             else
                 $this->commandPacker->end($this->ship);
         };
@@ -207,9 +210,9 @@ class H1InboundHandler extends H1ProtocolHandler implements InboundHandler {
         $tur->req->method = strtoupper($cmd->method);
         $tur->req->protocol = $protocol;
 
-        if (!($tur->req->protocol == "HTTP/1.1")
-            || ($tur->req->protocol == "HTTP/1.0")
-            || ($tur->req->protocol == "HTTP/0.9")) {
+        if (!($tur->req->protocol == "HTTP/1.1"
+            || $tur->req->protocol == "HTTP/1.0"
+            || $tur->req->protocol == "HTTP/0.9")) {
 
             throw new ProtocolException(
                 BayMessage::get(Symbol::HTP_UNSUPPORTED_PROTOCOL, $tur->req->protocol));
@@ -243,7 +246,7 @@ class H1InboundHandler extends H1ProtocolHandler implements InboundHandler {
 
             if ($reqContLen <= 0) {
                 $this->endReqContent($this->curTourId, $tur);
-                return NextSocketAction::CONTINUE;
+                return NextSocketAction::SUSPEND; // end reading
             } else {
                 $this->changeState(self::STATE_READ_CONTENT);
                 return NextSocketAction::CONTINUE;
@@ -292,7 +295,7 @@ class H1InboundHandler extends H1ProtocolHandler implements InboundHandler {
             else {
                 try {
                     $this->endReqContent($tourId, $tur);
-                    return NextSocketAction::CONTINUE;
+                    return NextSocketAction::SUSPEND; // end reading
                 } catch (HttpException $e) {
                     $tur->res->sendHttpException($tourId, $e);
                     $this->resetState();

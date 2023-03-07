@@ -29,19 +29,21 @@ class AcceptHandler
         // Specifies timeout because in some cases accept() don't seem to work in no blocking mode.
         $timeoutSec = $portDkr->nonBlockingTimeoutMillis / 1000;
 
-        $level = error_reporting();
-        error_reporting(E_ERROR);
+        //$level = error_reporting();
+        //error_reporting(E_ERROR);
 
         if (($clientSkt = stream_socket_accept($ch, $timeoutSec)) === false) {
-            error_reporting($level);
+            //error_reporting($level);
             // Timeout or another agent get client socket
-            BayLog::debug("%s %s", $this->agent, SysUtil::lastErrorMessage());
             if ($portDkr->secure()) {
-                BayLog::debug("%s Cert error or plain text", $this->agent);
+                while ($msg = openssl_error_string())
+                    BayLog::error("%s SSL Error: %s", $this->agent, $msg);
+                #BayLog::debug("%s Cert error or plain text", $this->agent);
             }
+            BayLog::debug("%s [port=%d] Error: %s", $this->agent, $portDkr->port(), SysUtil::lastErrorMessage());
             return;
         }
-        error_reporting($level);
+        //error_reporting($level);
 
         BayLog::debug("%s Accepted: skt=%s", $this->agent, $clientSkt);
         $params = stream_context_get_params($clientSkt);
