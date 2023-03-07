@@ -1,5 +1,12 @@
 # BayServer for PHP
 
+# 2.0.6
+
+- Fixes bug when received 404 NotFound POST message
+- Fixed problems on handling admin-ajax.php of WordPress (client's unexpectedly abort)
+- Fixes problem on handling wp-cron.php of WordPress
+- Fixes several bugs
+
 # 2.0.5
 
 - Fixes problem of H2 docker
