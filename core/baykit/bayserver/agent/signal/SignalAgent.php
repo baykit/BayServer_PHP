@@ -3,6 +3,7 @@
 namespace baykit\bayserver\agent\signal;
 
 use baykit\bayserver\agent\GrandAgent;
+use baykit\bayserver\agent\GrandAgentMonitor;
 use baykit\bayserver\BayLog;
 use baykit\bayserver\BayMessage;
 use baykit\bayserver\Symbol;
@@ -114,23 +115,23 @@ class SignalAgent
         BayLog::debug("handle command: %s", $cmd);
         switch (strtolower($cmd)) {
             case self::COMMAND_RELOAD_CERT:
-                GrandAgent::reloadCertAll();
+                GrandAgentMonitor::reloadCertAll();
                 break;
 
             case self::COMMAND_MEM_USAGE:
-                GrandAgent::printUsageAll();
+                GrandAgentMonitor::printUsageAll();
                 break;
 
             case self::COMMAND_RESTART_AGENTS:
-                GrandAgent::restartAll();
+                GrandAgentMonitor::restartAll();
                 break;
 
             case self::COMMAND_SHUTDOWN:
-                GrandAgent::shutdownAll();
+                GrandAgentMonitor::shutdownAll();
                 break;
 
             case self::COMMAND_ABORT:
-                GrandAgent::abortAll();
+                GrandAgentMonitor::abortAll();
                 break;
 
             default:

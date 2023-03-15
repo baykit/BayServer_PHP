@@ -151,17 +151,15 @@ abstract class Transporter implements ChannelListener, Reusable, Valve, Postman
         }
 
         try {
-            try {
-                $next_action = $this->dataListener->notifyRead($read_buf, $adr);
-                if ($next_action === null) {
-                    throw new Sink();
-                }
-                BayLog::debug("%s returned from notify_read(). next action=%d", $this->dataListener, $next_action);
-                return $next_action;
-            } catch (UpgradeException $e) {
-                BayLog::debug("%s Protocol upgrade", $this->dataListener);
-                return $this->dataListener->notifyRead($read_buf, $adr);
+            $next_action = $this->dataListener->notifyRead($read_buf, $adr);
+            if ($next_action === null) {
+                throw new Sink();
             }
+            BayLog::debug("%s returned from notify_read(). next action=%d", $this->dataListener, $next_action);
+            return $next_action;
+        } catch (UpgradeException $e) {
+            BayLog::debug("%s Protocol upgrade", $this->dataListener);
+            return $this->dataListener->notifyRead($read_buf, $adr);
         }
         catch(ProtocolException $e) {
             $close = $this->dataListener->notifyProtocolError($e);
@@ -170,6 +168,12 @@ abstract class Transporter implements ChannelListener, Reusable, Valve, Postman
                 return NextSocketAction::CONTINUE;
             else
                 return NextSocketAction::CLOSE;
+        }
+        catch(IOException $e) {
+            // IOError which occur in notify_XXX must be distinguished from
+            // it which occur in handshake or readNonBlock.
+            $this->onError($chkCch, $e);
+            return NextSocketAction::CLOSE;
         }
     }
 

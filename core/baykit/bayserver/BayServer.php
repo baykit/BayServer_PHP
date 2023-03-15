@@ -17,6 +17,7 @@ spl_autoload_register(function ($class_name) {
 });
 
 
+use baykit\bayserver\agent\GrandAgentMonitor;
 use baykit\bayserver\agent\signal\SignalSender;
 use baykit\bayserver\bcf\BcfParser;
 use baykit\bayserver\bcf\BcfElement;
@@ -77,6 +78,17 @@ class BayServer
     # Software name
     public static $softwareName = null;
 
+    # Command line arguments
+    public static $commandlineArgs = null;
+
+    # for child process mode
+    public static $communicationChannel = null;
+
+    public static function initChild($comCh) : void
+    {
+        self::$communicationChannel = $comCh;
+    }
+
     public static function main($args)
     {
         $cmd = null;
@@ -84,11 +96,14 @@ class BayServer
         $plan = getenv(BayServer::ENV_BAYSERVER_PLAN);
         $mkpass = null;
         BayLog::set_full_path(SysUtil::runOnPhpStorm());
+        $agtId = -1;
 
-        //BayLog::info("arg1=%s", $args[0]);
+        #BayLog::info("args=%s", join(",", $args));
 
         foreach ($args as $arg) {
+            self::$commandlineArgs = $args;
             $arg = strtolower($arg);
+
             if ($arg == "-start") {
                 $cmd = null;
             } elseif ($arg == "-stop" || $arg == "-shutdown") {
@@ -109,6 +124,8 @@ class BayServer
                 $mkpass = substr($arg, 8);
             } elseif (StringUtil::startsWith($arg, "-loglevel=")) {
                 BayLog::set_log_level(substr($arg, 10));
+            } elseif (StringUtil::startsWith($arg, "-agentid=")) {
+                $agtId = intval(substr($arg, 9));
             }
         }
 
@@ -120,7 +137,7 @@ class BayServer
         self::init($home, $plan);
 
         if ($cmd === null) {
-            self::start();
+            self::start($agtId);
         } else {
             (new SignalSender())->sendCommand($cmd);
         }
@@ -169,121 +186,71 @@ class BayServer
             throw new BayException("Plan file is not a file: " . self::$bservPlan);
     }
 
-    public static function start()
+    public static function start(int $agtId)
     {
         try {
-            BayMessage::init(self::$bservHome . "/lib/conf/messages", new Locale('ja', 'JP'));
+            if ($agtId == -1) {
+                BayMessage::init(self::$bservHome . "/lib/conf/messages", new Locale('ja', 'JP'));
 
-            self::$dockers = new BayDockers();
+                self::$dockers = new BayDockers();
 
-            self::$dockers->init(self::$bservHome . "/lib/conf/dockers.bcf");
+                self::$dockers->init(self::$bservHome . "/lib/conf/dockers.bcf");
 
-            Mimes::init(self::$bservHome . "/lib/conf/mimes.bcf");
-            HttpStatus::init(self::$bservHome . "/lib/conf/httpstatus.bcf");
+                Mimes::init(self::$bservHome . "/lib/conf/mimes.bcf");
+                HttpStatus::init(self::$bservHome . "/lib/conf/httpstatus.bcf");
 
-            if (self::$bservPlan !== null)
-                self::loadPlan(self::$bservPlan);
+                if (self::$bservPlan !== null)
+                    self::loadPlan(self::$bservPlan);
 
-            if (count(self::$portDockerList) == 0)
-                throw new BayException(BayMessage::get(Symbol::CFG_NO_PORT_DOCKER));
+                if (count(self::$portDockerList) == 0)
+                    throw new BayException(BayMessage::get(Symbol::CFG_NO_PORT_DOCKER));
 
-            $redirectFile = self::$harbor->redirectFile;
+                $redirectFile = self::$harbor->redirectFile;
 
-            if ($redirectFile != "") {
-                $redirectFile = self::getLocation($redirectFile);
-                fclose(STDOUT);
-                fclose(STDERR);
-                $STDOUT = fopen($redirectFile, "w+");
-                $STDERR = $STDOUT;
-            }
-            #$f = fopen($redirect_file, "a");
-            #sys.stdout = $f;
-            #sys.stderr = $f;
-
-            self::printVersion();
-
-            self::$myHostName = gethostname();
-            BayLog::debug("Host name    : " . self::$myHostName);
-
-            $anrhorablePortMap = array();   // TCP server port map
-            $unanchorablePortMap = array();  // UDB server port map
-            foreach (self::$portDockerList as $dkr) {
-                # open port
-                $adr = $dkr->address();
-
-                if($dkr->anchored) {
-                    // Open TCP port
-
-                    BayLog::info(BayMessage::get(Symbol::MSG_OPENING_TCP_PORT, $dkr->host(), $dkr->port(), $dkr->protocol()));
-
-                    if($dkr->secure()) {
-                        $skt = stream_socket_server(
-                            "ssl://{$adr[0]}:{$adr[1]}",
-                            $errno,
-                            $errstr,
-                            STREAM_SERVER_BIND|STREAM_SERVER_LISTEN,
-                            $dkr->sslCtx());
-                    }
-                    elseif ($adr[1]) {
-                        $skt = stream_socket_server(
-                            "tcp://{$adr[0]}:{$adr[1]}",
-                            $errno,
-                            $errstr);
-                    }
-                    else {
-                        if(file_exists($adr[0])) {
-                            if (!unlink($adr[0])) {
-                                throw new IOException("Cannot remove file: " . SysUtil::lastErrorMessage());
-                            }
-                        }
-                        $skt = stream_socket_server(
-                            "unix://{$adr[0]}",
-                            $errno,
-                            $errstr);
-                    }
-
-                    if ($skt === false)
-                        throw new \Exception("Cannot open port: $errstr ($errno)");
-
-                    // Non blocking mode does not work for accepting
-                    //if (stream_set_blocking($skt, false) == false)
-                    //    throw new \Exception("Cannot set non blocking: " . socket_strerror(socket_last_error()));
-
-                    BayLog::debug(" socket=%s", $skt);
-                    $anrhorablePortMap[] = new PortMap($skt, $dkr);
+                if ($redirectFile != "") {
+                    $redirectFile = self::getLocation($redirectFile);
+                    fclose(STDOUT);
+                    fclose(STDERR);
+                    $STDOUT = fopen($redirectFile, "w+");
+                    $STDERR = $STDOUT;
                 }
-                else {
-                    # Open UDP port
-                    BayLog::error("Unanchord port note supported");
+                #$f = fopen($redirect_file, "a");
+                #sys.stdout = $f;
+                #sys.stderr = $f;
+
+                PacketStore::init();
+                InboundShipStore::init();
+                ProtocolHandlerStore::init();
+                TourStore::init(TourStore::MAX_TOURS);
+                MemUsage::init();
+                self::$myHostName = gethostname();
+                BayLog::debug("Host name    : " . self::$myHostName);
+
+                if (SysUtil::runOnPhpStorm()) {
+                    $handler = function ($signo, $siginfo) {
+                        BayLog::debug("sig: {$signo}");
+                        GrandAgent::abortAll();
+                    };
+                    BayLog::debug("Unset Signals");
+                    pcntl_signal(SIGINT, $handler);
                 }
             }
 
-
-            PacketStore::init();
-            InboundShipStore::init();
-            ProtocolHandlerStore::init();
-            TourStore::init(TourStore::MAX_TOURS);
-            MemUsage::init();
-            self::createPidFile(SysUtil::pid());
-            GrandAgent::init(self::$harbor->grandAgents, $anrhorablePortMap, $unanchorablePortMap, self::$harbor->maxShips, self::$harbor->multiCore);
-            SignalAgent::init(self::$harbor->controlPort);
-
-            if (SysUtil::runOnPhpStorm()) {
-                $handler = function($signo, $siginfo) {
-                    BayLog::debug("sig: {$signo}");
-                    GrandAgent::abortAll();
-                };
-                BayLog::debug("Unset Signals");
-                pcntl_signal(SIGINT, $handler);
+            if($agtId == -1) {
+                self::printVersion();
+                self::parentStart();
+            }
+            else {
+                self::childStart($agtId);
             }
 
-            while (count(GrandAgent::$monitors) > 0) {
+            while (count(GrandAgentMonitor::$monitors) > 0) {
                 $sel = new Selector();
-                $pipToMonMap = [];
-                foreach (GrandAgent::$monitors as $mon) {
+                $monitors = [];
+                foreach (GrandAgentMonitor::$monitors as $mon) {
                     BayLog::debug("Monitoring pipe of %s", $mon);
-                    $sel->register($mon->recvPipe[0], Selector::OP_READ);
-                    $pipToMonMap[intval($mon->recvPipe[0])] = $mon;
+                    $sel->register($mon->communicationChannel, Selector::OP_READ);
+                    $monitors[] = $mon;
                 }
 
                 $serverSkt = null;
@@ -306,8 +273,10 @@ class BayServer
                         SignalAgent::$signalAgent->onSocketReadable();
                     }
                     else {
-                        $mon = $pipToMonMap[intval($selkey->channel)];
-                        $mon->onReadable();
+                        foreach($monitors as $mon) {
+                            if ($mon->communicationChannel === $selkey->channel)
+                                $mon->onReadable();
+                        }
                     }
                 }
             }
@@ -320,6 +289,100 @@ class BayServer
         }
 
         exit(1);
+    }
+
+    public static function openPorts(array &$anchorablePortMap, array &$unanchorablePortMap)
+    {
+        foreach (self::$portDockerList as $dkr) {
+            # open port
+            $adr = $dkr->address();
+
+            if ($dkr->anchored) {
+                // Open TCP port
+
+                BayLog::info(BayMessage::get(Symbol::MSG_OPENING_TCP_PORT, $dkr->host(), $dkr->port(), $dkr->protocol()));
+
+                if ($dkr->secure()) {
+                    $skt = stream_socket_server(
+                        "ssl://{$adr[0]}:{$adr[1]}",
+                        $errno,
+                        $errstr,
+                        STREAM_SERVER_BIND | STREAM_SERVER_LISTEN,
+                        $dkr->sslCtx());
+                } elseif ($adr[1]) {
+                    $skt = stream_socket_server(
+                        "tcp://{$adr[0]}:{$adr[1]}",
+                        $errno,
+                        $errstr);
+                } else {
+                    if (file_exists($adr[0])) {
+                        if (!unlink($adr[0])) {
+                            throw new IOException("Cannot remove file: " . SysUtil::lastErrorMessage());
+                        }
+                    }
+                    $skt = stream_socket_server(
+                        "unix://{$adr[0]}",
+                        $errno,
+                        $errstr);
+                }
+
+                if ($skt === false)
+                    throw new \Exception("Cannot open port: $errstr ($errno)");
+
+                // Non blocking mode does not work for accepting
+                //if (stream_set_blocking($skt, false) == false)
+                //    throw new \Exception("Cannot set non blocking: " . socket_strerror(socket_last_error()));
+
+                BayLog::debug(" socket=%s", $skt);
+                $anchorablePortMap[] = new PortMap($skt, $dkr);
+            } else {
+                # Open UDP port
+                BayLog::error("Unanchord port note supported");
+            }
+        }
+    }
+
+    private static function parentStart()
+    {
+        $anrhorablePortMap = array();   // TCP server port map
+        $unanchorablePortMap = array();  // UDB server port map
+        self::openPorts($anrhorablePortMap, $unanchorablePortMap);
+
+        if (!self::$harbor->multiCore) {
+            # Single core mode
+            GrandAgent::init(
+                range(1, self::$harbor->grandAgents),
+                $anrhorablePortMap,
+                $unanchorablePortMap,
+                self::$harbor->maxShips,
+                self::$harbor->multiCore);
+        }
+
+        GrandAgentMonitor::init(
+            self::$harbor->grandAgents,
+            $anrhorablePortMap,
+            $unanchorablePortMap
+        );
+
+        SignalAgent::init(self::$harbor->controlPort);
+
+        self::createPidFile(SysUtil::pid());
+    }
+
+    private static function childStart(int $agtId): void
+    {
+        BayLog::debug("Agt#%d child_start", $agtId);
+
+        GrandAgent::init(
+            [$agtId],
+            GrandAgentMonitor::$anchoredPortMap,
+            GrandAgentMonitor::$unanchoredPortMap,
+            self::$harbor->maxShips,
+            self::$harbor->multiCore
+        );
+        $agt = GrandAgent::get($agtId);
+        $agt->runCommandReceiver(self::$communicationChannel);
+        $agt->run();
     }
 
     /**

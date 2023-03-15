@@ -15,7 +15,7 @@ class ArrayUtil
         array_splice($arr, $idx, 1);
     }
 
-    public static function insert(object $needle, array &$arr, int $idx) : void
+    public static function insert($needle, array &$arr, int $idx) : void
     {
         array_splice( $arr, $idx, 0, [$needle]);
     }

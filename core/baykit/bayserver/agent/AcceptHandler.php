@@ -96,7 +96,7 @@ class AcceptHandler
 
         foreach ($this->portMap as $map) {
             try {
-                #BayLog.debug("%s Register server socket: %d", self.agent, ch.fileno())
+                BayLog::debug("%s Register server socket: %d", $this->agent, $map->ch);
                 $this->agent->selector->register($map->ch, Selector::OP_READ);
             } catch (\Exception $e) {
                 BayLog::error_e($e);

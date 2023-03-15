@@ -3,6 +3,7 @@
 namespace baykit\bayserver\agent;
 
 use baykit\bayserver\MemUsage;
+use baykit\bayserver\util\ArrayUtil;
 use baykit\bayserver\util\BlockingIOException;
 use baykit\bayserver\util\IOException;
 use parallel\Runtime;
@@ -16,71 +17,6 @@ use baykit\bayserver\util\IOUtil;
 use baykit\bayserver\util\Selector;
 
 
-class GrandAgent_CommandReceiver
-{
-    public $agent;
-    public $readFd;
-    public $writeFd;
-    public $aborted = false;
-
-    public function __construct($agent, $readFd, $writeFd)
-    {
-        $this->agent = $agent;
-        $this->readFd = $readFd;
-        $this->writeFd = $writeFd;
-    }
-
-    public function __toString()
-    {
-        return "ComReceiver#{$this->agent->agentId}";
-    }
-
-    public function onPipeReadable()
-    {
-        try {
-            $cmd = IOUtil::recvInt32($this->readFd);
-            if ($cmd == null) {
-                BayLog::debug("%s pipe closed: %d", $this, $this->readFd);
-                $this->agent->abort();
-            }
-            else {
-                BayLog::debug("%s receive command %d pipe=%d", $this->agent, $cmd, $this->readFd);
-                switch ($cmd) {
-                    case GrandAgent::CMD_RELOAD_CERT:
-                        $this->agent->reloadCert();
-                        break;
-                    case GrandAgent::CMD_MEM_USAGE:
-                        $this->agent->printUsage();
-                        break;
-                    case GrandAgent::CMD_SHUTDOWN:
-                        $this->agent->shutdown();
-                        $this->aborted = true;
-                        break;
-                    case GrandAgent::CMD_ABORT:
-                        IOUtil::sendInt32($this->writeFd, GrandAgent::CMD_OK);
-                        $this->agent->abort();
-                        return;
-                    default:
-                        BayLog::error("Unknown command: %d", $cmd);
-                }
-
-                IOUtil::sendInt32($this->writeFd, GrandAgent::CMD_OK);
-            }
-        }
-        catch(\Exception $e) {
-            BayLog::error_e($e, "%s Command thread aborted(end)", $this->agent);
-        }
-        finally {
-            BayLog::debug("%s Command ended", $this);
-        }
-    }
-
-    public function abort()
-    {
-        BayLog::debug("%s end", $this);
-        IOUtil::sendInt32($this->writeFd, GrandAgent::CMD_CLOSE);
-    }
-}
 
 
 class GrandAgent
@@ -97,16 +33,16 @@ class GrandAgent
     #
     # class variables
     #
-    public static $agents = [];
-    public static $agentPids = [];
-    public static $listeners = [];
-    public static $monitors = [];
     public static $agentCount = 0;
-    public static $anchorablePortMap = [];
-    public static $unanchorablePortMap = [];
     public static $maxShips = 0;
     public static $maxAgentId = 0;
     public static $multiCore = false;
+
+    public static $agents = [];
+    public static $listeners = [];
+
+    public static $anchorablePortMap = [];
+    public static $unanchorablePortMap = [];
     public static $finale = false;
 
     #
@@ -116,8 +52,7 @@ class GrandAgent
     public $nonBlockingHandler;
     public $spinHandler;
     public $acceptHandler;
-    public $wakeupPipe;
-    public $wakeupPipeNo;
+    public $selectWakeupPipe = [];
     public $selectTimeoutSec;
     public $maxInboundShips;
     public $selector;
@@ -131,9 +66,7 @@ class GrandAgent
     public function __construct(
         int $agentId,
         int $maxShips,
-        bool $anchorable,
-        array $recvPipe,
-        array $sendPipe)
+        bool $anchorable)
     {
         $this->agentId = $agentId;
         $this->anchorable = $anchorable;
@@ -144,15 +77,15 @@ class GrandAgent
         $this->nonBlockingHandler = new NonBlockingHandler($this);
         $this->spinHandler = new SpinHandler($this);
 
-        $this->wakeupPipe = IOUtil::openLocalPipe();
-        stream_set_blocking($this->wakeupPipe[0], false);
-        stream_set_blocking($this->wakeupPipe[1], false);
+        $this->selectWakeupPipe = stream_socket_pair(AF_UNIX, SOCK_STREAM, 0);
+        stream_set_blocking($this->selectWakeupPipe[0], false);
+        stream_set_blocking($this->selectWakeupPipe[1], false);
 
         $this->selectTimeoutSec = GrandAgent::SELECT_TIMEOUT_SEC;
         $this->maxInboundShips = $maxShips;
         $this->selector = new Selector();
         $this->aborted = false;
-        $this->commandReceiver = new GrandAgent_CommandReceiver($this, $recvPipe[0], $sendPipe[1]);
+        $this->commandReceiver = null;
     }
 
     public function __toString() : string
@@ -164,9 +97,9 @@ class GrandAgent
     {
         BayLog::info(BayMessage::get(Symbol::MSG_RUNNING_GRAND_AGENT, $this));
 
-        BayLog::debug("%s Register wakeup pipe read: %s (<-%s)", $this, $this->wakeupPipe[0], $this->wakeupPipe[1]);
-        $this->selector->register($this->wakeupPipe[0], Selector::OP_READ);
-        $this->selector->register($this->commandReceiver->readFd, Selector::OP_READ);
+        BayLog::debug("%s Register wakeup pipe read: %s (<-%s)", $this, $this->selectWakeupPipe[0], $this->selectWakeupPipe[1]);
+        $this->selector->register($this->selectWakeupPipe[0], Selector::OP_READ);
+        $this->selector->register($this->commandReceiver->communicationChannel, Selector::OP_READ);
 
 
         // Set up unanchorable channel
@@ -218,12 +151,12 @@ class GrandAgent
                 if (count($selkeys) == 0)
                     $processed |= $this->spinHandler->processData();
 
-                # BayLog.trace("%s Selected keys: %s", self, selkeys)
+
                 foreach ($selkeys as $key) {
-                    if ($key->channel == $this->wakeupPipe[0]) {
+                    if ($key->channel == $this->selectWakeupPipe[0]) {
                         # Waked up by ask_to_*
                         $this->onWakedUp($key->channel);
-                    } elseif ($key->channel == $this->commandReceiver->readFd) {
+                    } elseif ($key->channel == $this->commandReceiver->communicationChannel) {
                         $this->commandReceiver->onPipeReadable();
                     } elseif ($this->acceptHandler->isServerSocket($key->channel)) {
                         $this->acceptHandler->onAcceptable($key->channel);
@@ -241,16 +174,11 @@ class GrandAgent
             }
         }
         catch (\Throwable $e) {
-            BayLog::error("%s error: %s", $this, $e);
-            BayLog::error_e($e);
-            throw $e;
+            BayLog::fatal_e($e, "%s fatal error", $this);
         }
         finally {
             BayLog::debug("Agent end: %d", $this->agentId);
-            $this->commandReceiver->abort();
-            foreach (GrandAgent::$listeners as $lis) {
-                $lis->remove($this->agentId);
-            }
+            $this->abort(null, 0);
         }
 
     }
@@ -261,15 +189,33 @@ class GrandAgent
         if ($this->acceptHandler) {
             $this->acceptHandler->shutdown();
         }
-        $this->aborted = true;
-        $this->wakeup();
+        $this->abort(null, 0);
 
     }
 
-    public function abort() : void
+    public function abort(\Exception $err=null, int $status=1) : void
     {
-        BayLog::debug("%s abort", $this);
-        exit(1);
+        if($err)
+            BayLog::fatal_e($err, "%s abort", $this);
+
+        $this->commandReceiver->end();
+        foreach (GrandAgent::$listeners as $lis) {
+            $lis->remove($this->agentId);
+        }
+
+        # remove from array
+        self::$agents = array_filter(
+            self::$agents,
+            function ($item)  {
+                return $item->agentId != $this->agentId;
+            });
+
+        if(BayServer::$harbor->multiCore) {
+            exit(1);
+        }
+        else {
+            $this->clean();
+        }
     }
 
     public function reloadCert() : void
@@ -308,160 +254,65 @@ class GrandAgent
 
     public function wakeup() : void
     {
-        IOUtil::sendInt32($this->wakeupPipe[1], 0);
+        IOUtil::sendInt32($this->selectWakeupPipe[1], 0);
+    }
+
+    public function runCommandReceiver($comChannel)
+    {
+        $this->commandReceiver = new CommandReceiver($this, $comChannel);
     }
 
     ######################################################
     # class methods
     ######################################################
-    public static function init(int $count, array $anchorablePortMap, array $unanchorablePortMap,int $maxShips, bool $multiCore)
+    public static function init(array $agtIds, array $anchorablePortMap, array $unanchorablePortMap,int $maxShips, bool $multiCore)
     {
-        self::$agentCount = $count;
+        self::$agentCount = count($agtIds);
         self::$anchorablePortMap = $anchorablePortMap;
         self::$unanchorablePortMap = $unanchorablePortMap;
         self::$maxShips = $maxShips;
         self::$multiCore = $multiCore;
-        if(count(self::$unanchorablePortMap) > 0)
-            self::add(false);
-        for ($i = 0; $i < $count; $i++) {
-            BayLog::debug("Add agent: %d", $i);
-            self::add(true);
+
+        if (BayServer::$harbor->multiCore) {
+            if(count(self::$unanchorablePortMap) > 0) {
+                self::add($agtIds[0], false);
+                ArrayUtil::removeByIndex(0, $agtIds);
+            }
+
+            foreach ($agtIds as $id) {
+                #BayLog::debug("Add agent: %d", $id);
+                self::add($id, true);
+            }
         }
     }
 
     public static function get(int $id) : GrandAgent
     {
-        foreach (self::$agents as $agt) {
-            if ($agt->agentId == $id) {
-                return $agt;
-            }
-        }
-        return false;
+        return self::$agents[$id];
     }
 
-    public static function add(bool $anchorable) : void
+    public static function add(int $agtId, bool $anchorable) : void
     {
-        self::$maxAgentId += 1;
-        $agentId = self::$maxAgentId;
-        $sendPipe = IOUtil::openLocalPipe();
-        if($sendPipe === false)
-            throw new IOException("Cannot create local pipe");
-        $recvPipe = IOUtil::openLocalPipe();
+        if ($agtId == -1)
+            $agtId = self::$maxAgentId + 1;
 
-        if (self::$multiCore) {
-            # Agents run on multi core (process mode)
+        BayLog::debug("Add agent: id=%d", $agtId);
 
-            $pid = pcntl_fork();
-            if ($pid == -1) {
-                # Error
-            } elseif ($pid == 0) {
-                # Child process
-                # train runners and tax runners run in the new process
-                self::invokeRunners();
+        if ($agtId > self::$maxAgentId)
+            self::$maxAgentId = $agtId;
 
-                $agt = new GrandAgent($agentId, BayServer::$harbor->maxShips, $anchorable, $sendPipe, $recvPipe);
-                $agt->pid = $pid;
-                self::$agents[] = $agt;
-                foreach (GrandAgent::$listeners as $lis)
-                    $lis->add($agt->agentId);
+        $agt = new GrandAgent($agtId, BayServer::$harbor->maxShips, $anchorable);
+        self::$agents[$agtId] = $agt;
 
-                if (SysUtil::runOnPhpStorm())
-                    pcntl_signal(SIGINT, SIG_IGN);
-
-                $agt->run();
-
-                # Main thread sleeps until agent finished
-                #$agt->join();
-                exit(0);
-            } else {
-                self::$agentPids[] = $pid;
-
-                $mon = new GrandAgentMonitor($agentId, $anchorable, $sendPipe, $recvPipe);
-                self::$monitors[] = $mon;
-            }
-        } else {
-            # Agents run on single core (thread mode)
-            self::invokeRunners();
-
-            $agt = new GrandAgent($agentId, self::$maxShips, $anchorable, $sendPipe, $recvPipe);
-            self::$agents[] = $agt;
-            foreach (self::$listeners as $lis) {
-                $lis->add($agt->agentId);
-            }
-            $agt->run();
-
-            $mon = new GrandAgentMonitor($agentId, $anchorable, $sendPipe, $recvPipe);
-            self::$monitors[] = $mon;
+        foreach (self::$listeners as $lis) {
+            $lis->add($agt->agentId);
         }
     }
 
-    public static function reloadCertAll()
-    {
-        foreach(self::$monitors as $mon) {
-            $mon->reloadCert();
-        }
-    }
-
-    public static function restartAll()
-    {
-        $copied = self::$monitors;
-        foreach($copied as $mon) {
-            $mon->shutdown();
-        }
-    }
-
-    public static function shutdownAll()
-    {
-        self::$finale = true;
-        $copied = self::$monitors;
-        foreach($copied as $mon) {
-            $mon->shutdown();
-        }
-    }
-
-    public static function abortAll()
-    {
-        BayLog::info("abortAll()");
-        self::$finale = true;
-        $copied = self::$monitors;
-        foreach($copied as $mon) {
-            $mon->abort();
-        }
-        exit(1);
-    }
-
-    public static function printUsageAll()
-    {
-        foreach(self::$monitors as $mon) {
-            $mon->printUsage();
-            sleep(1); // lazy implementation
-        }
-    }
 
     public static function addLifecycleListener(LifecycleListener $lis) : void
     {
         self::$listeners[] = $lis;
-    }
-
-    public static function agentAborted(int $agtId, $anchorable) : void
-    {
-        BayLog::info(BayMessage::get(Symbol::MSG_GRAND_AGENT_SHUTDOWN, $agtId));
-
-        self::$agents = array_filter(
-            self::$agents,
-            function ($item) use ($agtId) { return $item->agentId == $agtId; });
-
-        self::$monitors = array_filter(
-            self::$monitors,
-            function ($item) use ($agtId) {
-                return $item->agentId != $agtId;
-            });
-
-        if (!self::$finale) {
-            if (count(self::$agents) < self::$agentCount) {
-                self::add($anchorable);
-            }
-        }
     }
 
     private static function invokeRunners()

@@ -74,7 +74,7 @@ class BuiltInCityDocker extends DockerBase implements  City  {
         });
 
         foreach ($this->towns as $t) {
-            BayLog::info(BayMessage::get(Symbol::MSG_SETTING_UP_TOWN, $t->name, $t->location));
+            BayLog::debug(BayMessage::get(Symbol::MSG_SETTING_UP_TOWN, $t->name, $t->location));
         }
 
         $this->defaultTown = new BuiltInTownDocker();

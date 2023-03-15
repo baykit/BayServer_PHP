@@ -92,7 +92,7 @@ class NonBlockingHandler
         $ch = $key->channel;
         $ch_state = $this->findChannelState($ch);
         if ($ch_state === null) {
-            BayLog::error("%s Channel state is not registered: ch=%s op=%s", $this->agent, $ch, $key->operation);
+            BayLog::error("%s Channel state is not registered: ch=%s op=%s", $this, $ch, $key->operation);
             $this->agent->selector->unregister($ch);
             return;
         }
@@ -146,22 +146,20 @@ class NonBlockingHandler
                 throw new Sink("unknown next action");
 
         }
-        catch(\Exception $e) {
-            if ($e instanceof IOException)
-                BayLog::info("%s I/O error: %s (skt=%s)", $this->agent, $e->getMessage(), $ch);
-            else {
-                BayLog::info("%s Unhandled error error: %s (skt=%s)", $this->agent, $e, $ch);
-                throw $e;
-            }
-
+        catch(IOException $e) {
+            BayLog::info("%s I/O error: %s (skt=%s)", $this, $e->getMessage(), $ch);
             # Cannot handle Exception any more
             $ch_state->listener->onError($ch, $e);
             $nextAction = NextSocketAction::CLOSE;
         }
+        catch(\Exception $e) {
+            BayLog::info("%s Unhandled error error: %s (skt=%s)", $this, $e, $ch);
+            throw $e;
+        }
 
         $cancel = false;
         $ch_state->access();
-        BayLog::trace("%s next=%d chState=%s", $this->agent, $nextAction, $ch_state);
+        BayLog::trace("%s next=%d chState=%s", $this, $nextAction, $ch_state);
         switch ($nextAction) {
             case NextSocketAction::CLOSE:
                 $this->closeChannel($ch, $ch_state);
@@ -182,7 +180,7 @@ class NonBlockingHandler
         }
 
         if ($cancel) {
-            BayLog::trace("%s cancel key chState=%s", $this->agent, $ch_state);
+            BayLog::trace("%s cancel key chState=%s", $this, $ch_state);
             $this->agent->selector->unregister($ch);
         }
     }
@@ -207,7 +205,7 @@ class NonBlockingHandler
             }
 
             try {
-                BayLog::trace("%s register op=%s chState=%s", $this->agent, self::op_mode($chOp->op), $st);
+                BayLog::trace("%s register op=%s chState=%s", $this, self::op_mode($chOp->op), $st);
                 $op = $this->agent->selector->getOp($chOp->ch);
                 if ($op === null) {
                     $this->agent->selector->register($chOp->ch, $chOp->op);
@@ -219,18 +217,18 @@ class NonBlockingHandler
 
                 if ($chOp->connect) {
                     if ($st === null)
-                        BayLog::warn("%s register connect but ChannelState is null: %s", $this->agent, $chOp->ch);
+                        BayLog::warn("%s register connect but ChannelState is null: %s", $this, $chOp->ch);
                     else
                         $st->connecting = true;
                 } elseif ($chOp->close) {
                     if ($st === null)
-                        BayLog::warn("%s register close but ChannelState is null: %s", $this->agent, $chOp->ch);
+                        BayLog::warn("%s register close but ChannelState is null: %s", $this, $chOp->ch);
                     else
                         $st->closing = true;
                 }
             } catch (\Exception $e) {
                 $cst = $this->findChannelState($chOp->ch);
-                BayLog::error_e($e, "%s Cannot register operation: %s", $this->agent, ($cst !== null) ? $cst->listener : null);
+                BayLog::error_e($e, "%s Cannot register operation: %s", $this, ($cst !== null) ? $cst->listener : null);
             }
         }
 
@@ -278,7 +276,7 @@ class NonBlockingHandler
 
     public function askToStart($ch) : void
     {
-        BayLog::debug("%s askToStart: ch=%s", $this->agent, $ch);
+        BayLog::debug("%s askToStart: ch=%s", $this, $ch);
 
         $ch_state = $this->findChannelState($ch);
         $ch_state->accepted = true;
@@ -287,7 +285,7 @@ class NonBlockingHandler
     public function askToConnect($ch, $addr) : void
     {
         $ch_state = $this->findChannelState($ch);
-        BayLog::debug("%s askToConnect addr=%s ch=%s", $this->agent, $addr, $ch);
+        BayLog::debug("%s askToConnect addr=%s ch=%s", $this, $addr, $ch);
 
         //$ch->connect($addr);
         $this->addOperation($ch, Selector::OP_READ, false, true);
@@ -297,7 +295,7 @@ class NonBlockingHandler
     public function askToRead($ch) : void
     {
         $ch_state = $this->findChannelState($ch);
-        BayLog::debug("%s askToRead chState=%s", $this->agent, $ch_state);
+        BayLog::debug("%s askToRead chState=%s", $this, $ch_state);
 
         $this->addOperation($ch, Selector::OP_READ);
 
@@ -308,7 +306,7 @@ class NonBlockingHandler
     public function askToWrite($ch) : void
     {
         $st = $this->findChannelState($ch);
-        BayLog::debug("%s askToWrite chState=%s", $this->agent, $st);
+        BayLog::debug("%s askToWrite chState=%s", $this, $st);
         $this->addOperation($ch, Selector::OP_WRITE);
 
         if($st === null)
@@ -321,7 +319,7 @@ class NonBlockingHandler
     public function askToClose($ch) : void
     {
         $st = $this->findChannelState($ch);
-        BayLog::debug("%s askToClose chState=%s", $this->agent, $st);
+        BayLog::debug("%s askToClose chState=%s", $this, $st);
         $this->addOperation($ch, Selector::OP_WRITE, true);
 
         if($st === null)
@@ -342,12 +340,12 @@ class NonBlockingHandler
                 $ch_op->close = $ch_op->close || $close;
                 $ch_op->connect = $ch_op->connect || $connect;
                 $found = true;
-                BayLog::trace("%s Update operation: %s ch=%s", $this->agent, NonBlockingHandler::op_mode($ch_op->op), $ch_op->ch);
+                BayLog::trace("%s Update operation: %s ch=%s", $this, NonBlockingHandler::op_mode($ch_op->op), $ch_op->ch);
             }
         }
 
         if (!$found) {
-            BayLog::trace("%s New operation: %s ch=%s", $this->agent, NonBlockingHandler::op_mode($op), $ch);
+            BayLog::trace("%s New operation: %s ch=%s", $this, NonBlockingHandler::op_mode($op), $ch);
             $this->operations[] = new ChannelOperation($ch, $op, $connect, $close);
         }
         BayLog::trace("%s wakeup", $this->agent);
@@ -356,7 +354,7 @@ class NonBlockingHandler
 
     public function closeChannel($ch, ?ChannelState $chState) : void
     {
-        BayLog::debug("%s close ch=%s chState=%s", $this->agent, $ch, $chState);
+        BayLog::debug("%s close ch=%s chState=%s", $this, $ch, $chState);
 
         if ($chState === null)
             $chState = $this->findChannelState($ch);
@@ -399,7 +397,7 @@ class NonBlockingHandler
 
     public function addChannelState($ch, ChannelState $chState) : void
     {
-        BayLog::debug("%s add_channel_state ch=%s chState=%s", $this->agent, $ch, $chState);
+        BayLog::debug("%s add_channel_state ch=%s chState=%s", $this, $ch, $chState);
 
         foreach($this->channelMap as $st) {
             if($st->channel == $ch)
@@ -411,7 +409,7 @@ class NonBlockingHandler
 
     private function removeChannelState($ch) : void
     {
-        BayLog::trace("%s remove ch %s", $this->agent, $ch);
+        BayLog::trace("%s remove ch %s", $this, $ch);
         for($i = 0; $i < count($this->channelMap); $i++) {
             if ($this->channelMap[$i]->channel == $ch) {
                 ArrayUtil::removeByIndex($i, $this->channelMap);

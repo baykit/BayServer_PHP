@@ -23,6 +23,9 @@ class IOUtil
 
     public static function recvInt32($ch) : int
     {
+        $eof = stream_get_meta_data($ch)["eof"];
+        if($eof)
+            throw new EofException();
         //$ret = stream_socket_recvfrom($ch, 4);
         $ret = fread($ch, 4);
         //$ret = socket_read($ch, 4);
