@@ -11,6 +11,7 @@ use baykit\bayserver\util\ArrayUtil;
 use baykit\bayserver\util\BlockingIOException;
 use baykit\bayserver\util\IOException;
 use baykit\bayserver\util\IOUtil;
+use baykit\bayserver\util\ParallelUtil;
 use baykit\bayserver\util\SysUtil;
 use Cassandra\BatchStatement;
 
@@ -137,37 +138,53 @@ class GrandAgentMonitor
             //ArrayUtil::insert("php", $newArgv, 0);
             $newArgv[] = "-agentid=" . $agtId;
 
+            if(SysUtil::supportParallel()) {
 
-            $portNos = [];
-            if($anchorable) {
-                foreach(array_keys(self::$anchoredPortMap) as $ch) {
-                    $portNos[] = $ch;
-                }
+                $runtime = new \paralle\Runtime();
+
+                $runtime->run(function() use($comCh, $newArgv) {
+                    BayServer::initChild($comCh[1]);
+                    BayServer::main($newArgv);
+
+                    if (SysUtil::runOnPhpStorm())
+                        pcntl_signal(SIGINT, SIG_IGN);
+
+                });
+
             }
             else {
-                foreach(array_keys(self::$unanchoredPortMap) as $ch) {
-                    $portNos[] = $ch;
+                # fork mode
+                $portNos = [];
+                if ($anchorable) {
+                    foreach (array_keys(self::$anchoredPortMap) as $ch) {
+                        $portNos[] = $ch;
+                    }
+                } else {
+                    foreach (array_keys(self::$unanchoredPortMap) as $ch) {
+                        $portNos[] = $ch;
+                    }
                 }
-            }
-            $newArgv[] = "-sockets=" . join(",", $portNos);
-            #$newArgv[] = "-monitorSockets=" . $comCh[1].fileno;
+                $newArgv[] = "-sockets=" . join(",", $portNos);
+                #$newArgv[] = "-monitorSockets=" . $comCh[1].fileno;
 
-            $descriptorSpec = [];
-            $pipes = [];
-            #$proc = $process = proc_open($newArgv, $descriptorSpec, $pipes);
+                $descriptorSpec = [];
+                $pipes = [];
+                #$proc = $process = proc_open($newArgv, $descriptorSpec, $pipes);
 
-            $pid = pcntl_fork();
-            if ($pid == -1) {
-                # Error
-            } elseif ($pid == 0) {
-                # Child process
-                BayServer::initChild($comCh[1]);
-                BayServer::main($newArgv);
+                $pid = pcntl_fork();
+                if ($pid == -1) {
+                    # Error
+                }
+                elseif ($pid == 0) {
+                    # Child process
+                    BayServer::initChild($comCh[1]);
+                    BayServer::main($newArgv);
 
-                if (SysUtil::runOnPhpStorm())
-                    pcntl_signal(SIGINT, SIG_IGN);
+                    if (SysUtil::runOnPhpStorm())
+                        pcntl_signal(SIGINT, SIG_IGN);
 
-                exit(0);
+                    exit(0);
+                }
             }
         }
 

@@ -7,18 +7,19 @@ use baykit\bayserver\BayServer;
 
 class SysUtil
 {
+    static $parallelSupported = null;
 
-    public static function runOnWindows() : bool
+    static function runOnWindows() : bool
     {
         return strtolower(substr(PHP_OS, 0, 3)) === 'win';
     }
 
-    public static function runOnPhpStorm(): bool
+    static function runOnPhpStorm(): bool
     {
         return getenv("PHPSTORM") == "1";
     }
 
-    public static function isAbsolutePath($path): bool
+    static function isAbsolutePath($path): bool
     {
         if(SysUtil::runOnWindows()) {
             // Check drive letters
@@ -32,7 +33,7 @@ class SysUtil
         }
     }
 
-    public static function supportFork(): bool
+    static function supportFork(): bool
     {
         if (self::runOnPhpStorm())
             return !self::runOnWindows();
@@ -56,7 +57,7 @@ class SysUtil
         }
     }
 
-    public static function supportSelectFile(): bool
+    static function supportSelectFile(): bool
     {
         $f = fopen(BayServer::$bservPlan, "r");
         try {
@@ -75,7 +76,7 @@ class SysUtil
         }
     }
 
-    public static function supportNonblockFileRead(): bool
+    static function supportNonblockFileRead(): bool
     {
         $f = fopen(BayServer::$bservPlan, "r");
         try {
@@ -91,7 +92,7 @@ class SysUtil
         }
     }
 
-    public static function supportNonblockFileWrite(): bool
+    static function supportNonblockFileWrite(): bool
     {
         $fname = self::joinPath(sys_get_temp_dir(), "bserv_test_file");
         $f = fopen($fname, "wb");
@@ -109,7 +110,7 @@ class SysUtil
         }
     }
 
-    public static function supportSelectPipe() : bool
+    static function supportSelectPipe() : bool
     {
         $fds = array(
             0 => array("pipe", "r"),
@@ -145,7 +146,7 @@ class SysUtil
 
     }
 
-    public static function supportNonblockPipeRead() : bool
+    static function supportNonblockPipeRead() : bool
     {
         $fds = array(
             0 => array("pipe", "r"),
@@ -178,17 +179,17 @@ class SysUtil
 
     }
 
-    public static function pid() : int
+    static function pid() : int
     {
         return getmypid();
     }
 
-    public static function processor_count(): int
+    static function processor_count(): int
     {
         return 4;
     }
 
-    public static function joinPath(string $dir, string ... $files) : string
+    static function joinPath(string $dir, string ... $files) : string
     {
         $path = $dir;
         if(!StringUtil::endsWith($dir, "/"))
@@ -203,7 +204,7 @@ class SysUtil
         return $path;
     }
 
-    public static function lastErrorMessage() : string
+    static function lastErrorMessage() : string
     {
         $err = error_get_last();
         if($err === null)
@@ -212,13 +213,29 @@ class SysUtil
             return "{$err["message"]} (at {$err["file"]}:{$err["line"]})";
     }
 
-    public static function lastSocketErrorMessage() : string
+    static function lastSocketErrorMessage() : string
     {
         return socket_strerror(socket_last_error());
     }
 
-    public static function supportUnixDomainSocketAddress() : bool
+    static function supportUnixDomainSocketAddress() : bool
     {
         return !self::runOnWindows();
+    }
+
+    static function supportParallel() : bool
+    {
+        if(self::$parallelSupported === null) {
+            try {
+                $runtime = new \paralle\Runtime();
+                self::$parallelSupported = true;
+            }
+            catch(\Exception $e) {
+                BayLog::warn_e($e, "Parallel not supported");
+                self::$parallelSupported = false;
+            }
+        }
+
+        return self::$parallelSupported;
     }
 }
