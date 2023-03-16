@@ -170,8 +170,14 @@ class GrandAgentMonitor
                 exit(0);
             }
         }
-
         self::$monitors[$agtId] = new GrandAgentMonitor($agtId, $anchorable, $comCh[0]);
+
+        if(!BayServer::$harbor->multiCore) {
+            GrandAgent::add($agtId, $anchorable);
+            $agt = GrandAgent::get($agtId);
+            $agt->runCommandReceiver($comCh[1]);
+            $agt->run();
+        }
     }
 
     public static function agentAborted(int $agtId, $anchorable) : void
