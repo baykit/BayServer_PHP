@@ -53,7 +53,11 @@ class InboundDataListener implements DataListener
 
     public function notifyProtocolError(ProtocolException $e): bool
     {
-        // TODO: Implement notifyProtocolError() method.
+        BayLog::trace("%s notify_protocol_error", $this);
+        if (BayLog::isDebugMode())
+            BayLog::error_e($e);
+
+        return $this->ship->protoclHandler->sendReqProtocolError($e);
     }
 
     public function notifyClose(): void
