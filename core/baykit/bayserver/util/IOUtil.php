@@ -23,8 +23,7 @@ class IOUtil
 
     public static function recvInt32($ch) : int
     {
-        $eof = stream_get_meta_data($ch)["eof"];
-        if($eof)
+        if(self::isEof($ch))
             throw new EofException();
         //$ret = stream_socket_recvfrom($ch, 4);
         $ret = fread($ch, 4);
@@ -105,6 +104,9 @@ class IOUtil
         return self::$sock_buf_size;
     }
 
-
+    static function isEof($ch) : bool
+    {
+        return stream_get_meta_data($ch)["eof"];
+    }
 
 }

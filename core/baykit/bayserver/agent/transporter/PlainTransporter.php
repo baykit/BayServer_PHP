@@ -5,6 +5,7 @@ namespace baykit\bayserver\agent\transporter;
 use baykit\bayserver\BayLog;
 use baykit\bayserver\util\EofException;
 use baykit\bayserver\util\IOException;
+use baykit\bayserver\util\IOUtil;
 use baykit\bayserver\util\SysUtil;
 
 class PlainTransporter extends Transporter
@@ -44,9 +45,15 @@ class PlainTransporter extends Transporter
         #error_reporting($level);
 
         if($ret === false) {
-            BayLog::debug("ch type=%s", get_resource_type($this->ch));
-            BayLog::debug("err: %s", SysUtil::lastSocketErrorMessage());
-            throw new IOException("Cannot receive data: " . SysUtil::lastErrorMessage());
+            if(IOUtil::isEof($this->ch)) {
+                BayLog::debug("%s Cannot receive data (EOF)", $this);
+                $ret = "";
+            }
+            else {
+                BayLog::debug("ch type=%s", get_resource_type($this->ch));
+                BayLog::debug("err: %s", SysUtil::lastSocketErrorMessage());
+                throw new IOException("Cannot receive data: " . SysUtil::lastErrorMessage());
+            }
         }
         return [$ret, null];
     }
@@ -61,7 +68,10 @@ class PlainTransporter extends Transporter
 
         #$ret = stream_socket_sendto($this->ch, $buf);
         if($ret === false) {
-            if(SysUtil::lastSocketErrorMessage() == "Success") {
+            if(IOUtil::isEof($this->ch)) {
+                throw new IOException($this . " Write failed (EOF)");
+            }
+            else if(SysUtil::lastSocketErrorMessage() == "Success") {
                 // Will be retried (ad-hoc code)
                 BayLog::debug("%s Write error (will be retried)", $this);
                 $ret = 0;
