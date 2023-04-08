@@ -130,7 +130,7 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
         }
 
         if ($this->fileSendMethod == Harbor::FILE_SEND_METHOD_TAXI) {
-            throw new ConfigException("Taxi not supported", elm.fileName, elm.lineNo);
+            throw new ConfigException($elm->fileName, $elm->lineNo, "Taxi not supported");
         }
 
         if (!$this->multiCore && $this->grandAgents > 1) {
