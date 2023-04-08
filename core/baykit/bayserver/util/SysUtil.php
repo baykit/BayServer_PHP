@@ -7,10 +7,13 @@ use baykit\bayserver\BayServer;
 
 class SysUtil
 {
+    private static bool | null $isWin = null;
 
     public static function runOnWindows() : bool
     {
-        return strtolower(substr(PHP_OS, 0, 3)) === 'win';
+        if(self::$isWin === null)
+            self::$isWin = strtolower(substr(PHP_OS, 0, 3)) === 'win';
+        return self::$isWin;
     }
 
     public static function runOnPhpStorm(): bool
