@@ -77,7 +77,7 @@ class GrandAgent
         $this->nonBlockingHandler = new NonBlockingHandler($this);
         $this->spinHandler = new SpinHandler($this);
 
-        $this->selectWakeupPipe = stream_socket_pair(AF_UNIX, SOCK_STREAM, 0);
+        $this->selectWakeupPipe = IOUtil::openLocalPipe();
         stream_set_blocking($this->selectWakeupPipe[0], false);
         stream_set_blocking($this->selectWakeupPipe[1], false);
 
@@ -260,6 +260,10 @@ class GrandAgent
     public function runCommandReceiver($comChannel)
     {
         $this->commandReceiver = new CommandReceiver($this, $comChannel);
+    }
+
+    public function clean() {
+        $this->nonBlockingHandler->closeAll();
     }
 
     ######################################################

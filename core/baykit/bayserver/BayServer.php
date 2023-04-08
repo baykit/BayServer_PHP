@@ -84,6 +84,8 @@ class BayServer
     # for child process mode
     public static $communicationChannel = null;
 
+    static $monitorPort;
+
     public static function initChild($comCh) : void
     {
         self::$communicationChannel = $comCh;
@@ -98,7 +100,7 @@ class BayServer
         BayLog::set_full_path(SysUtil::runOnPhpStorm());
         $agtId = -1;
 
-        #BayLog::info("args=%s", join(",", $args));
+        BayLog::info("args=%s", join(",", $args));
 
         foreach ($args as $arg) {
             self::$commandlineArgs = $args;
@@ -106,26 +108,39 @@ class BayServer
 
             if ($arg == "-start") {
                 $cmd = null;
-            } elseif ($arg == "-stop" || $arg == "-shutdown") {
+            }
+            elseif ($arg == "-stop" || $arg == "-shutdown") {
                 $cmd = SignalAgent::COMMAND_SHUTDOWN;
-            } elseif ($arg == "-restartagents") {
+            }
+            elseif ($arg == "-restartagents") {
                 $cmd = SignalAgent::COMMAND_RESTART_AGENTS;
-            } elseif ($arg == "-reloadcert") {
+            }
+            elseif ($arg == "-reloadcert") {
                 $cmd = SignalAgent::COMMAND_RELOAD_CERT;
-            } elseif ($arg == "-memusage") {
+            }
+            elseif ($arg == "-memusage") {
                 $cmd = SignalAgent::COMMAND_MEM_USAGE;
-            } elseif ($arg == "-abort") {
+            }
+            elseif ($arg == "-abort") {
                 $cmd = SignalAgent::COMMAND_ABORT;
-            } elseif (StringUtil::startsWith($arg, "-home=")) {
+            }
+            elseif (StringUtil::startsWith($arg, "-home=")) {
                 $home = substr($arg, 6);
-            } elseif (StringUtil::startsWith($arg, "-plan=")) {
+            }
+            elseif (StringUtil::startsWith($arg, "-plan=")) {
                 $plan = substr($arg, 6);
-            } elseif (StringUtil::startsWith($arg, "-mkpass=")) {
+            }
+            elseif (StringUtil::startsWith($arg, "-mkpass=")) {
                 $mkpass = substr($arg, 8);
-            } elseif (StringUtil::startsWith($arg, "-loglevel=")) {
+            }
+            elseif (StringUtil::startsWith($arg, "-loglevel=")) {
                 BayLog::set_log_level(substr($arg, 10));
-            } elseif (StringUtil::startsWith($arg, "-agentid=")) {
+            }
+            elseif (StringUtil::startsWith($arg, "-agentid=")) {
                 $agtId = intval(substr($arg, 9));
+            }
+            elseif (StringUtil::startsWith($arg, "-monitorport=")) {
+                self::$monitorPort = intval(substr($arg, 13));
             }
         }
 
@@ -189,7 +204,7 @@ class BayServer
     public static function start(int $agtId)
     {
         try {
-            if ($agtId == -1) {
+            if ($agtId == -1 || SysUtil::runOnWindows()) {
                 BayMessage::init(self::$bservHome . "/lib/conf/messages", new Locale('ja', 'JP'));
 
                 self::$dockers = new BayDockers();
@@ -346,7 +361,9 @@ class BayServer
     {
         $anrhorablePortMap = array();   // TCP server port map
         $unanchorablePortMap = array();  // UDB server port map
-        self::openPorts($anrhorablePortMap, $unanchorablePortMap);
+
+        if(!SysUtil::runOnWindows())
+            self::openPorts($anrhorablePortMap, $unanchorablePortMap);
 
         if (!self::$harbor->multiCore) {
             # Single core mode
@@ -373,6 +390,19 @@ class BayServer
     {
         BayLog::debug("Agt#%d child_start", $agtId);
 
+        if(SysUtil::runOnWindows()) {
+            self::openPorts(
+                GrandAgentMonitor::$anchoredPortMap,
+                GrandAgentMonitor::$unanchoredPortMap);
+
+            $code = null;
+            $msg = null;
+            $comCh = stream_socket_client("127.0.0.1:" . self::$monitorPort, $code, $msg);
+        }
+        else {
+            $comCh = self::$communicationChannel;
+        }
+
         GrandAgent::init(
             [$agtId],
             GrandAgentMonitor::$anchoredPortMap,
@@ -381,7 +411,7 @@ class BayServer
             self::$harbor->multiCore
         );
         $agt = GrandAgent::get($agtId);
-        $agt->runCommandReceiver(self::$communicationChannel);
+        $agt->runCommandReceiver($comCh);
         $agt->run();
     }
 

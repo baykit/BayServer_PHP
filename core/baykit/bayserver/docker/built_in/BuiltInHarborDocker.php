@@ -114,10 +114,12 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
             BayLog::warn(BayMessage::get(Symbol::CFG_MAX_SHIPS_IS_TO_SMALL, $this->maxShips));
         }
 
+        /*
         if ($this->multiCore and !SysUtil::supportFork()) {
             BayLog::warn(BayMessage::get(Symbol::CFG_MULTI_CORE_NOT_SUPPORTED));
             $this->multiCore = false;
         }
+        */
 
         if ($this->fileSendMethod == Harbor::FILE_SEND_METHOD_SELECT and !SysUtil::supportSelectFile()) {
             BayLog::warn(BayMessage::get(Symbol::CFG_FILE_SEND_METHOD_SELECT_NOT_SUPPORTED));

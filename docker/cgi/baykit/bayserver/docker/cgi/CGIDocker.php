@@ -157,17 +157,19 @@ class CGIDocker extends ClubBase
         switch($this->procReadMethod) {
             case Harbor::FILE_SEND_METHOD_SELECT: {
                 stream_set_blocking($handler->stdOut, false);
-                stream_set_blocking($handler->stdErr, false);
 
                 $outTp = new PlainTransporter(false, $bufsize);
                 $outYat->init($tur, $outTp);
                 $outTp->init($tur->ship->agent->nonBlockingHandler, $handler->stdOut, $outYat);
                 $outTp->openValve();
 
-                $errTp = new PlainTransporter(false, $bufsize);
-                $errYat->init($tur);
-                $errTp->init($tur->ship->agent->nonBlockingHandler, $handler->stdErr, $errYat);
-                $errTp->openValve();
+                if($handler->isStderrEnabled()) {
+                    stream_set_blocking($handler->stdErr, false);
+                    $errTp = new PlainTransporter(false, $bufsize);
+                    $errYat->init($tur);
+                    $errTp->init($tur->ship->agent->nonBlockingHandler, $handler->stdErr, $errYat);
+                    $errTp->openValve();
+                }
                 break;
             }
             case Harbor::FILE_SEND_METHOD_SPIN: {

@@ -86,7 +86,7 @@ class SignalAgent
         if ($port > 0) {
             self::$signalAgent = new SignalAgent($port);
         }
-        else {
+        else if(!SysUtil::runOnWindows()) {
             self::$commands = [
                 self::COMMAND_RELOAD_CERT,
                 self::COMMAND_MEM_USAGE,

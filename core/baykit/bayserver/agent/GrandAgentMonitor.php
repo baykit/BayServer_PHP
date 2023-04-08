@@ -130,7 +130,6 @@ class GrandAgentMonitor
             exit(1);
         }
 
-        $comCh = stream_socket_pair(AF_UNIX, SOCK_STREAM, 0);
         if (BayServer::$harbor->multiCore) {
             $args = BayServer::$commandlineArgs;
             $newArgv = $args;
@@ -149,28 +148,43 @@ class GrandAgentMonitor
                     $portNos[] = $ch;
                 }
             }
-            $newArgv[] = "-sockets=" . join(",", $portNos);
-            #$newArgv[] = "-monitorSockets=" . $comCh[1].fileno;
 
-            $descriptorSpec = [];
-            $pipes = [];
-            #$proc = $process = proc_open($newArgv, $descriptorSpec, $pipes);
+            if(SysUtil::runOnWindows()) {
+                $server = stream_socket_server("tcp://127.0.0.1:0", $errno, $errstr);
+                $address = stream_socket_get_name($server, false);
+                $port = intval(explode(":", $address)[1]);
 
-            $pid = pcntl_fork();
-            if ($pid == -1) {
-                # Error
-            } elseif ($pid == 0) {
-                # Child process
-                BayServer::initChild($comCh[1]);
-                BayServer::main($newArgv);
+                $descriptorSpec = [];
+                $pipes = [];
+                $newArgv[] = "-monitorPort=" . $port;
+                array_unshift($newArgv, "php");
+                $proc = proc_open($newArgv, $descriptorSpec, $pipes);
 
-                if (SysUtil::runOnPhpStorm())
-                    pcntl_signal(SIGINT, SIG_IGN);
+                $client = stream_socket_accept($server);
+                stream_socket_shutdown($server,  STREAM_SHUT_RDWR );
+            }
+            else {
+                $comCh = IOUtil::openLocalPipe();
+                $pid = pcntl_fork();
+                if ($pid == -1) {
+                    # Error
+                }
+                elseif ($pid == 0) {
+                    # Child process
+                    $newArgv[] = "-sockets=" . join(",", $portNos);
+                    BayServer::initChild($comCh[1]);
+                    BayServer::main($newArgv);
 
-                exit(0);
+                    if (SysUtil::runOnPhpStorm())
+                        pcntl_signal(SIGINT, SIG_IGN);
+
+                    exit(0);
+                }
+
+                $client = $comCh[0];
             }
         }
-        self::$monitors[$agtId] = new GrandAgentMonitor($agtId, $anchorable, $comCh[0]);
+        self::$monitors[$agtId] = new GrandAgentMonitor($agtId, $anchorable, $client);
 
         if(!BayServer::$harbor->multiCore) {
             GrandAgent::add($agtId, $anchorable);

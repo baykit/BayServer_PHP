@@ -32,7 +32,7 @@ class ChannelState
         if ($this->listener)
             $s = strval($this->listener);
         else
-            $s = strval(parent);
+            $s = "ChannelState";
 
         if ($this->closing)
             $s .= " closing=true";
@@ -350,6 +350,13 @@ class NonBlockingHandler
         }
         BayLog::trace("%s wakeup", $this->agent);
         $this->agent->wakeup();
+    }
+
+    public function closeAll() {
+
+        foreach($this->channelMap as $st) {
+            $this->closeChannel($st->channel, $st);
+        }
     }
 
     public function closeChannel($ch, ?ChannelState $chState) : void

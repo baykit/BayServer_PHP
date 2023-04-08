@@ -23,7 +23,7 @@ class CGIReqContentHandler implements ReqContentHandler
     public $pid;
     public $stdIn;
     public $stdOut;
-    public $stdErr;
+    public $stdErr = null;
     public $stdOutClosed;
     public $stdErrClosed;
 
@@ -59,7 +59,8 @@ class CGIReqContentHandler implements ReqContentHandler
     {
         BayLog::debug("%s CGITask:abort", $tur);
         $this->tour->ship->agent->nonBlockingHandler->askToClose($this->stdOut);
-        $this->tour->ship->agent->nonBlockingHandler->askToClose($this->stdErr);
+        if($this->isStderrEnabled())
+            $this->tour->ship->agent->nonBlockingHandler->askToClose($this->stdErr);
 
         BayLog::debug("%s KILL PROCESS!: %s", $tur, $this->pid);
         proc_terminate($this->process, SIGKILL);
@@ -79,7 +80,7 @@ class CGIReqContentHandler implements ReqContentHandler
         $fds = array(
             0 => array("pipe", "r"),
             1 => array("pipe", "w"),
-            2 => array("pipe", "w")
+            2 => SysUtil::runOnWindows() ? STDERR : array("pipe", "w")
         );
         $cmdArgs = $this->cgiDocker->createCommand($env);
         BayLog::debug("Spawn: %s", $cmdArgs);
@@ -96,15 +97,17 @@ class CGIReqContentHandler implements ReqContentHandler
 
         $this->stdIn = $pips[0];
         $this->stdOut = $pips[1];
-        $this->stdErr = $pips[2];
+        if(!SysUtil::runOnWindows())
+            $this->stdErr = $pips[2];
 
         BayLog::debug("PID: %d", $this->pid);
         BayLog::debug("STDIN: %d", $this->stdIn);
         BayLog::debug("STDOUT: %d", $this->stdOut);
-        BayLog::debug("STDERR: %d", $this->stdErr);
+        if($this->isStderrEnabled())
+            BayLog::debug("STDERR: %d", $this->stdErr);
 
         $this->stdOutClosed = false;
-        $this->stdErrClosed = false;
+        $this->stdErrClosed = $this->isStderrEnabled() ? false: true;
     }
 
 
@@ -112,7 +115,8 @@ class CGIReqContentHandler implements ReqContentHandler
     {
         fclose($this->stdIn);
         fclose($this->stdOut);
-        fclose($this->stdErr);
+        if($this->isStderrEnabled())
+            fclose($this->stdErr);
         $this->stdOutClosed();
         $this->stdErrClosed();
     }
@@ -131,14 +135,20 @@ class CGIReqContentHandler implements ReqContentHandler
             $this->processFinished();
     }
 
+    public function isStderrEnabled() {
+        return $this->stdErr !== null;
+    }
+
     private function processFinished() : void
     {
-        $ret = pcntl_waitpid($this->pid,$stat);
+/*        $ret = pcntl_waitpid($this->pid,$stat);
         if($ret == -1 || $ret == 0)
             BayLog::error("%s Cannot wait pid: %d (%s)", $this->tour, $this->pid, SysUtil::lastErrorMessage());
 
         $code = pcntl_wexitstatus($stat);
-        BayLog::debug("%s CGI Process nnn//: pid=%d code=%d", $this->tour, $this->pid, $code);
+        BayLog::debug("%s CGI Process end: pid=%d code=%d", $this->tour, $this->pid, $code);*/
+
+        $code = proc_close($this->process);
 
         try {
             if($code != 0) {
@@ -155,5 +165,6 @@ class CGIReqContentHandler implements ReqContentHandler
         }
 
     }
+
 }
 
