@@ -14,6 +14,7 @@ use baykit\bayserver\Sink;
 use baykit\bayserver\tour\Tour;
 use baykit\bayserver\tour\TourStore;
 use baykit\bayserver\util\ArrayUtil;
+use baykit\bayserver\util\Counter;
 use baykit\bayserver\util\Headers;
 use baykit\bayserver\util\HttpStatus;
 use baykit\bayserver\util\IOException;
@@ -22,7 +23,7 @@ use baykit\bayserver\watercraft\Ship;
 
 class InboundShip extends Ship
 {
-    public static $err_counter;
+    public static $err_counter = null;
 
     const MAX_TOURS = 128;
 
@@ -346,3 +347,5 @@ class InboundShip extends Ship
         }
     }
 }
+
+InboundShip::$err_counter = new Counter();

@@ -7,7 +7,7 @@ use baykit\bayserver\BayServer;
 
 class SysUtil
 {
-    private static bool | null $isWin = null;
+    private static ?bool $isWin = null;
 
     public static function runOnWindows() : bool
     {
