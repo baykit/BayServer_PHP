@@ -22,6 +22,7 @@ use baykit\bayserver\protocol\PacketStore;
 use baykit\bayserver\protocol\ProtocolException;
 use baykit\bayserver\Symbol;
 use baykit\bayserver\tour\ReqContentHandler;
+use baykit\bayserver\tour\ReqContentHandlerUtil;
 use baykit\bayserver\tour\Tour;
 use baykit\bayserver\tour\TourStore;
 use baykit\bayserver\util\Headers;
@@ -252,7 +253,7 @@ class H2InboundHandler extends H2ProtocolHandler implements InboundHandler
                 else {
                     // Delay send
                     $tur->error = $e;
-                    $tur->req->setContentHandler(ReqContentHandler::$devNull);
+                    $tur->req->setContentHandler(ReqContentHandlerUtil::$devNull);
                     return NextSocketAction::CONTINUE;
                 }
             }

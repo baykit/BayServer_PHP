@@ -57,7 +57,7 @@ class InboundDataListener implements DataListener
         if (BayLog::isDebugMode())
             BayLog::error_e($e);
 
-        return $this->ship->protoclHandler->sendReqProtocolError($e);
+        return $this->ship->protocolHandler->sendReqProtocolError($e);
     }
 
     public function notifyClose(): void

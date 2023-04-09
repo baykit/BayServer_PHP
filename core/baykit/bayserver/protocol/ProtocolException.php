@@ -10,6 +10,8 @@ class ProtocolException extends BayException
     {
         if ($fmt === null)
             $msg = "";
+        elseif (count($args) == 0)
+            $msg = sprintf("%s", $fmt);
         else
             $msg = sprintf($fmt, ...$args);
 
