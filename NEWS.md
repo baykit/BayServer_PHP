@@ -1,5 +1,10 @@
 # BayServer for PHP
 
+# 2.1.0
+
+- Supports multi core mode on Windows
+- Fixes some bugs
+
 # 2.0.6
 
 - Fixes bug when received 404 NotFound POST message
