@@ -1,5 +1,9 @@
 # BayServer for PHP
 
+# 2.1.1
+
+- Fixes some bugs on error handling
+
 # 2.1.0
 
 - Supports multi core mode on Windows
