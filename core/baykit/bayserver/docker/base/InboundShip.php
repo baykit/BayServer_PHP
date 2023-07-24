@@ -23,7 +23,7 @@ use baykit\bayserver\watercraft\Ship;
 
 class InboundShip extends Ship
 {
-    public static $err_counter = null;
+    public static $errCounter = null;
 
     const MAX_TOURS = 128;
 
@@ -101,7 +101,7 @@ class InboundShip extends Ship
 
     public function getErrorTour() : Tour
     {
-        $turKey = $this->errCounter->next();
+        $turKey = InboundShip::$errCounter->next();
         $storeKey = $this->uniqKey($this->shipId, -$turKey);
         $tur = $this->tourStore->rent($storeKey,true);
         $tur.init(-$turKey, $this);
@@ -346,6 +346,10 @@ class InboundShip extends Ship
             $this->endShip();
         }
     }
+    
+    public static function initClass() {
+        InboundShip::$errCounter = new Counter();
+    }
 }
 
-InboundShip::$err_counter = new Counter();
+InboundShip::initClass();
