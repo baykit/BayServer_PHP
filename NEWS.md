@@ -1,5 +1,9 @@
 # BayServer for PHP
 
+# 2.1.2
+
+- Fixes bug when CGI docker could not spawn process
+
 # 2.1.1
 
 - Fixes some bugs on error handling
