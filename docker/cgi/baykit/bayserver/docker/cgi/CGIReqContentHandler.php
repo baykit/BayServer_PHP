@@ -87,12 +87,12 @@ class CGIReqContentHandler implements ReqContentHandler
 
         $this->process = proc_open($cmdArgs, $fds, $pips, null, $env);
         if($this->process === false)
-            throw new HttpException("Cannot open process: %s", $cmdArgs);
+            throw new HttpException(HttpStatus::INTERNAL_SERVER_ERROR, "Cannot open process: %s", $cmdArgs);
 
         $stat = proc_get_status($this->process);
         $this->pid = $stat["pid"];
         if(!$stat["running"]) {
-            throw new HttpException("Cannot open process: %s: exit code=%s", $cmdArgs, $stat["exitcode"]);
+            throw new HttpException(HttpStatus::INTERNAL_SERVER_ERROR, "Cannot open process: %s: exit code=%s", $cmdArgs, $stat["exitcode"]);
         }
 
         $this->stdIn = $pips[0];
