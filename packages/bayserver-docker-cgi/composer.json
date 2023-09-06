@@ -1,0 +1,13 @@
+{
+    "name": "baykit/bayserver-docker-cgi",
+    "description": "CGI Docker for BayServer",
+    "require": {
+        "baykit/bayserver-core": "dev-composer-support"
+    },
+    "autoload": {
+        "psr-4": {
+            "baykit\\bayserver\\docker\\cgi\\": "baykit/bayserver/docker/cgi"
+        }
+    }
+}
+

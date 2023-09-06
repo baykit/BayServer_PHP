@@ -1,0 +1,13 @@
+{
+    "name": "baykit/bayserver-docker-http",
+    "description": "HTTP Docker for BayServer",
+    "require": {
+        "baykit/bayserver-core": "dev-composer-support"
+    },
+    "autoload": {
+        "psr-4": {
+            "baykit\\bayserver\\docker\\http\\": "baykit/bayserver/docker/http"
+        }
+    }
+}
+

@@ -1,0 +1,13 @@
+{
+    "name": "baykit/bayserver-docker-wordpress",
+    "description": "WordPress Docker for BayServer",
+    "require": {
+        "baykit/bayserver-core": "dev-composer-support"
+    },
+    "autoload": {
+        "psr-4": {
+            "baykit\\bayserver\\docker\\wordpress\\": "baykit/bayserver/docker/wordpress"
+        }
+    }
+}
+

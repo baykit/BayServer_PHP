@@ -1,0 +1,13 @@
+{
+    "name": "baykit/bayserver-docker-fcgi",
+    "description": "FCGI Docker for BayServer",
+    "require": {
+        "baykit/bayserver-core": "dev-composer-support"
+    },
+    "autoload": {
+        "psr-4": {
+            "baykit\\bayserver\\docker\\fcgi\\": "baykit/bayserver/docker/fcgi"
+        }
+    }
+}
+

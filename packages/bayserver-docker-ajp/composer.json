@@ -1,0 +1,13 @@
+{
+    "name": "baykit/bayserver-docker-ajp",
+    "description": "AJP Docker for BayServer",
+    "require": {
+        "baykit/bayserver-core": "dev-composer-support"
+    },
+    "autoload": {
+        "psr-4": {
+            "baykit\\bayserver\\docker\\ajp\\": "baykit/bayserver/docker/ajp"
+        }
+    }
+}
+
