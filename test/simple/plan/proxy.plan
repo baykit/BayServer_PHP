@@ -1,0 +1,65 @@
+[harbor]
+    charset UTF-8
+    groups plan/groups.plan
+    grandAgents 4
+    #gzipComp on
+    logLevel debug
+    sendFileMethod select
+    multiCore 0
+
+    # For windows
+    controlPort 2222
+
+#
+#  Port settings
+#
+[port 7070]
+     docker http
+     #[permission]
+     #     admit ip 127.0.0.1/255.0.0.0
+     #     admit ip ::1/::ffff:ffff
+     #     refuse ip *
+
+[port 7074]
+    [secure]
+        #keyStore  cert/oreore.p12
+        cert      cert/oreore.crt
+        key       cert/oreore_key.p8
+        keyStorePass orepas
+
+
+
+#
+#  Location settings
+#
+[city *]
+    [town /]
+        location www/root
+        welcome  index.html
+
+
+    [town /cgi-demo/]
+        location www/cgi-demo
+        welcome  index.html
+        [club *]
+            docker ajpWarp
+            destCity localhost
+            destPort 2025
+            destTown /cgi-demo
+
+
+    [log log/access.log]
+        format %h %l %u %t "%r" %>s %b
+
+    [log log/agent.log]
+        format %{User-Agent}i
+
+    [log log/referer.log]
+        format %{Referer}i -> %U
+
+
+   # [permission]
+    #       admit ip 127.0.0.1/255.255.255.255
+           #refuse ip 127.0.0.0/255.0.0.0
+
+
