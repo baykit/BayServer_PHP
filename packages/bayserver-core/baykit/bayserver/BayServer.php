@@ -56,6 +56,9 @@ class BayServer
     # Configuration file name (full path)
     public static $bservPlan = null;
 
+    # BSERV_LIB directory
+    public static $bservLib = null;
+
     # Agent list
     public static $agentList = [];
 
@@ -98,6 +101,7 @@ class BayServer
         $mkpass = null;
         BayLog::set_full_path(SysUtil::runOnPhpStorm());
         $agtId = -1;
+        $init = false;
 
         BayLog::info("args=%s", join(",", $args));
 
@@ -148,16 +152,21 @@ class BayServer
             exit(0);
         }
 
-        self::init($home, $plan);
-
-        if ($cmd === null) {
-            self::start($agtId);
-        } else {
-            (new SignalSender())->sendCommand($cmd);
+        self::getHome($home);
+        self::getLib();
+        if ($init)
+            self::init();
+        else {
+            self::getPlan($plan);
+            if ($cmd === null) {
+                self::start($agtId);
+            } else {
+                (new SignalSender())->sendCommand($cmd);
+            }
         }
     }
 
-    public static function init($home, $plan)
+    static function getHome($home)
     {
         if ($home !== null && $home !== false) {
             BayServer::$bservHome = $home;
@@ -168,22 +177,10 @@ class BayServer
         }
 
         BayLog::info("BayServer Home: %s", BayServer::$bservHome);
+    }
 
-        $bserv_lib = getenv(BayServer::ENV_BAYSERVER_LIB);
-        if ($bserv_lib === null) {
-            $bserv_lib = BayServer::$bservHome . "/lib";
-        }
-
-        if (is_dir($bserv_lib)) {
-            $path = get_include_path();
-            $dirs = glob($path . '*', GLOB_ONLYDIR);
-
-            foreach ($dirs as $dir) {
-                $path = $path . PATH_SEPARATOR . "$bserv_lib/$dir";
-            }
-            ini_set('include_path', $path);
-        }
-
+    static function getPlan($plan)
+    {
         // Get plan file
         if ($plan != "")
             self::$bservPlan = $plan;
@@ -200,18 +197,29 @@ class BayServer
             throw new BayException("Plan file is not a file: " . self::$bservPlan);
     }
 
+    static function getLib()
+    {
+        self::$bservLib = getenv(BayServer::ENV_BAYSERVER_LIB);
+        if (self::$bservLib === null || !is_dir(self::$bservLib))
+            throw new BayException("Library directory is not a directory: %s", self::$bservLib);
+    }
+
+    public static function init()
+    {
+    }
+
     public static function start(int $agtId)
     {
         try {
             if ($agtId == -1 || SysUtil::runOnWindows()) {
-                BayMessage::init(self::$bservHome . "/lib/conf/messages", new Locale('ja', 'JP'));
+                BayMessage::init(self::$bservLib . "/conf/messages", new Locale('ja', 'JP'));
 
                 self::$dockers = new BayDockers();
 
-                self::$dockers->init(self::$bservHome . "/lib/conf/dockers.bcf");
+                self::$dockers->init(self::$bservLib . "/conf/dockers.bcf");
 
-                Mimes::init(self::$bservHome . "/lib/conf/mimes.bcf");
-                HttpStatus::init(self::$bservHome . "/lib/conf/httpstatus.bcf");
+                Mimes::init(self::$bservLib . "/conf/mimes.bcf");
+                HttpStatus::init(self::$bservLib . "/conf/httpstatus.bcf");
 
                 if (self::$bservPlan !== null)
                     self::loadPlan(self::$bservPlan);

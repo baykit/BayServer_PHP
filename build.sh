@@ -10,10 +10,8 @@ target_name=BayServer_PHP-${version}
 target_dir=/tmp/${target_name}
 rm -fr ${target_dir}
 mkdir ${target_dir}
-mkdir ${target_dir}/lib
 
 
-cp -r test/simple/lib/conf/* stage/lib/conf
 cp -r test/simple/www/root stage/www
 cp -r test/simple/www/cgi-demo stage/www
 cp -r stage/* ${target_dir}

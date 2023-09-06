@@ -31,7 +31,7 @@ class H2ErrorCode extends Message
         if (self::$msg !== null)
             return;
 
-        $prefix = BayServer::$bservHome . "/lib/conf/h2_messages";
+        $prefix = BayServer::$bservLib . "/conf/h2_messages";
         self::$msg = new H2ErrorCode();
         self::$msg->init($prefix, new Locale('ja', 'JP'));
     }
