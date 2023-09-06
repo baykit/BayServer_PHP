@@ -23,6 +23,8 @@ cp LICENSE.* NEWS.md README.md composer.json ${target_dir}
 echo "***** Setup composer libraries *****"
 rm composer.lock
 composer install
+echo "***** Check vendor *****"
+ls vendor
 mv vendor ${target_dir}
 cp -r packages ${target_dir}
 rm composer.lock

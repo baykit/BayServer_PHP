@@ -1,0 +1,14 @@
+{
+    "name": "baykit/bayserver",
+    "description": "BayServer for PHP",
+    "require": {
+        "baykit/bayserver-core": "dev-composer-support",
+        "baykit/bayserver-docker-ajp": "dev-composer-support",
+        "baykit/bayserver-docker-cgi": "dev-composer-support",
+        "baykit/bayserver-docker-fcgi": "dev-composer-support",
+        "baykit/bayserver-docker-http": "dev-composer-support",
+        "baykit/bayserver-docker-wordpress": "dev-composer-support"
+    },
+    "bin": ["bin/bayserver_php"]
+}
+

@@ -1,6 +1,7 @@
 {
     "name": "baykit/bayserver-project",
     "require": {
+        "baykit/bayserver": "dev-composer-support",
         "baykit/bayserver-core": "dev-composer-support",
         "baykit/bayserver-docker-ajp": "dev-composer-support",
         "baykit/bayserver-docker-cgi": "dev-composer-support",
@@ -9,6 +10,10 @@
         "baykit/bayserver-docker-wordpress": "dev-composer-support"
     },
     "repositories": [
+        {
+            "type": "path",
+            "url": "packages/bayserver"
+        },
         {
             "type": "path",
             "url": "packages/bayserver-core"
