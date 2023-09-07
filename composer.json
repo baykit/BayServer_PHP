@@ -1,13 +1,13 @@
 {
     "name": "baykit/bayserver-project",
     "require": {
-        "baykit/bayserver": "dev-composer-support",
-        "baykit/bayserver-core": "dev-composer-support",
-        "baykit/bayserver-docker-ajp": "dev-composer-support",
-        "baykit/bayserver-docker-cgi": "dev-composer-support",
-        "baykit/bayserver-docker-fcgi": "dev-composer-support",
-        "baykit/bayserver-docker-http": "dev-composer-support",
-        "baykit/bayserver-docker-wordpress": "dev-composer-support"
+        "baykit/bayserver": "2.2.0-alpha",
+        "baykit/bayserver-core": "2.2.0-alpha",
+        "baykit/bayserver-docker-ajp": "2.2.0-alpha",
+        "baykit/bayserver-docker-cgi": "2.2.0-alpha",
+        "baykit/bayserver-docker-fcgi": "2.2.0-alpha",
+        "baykit/bayserver-docker-http": "2.2.0-alpha",
+        "baykit/bayserver-docker-wordpress": "2.2.0-alpha"
     },
     "repositories": [
         {

@@ -127,6 +127,9 @@ class BayServer
             elseif ($arg == "-abort") {
                 $cmd = SignalAgent::COMMAND_ABORT;
             }
+            elseif ($arg == "-init") {
+                $init = true;
+            }
             elseif (StringUtil::startsWith($arg, "-home=")) {
                 $home = substr($arg, 6);
             }
@@ -206,6 +209,13 @@ class BayServer
 
     public static function init()
     {
+        $initDir = self::$bservLib . "/init";
+        BayLog::debug("init directory: %s", $initDir);
+
+        $dirs = scandir($initDir);
+        foreach ($dirs as $dir) {
+            SysUtil::copyDir($initDir, self::$bservHome);
+        }
     }
 
     public static function start(int $agtId)

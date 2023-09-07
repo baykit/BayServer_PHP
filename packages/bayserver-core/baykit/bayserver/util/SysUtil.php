@@ -224,4 +224,32 @@ class SysUtil
     {
         return !self::runOnWindows();
     }
+
+    static function copyDir($srcDir, $dstDir) : void
+    {
+        if (is_dir($srcDir)) {
+            if (!is_dir($dstDir)) {
+                mkdir($dstDir);
+            }
+
+            $files = scandir($srcDir);
+
+            foreach ($files as $file) {
+                if ($file != '.' && $file != '..') {
+                    $srcFile = $srcDir . '/' . $file;
+                    $dstFile = $dstDir . '/' . $file;
+
+                    if (is_dir($srcFile)) {
+                        self::copyDir($srcFile, $dstFile);
+                    } else {
+                        copy($srcFile, $dstFile);
+                        chmod($dstFile, fileperms($srcFile));
+                    }
+                }
+            }
+        } else {
+            copy($srcDir, $dstDir);
+            chmod($dstDir, fileperms($srcDir));
+        }
+    }
 }
