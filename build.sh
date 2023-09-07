@@ -12,8 +12,6 @@ rm -fr ${target_dir}
 mkdir ${target_dir}
 
 
-cp -r test/simple/www/root stage/www
-cp -r test/simple/www/cgi-demo stage/www
 cp -r stage/* ${target_dir}
 cp LICENSE.* NEWS.md README.md composer.json ${target_dir}
 
@@ -26,6 +24,7 @@ ls vendor
 mv vendor ${target_dir}
 cp -r packages ${target_dir}
 rm composer.lock
+rm ${target_dir}/composer.json
 
 cd /tmp
 tar czf ${target_name}.tgz ${target_name}
