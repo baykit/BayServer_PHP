@@ -1,0 +1,15 @@
+<?php
+require "vendor/autoload.php";
+
+$sla=DIRECTORY_SEPARATOR;
+if (!array_key_exists("BSERV_HOME", $_ENV)) {
+   putenv("BSERV_HOME=.");
+}
+
+$blib = __DIR__ . $sla . "..";
+putenv("BSERV_LIB={$blib}");
+
+use baykit\bayserver\BayServer;
+
+BayServer::main($argv);
+

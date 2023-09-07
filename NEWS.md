@@ -1,5 +1,10 @@
 # BayServer for PHP
 
+
+# 2.2.0
+
+- Supports composer
+
 # 2.1.2
 
 - Fixes bug when CGI docker could not spawn process

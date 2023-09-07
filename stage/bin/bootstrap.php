@@ -1,4 +1,6 @@
 <?php
+require "vendor/autoload.php";
+
 $sla=DIRECTORY_SEPARATOR;
 $bhome = dirname(__FILE__) . $sla  . "..";
 putenv("BSERV_HOME={$bhome}");
@@ -14,7 +16,7 @@ foreach ($dirs as $dir) {
 
 ini_set('include_path', $path);
 
-require 'baykit/bayserver/BayServer.php';
+use baykit\bayserver\BayServer;
 
-\baykit\bayserver\BayServer::main($argv);
+BayServer::main($argv);
 
