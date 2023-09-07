@@ -13,18 +13,39 @@ mkdir ${target_dir}
 
 
 cp -r stage/* ${target_dir}
-cp LICENSE.* NEWS.md README.md composer.json ${target_dir}
+cp LICENSE.* NEWS.md README.md ${target_dir}
 
 
 echo "***** Setup composer libraries *****"
-rm composer.lock
+repo=`pwd`
+pushd .
+cd ${target_dir}
+cat > composer.json <<EOF
+{
+    "require": {
+       "baykit/bayserver": "${version}"
+    },
+    "repositories": [
+       {
+            "type": "path",
+            "url": "${repo}"
+       }
+    ]
+}
+EOF
 composer install
-echo "***** Check vendor *****"
-ls vendor
-mv vendor ${target_dir}
-cp -r packages ${target_dir}
-rm composer.lock
-rm ${target_dir}/composer.json
+rm composer.*
+rm vendor/baykit/bayserver
+pushd .
+cd vendor/baykit
+mkdir bayserver
+cd bayserver
+cp -r ${repo}/packages .
+popd
+bin/bayserver.sh -init
+popd
+
+echo "***** Create archive *****"
 
 cd /tmp
 tar czf ${target_name}.tgz ${target_name}

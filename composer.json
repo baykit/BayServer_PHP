@@ -1,43 +1,19 @@
 {
-    "name": "baykit/bayserver-project",
+    "name": "baykit/bayserver",
+    "description": "One of the fastest web server",
+    "version": "2.2.0-alpha",
     "require": {
-        "baykit/bayserver": "2.2.0-alpha",
-        "baykit/bayserver-core": "2.2.0-alpha",
-        "baykit/bayserver-docker-ajp": "2.2.0-alpha",
-        "baykit/bayserver-docker-cgi": "2.2.0-alpha",
-        "baykit/bayserver-docker-fcgi": "2.2.0-alpha",
-        "baykit/bayserver-docker-http": "2.2.0-alpha",
-        "baykit/bayserver-docker-wordpress": "2.2.0-alpha"
     },
-    "repositories": [
-        {
-            "type": "path",
-            "url": "packages/bayserver"
-        },
-        {
-            "type": "path",
-            "url": "packages/bayserver-core"
-        },
-        {
-            "type": "path",
-            "url": "packages/bayserver-docker-ajp"
-        },
-        {
-            "type": "path",
-            "url": "packages/bayserver-docker-cgi"
-        },
-        {
-            "type": "path",
-            "url": "packages/bayserver-docker-fcgi"
-        },
-        {
-            "type": "path",
-            "url": "packages/bayserver-docker-http"
-        },
-        {
-            "type": "path",
-            "url": "packages/bayserver-docker-wordpress"
+    "autoload": {
+        "psr-4": {
+            "baykit\\bayserver\\": "packages/bayserver-core/baykit/bayserver",
+            "baykit\\bayserver\\docker\\ajp\\": "packages/bayserver-docker-ajp/baykit/bayserver/docker/ajp",
+            "baykit\\bayserver\\docker\\cgi\\": "packages/bayserver-docker-cgi/baykit/bayserver/docker/cgi",
+            "baykit\\bayserver\\docker\\fcgi\\": "packages/bayserver-docker-fcgi/baykit/bayserver/docker/fcgi",
+            "baykit\\bayserver\\docker\\http\\": "packages/bayserver-docker-http/baykit/bayserver/docker/http",
+            "baykit\\bayserver\\docker\\wordpress\\": "packages/bayserver-docker-wordpress/baykit/bayserver/docker/wordpress"
         }
-    ]
+    },
+    "bin": ["packages/bayserver/bin/bayserver_php"]
 }
 
