@@ -191,16 +191,16 @@ class H1InboundHandler extends H1ProtocolHandler implements InboundHandler {
         }
 
         $tur = $sip->getTour($this->curReqId);
-        $this->curTour = $tur;
-        $this->curTourId = $tur->tourId;
-        $this->curReqId++;  // issue new request id
-
         if ($tur === null) {
             BayLog::error(BayMessage::get(Symbol::INT_NO_MORE_TOURS));
             $tur = $sip->getTour($this->curReqId, true);
             $tur->res->sendError(Tour::TOUR_ID_NOCHECK, HttpStatus::SERVICE_UNAVAILABLE, "No available tours");
             return NextSocketAction::CONTINUE;
         }
+
+        $this->curTour = $tur;
+        $this->curTourId = $tur->tourId;
+        $this->curReqId++;  // issue new request id
 
         $sip->keeping = false;
 

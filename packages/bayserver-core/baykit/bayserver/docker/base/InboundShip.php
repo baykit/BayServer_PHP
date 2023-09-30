@@ -193,7 +193,7 @@ class InboundShip extends Ship
         if($tur->isZombie() || $tur->isAborted()) {
             // Don't send peer any data. Do nothing
             BayLog::debug("%s Aborted or zombie tour. do nothing: %s state=%s", $this, $tur, $tur->state);
-            $tur->changeState($chkId, TourState::ENDED);
+            $tur->changeState(Tour::TOUR_ID_NOCHECK, TourState::ENDED);
             if($callback != null)
                 $callback();
             return;
@@ -201,8 +201,8 @@ class InboundShip extends Ship
 
         $maxLen = $this->protocolHandler->maxResPacketDataSize();
         if($len > $maxLen) {
-            $this->sendResContent(Tour::TOUR_ID_NOCHECK, $tur, $bytes, $ofs, $maxLen, null);
-            $this->sendResContent(Tour::TOUR_ID_NOCHECK, $tur, $bytes, $ofs + $maxLen, $len - $maxLen, $callback);
+            $this->sendResContent(Ship::SHIP_ID_NOCHECK, $tur, $bytes, $ofs, $maxLen, null);
+            $this->sendResContent(Ship::SHIP_ID_NOCHECK, $tur, $bytes, $ofs + $maxLen, $len - $maxLen, $callback);
         }
         else {
             try {
@@ -215,7 +215,7 @@ class InboundShip extends Ship
         }
     }
 
-    public function sendEndTour(int $chkShipId, int $chkTourId, Tour $tur, callable $callback) : void
+    public function sendEndTour(int $chkShipId, Tour $tur, callable $callback) : void
     {
         $this->checkShipId($chkShipId);
 
@@ -223,6 +223,8 @@ class InboundShip extends Ship
 
         if($tur->isZombie() || $tur->isAborted()) {
             // Don't send peer any data. Only return tour
+            BayLog::debug("%s Aborted or zombie tour. do nothing: %s state=%s", $this, $tur, $tur->state);
+            $tur->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ENDED);
             $callback();
         }
         else {
@@ -243,7 +245,7 @@ class InboundShip extends Ship
             }
 
             //BayLog.trace("%s sendEndTour: set running false: %s id=%d", this, tur, chkTourId);
-            $tur->changeState($chkTourId, Tour::STATE_ENDED);
+            $tur->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ENDED);
 
             $this->protocolHandler->sendEndTour($tur, $keepAlive, $callback);;
         }

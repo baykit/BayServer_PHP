@@ -208,7 +208,7 @@ class TourRes implements Reusable {
         };
 
         try {
-            $this->tour->ship->sendEndTour($this->tour->shipId, $checkId, $this->tour, $callback);
+            $this->tour->ship->sendEndTour($this->tour->shipId, $this->tour, $callback);
         }
         catch(IOException $e) {
             $callback();
