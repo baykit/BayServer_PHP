@@ -12,6 +12,13 @@ rm -fr ${target_dir}
 mkdir ${target_dir}
 
 
+update_composer_json() {
+  sed -i -e "s/\(baykit\/bayserver.*\":\) \(\"\).*\(\"\)/\1 \2${version}\3/" composer.json
+  sed -i -e "s/\(version\":\) \(\"\).*\(\"\)/\1 \2${version}\3/" composer.json
+}
+update_composer_json
+
+
 cp -r stage/* ${target_dir}
 cp LICENSE.* NEWS.md README.md ${target_dir}
 
