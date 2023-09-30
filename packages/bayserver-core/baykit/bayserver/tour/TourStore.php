@@ -52,6 +52,7 @@ class TourStore {
         } else {
             //BayLog.debug("rent: key=%d Active tour count: %d", key, activeTourMap.size());
             if (!$force && (count($this->activeTourMap) >= self::$maxCount)) {
+                BayLog::warn("Max tour count reached");
                 return null;
             } else {
                 $tur = new Tour();
