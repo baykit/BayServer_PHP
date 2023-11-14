@@ -363,6 +363,15 @@ class NonBlockingHandler
     {
         BayLog::debug("%s close ch=%s chState=%s", $this, $ch, $chState);
 
+        try {
+            $ret = fclose($ch);
+            if($ret === false)
+                BayLog::error("Cannot close channel: %s(%s)", $ch, SysUtil::lastErrorMessage());
+        }
+        catch(\Error $e) {
+            BayLog::error_e($e, "Close failed (Ignore): %s", $ch);
+        }
+
         if ($chState === null)
             $chState = $this->findChannelState($ch);
 
@@ -390,15 +399,6 @@ class NonBlockingHandler
         $this->removeChannelState($ch);
 
         $this->agent->selector->unregister($ch);
-
-        try {
-            $ret = fclose($ch);
-            if($ret === false)
-                BayLog::error("Cannot close socket: %s(%s)", $ch, SysUtil::lastErrorMessage());
-        }
-        catch(\Error $e) {
-            BayLog::error_e($e, "Close failed (Ignore): %s", $ch);
-        }
     }
 
 
