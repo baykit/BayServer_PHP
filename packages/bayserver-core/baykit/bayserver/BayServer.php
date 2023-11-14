@@ -516,9 +516,14 @@ class BayServer
     {
         file_put_contents(self::$harbor->pidFile, strval($pid));
     }
+
+    public static function initClass()
+    {
+        self::$cities = new Cities();
+    }
 }
 
 /////////////////////////////////////////////
-// initialize static members
+// initialize class
 /////////////////////////////////////////////
-BayServer::$cities = new Cities();
+BayServer::initClass();
