@@ -236,6 +236,11 @@ class GrandAgent
     {
         # print memory usage
         BayLog::info("Agent#%d MemUsage", $this->agentId);
+        BayLog::info(" PHP version: %s", phpversion());
+        BayLog::info(" PHP Allocated memory: %.3f MBytes", memory_get_usage(true) / 1024.0 / 1024);
+        BayLog::info(" PHP Current memory usage: %.3f MBytes", memory_get_usage() / 1024.0 / 1024);
+        BayLog::info(" PHP Peak memory usage: %.3f MBytes", memory_get_peak_usage() / 1024.0 / 1024);
+
         MemUsage::get($this->agentId)->printUsage(1);
     }
 
