@@ -99,7 +99,7 @@ class SignalSender
             system("taskkill /PID {$pid} /F");
         }
         else {
-            posix_kill($pid, $sig);
+            shell_exec("kill -${sig} ${pid}");
         }
     }
 
