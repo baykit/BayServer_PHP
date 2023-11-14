@@ -81,6 +81,10 @@ class SignalSender
                 throw new IOException("Cannot connect to host: " . socket_strerror(socket_last_error()));
             }
 
+            $timeout = array('sec'=>30, 'usec'=>0); // 10秒
+            socket_set_option($skt, SOL_SOCKET, SO_RCVTIMEO, $timeout);
+            socket_set_option($skt, SOL_SOCKET, SO_SNDTIMEO, $timeout);
+
             $cmd = $cmd . "\n";
             socket_send($skt, $cmd, strlen($cmd), 0);
 
@@ -88,7 +92,7 @@ class SignalSender
         }
         finally {
             if ($skt)
-                fclose($skt);
+                socket_close($skt);
         }
     }
 
