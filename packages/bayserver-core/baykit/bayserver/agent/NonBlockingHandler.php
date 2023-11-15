@@ -64,7 +64,7 @@ class ChannelOperation
 }
 
 
-class NonBlockingHandler
+class NonBlockingHandler implements TimerHandler
 {
     public $agent;
     public $listener = null;
@@ -80,6 +80,7 @@ class NonBlockingHandler
         #$this->lock = threading.RLock()
         $this->operations = [];
         #$this->operations_lock = threading.RLock()
+        $this->agent->addTimerHandler($this);
     }
 
     public function __toString() : string
@@ -87,6 +88,17 @@ class NonBlockingHandler
         return strval($this->agent);
     }
 
+    //////////////////////////////////////////////////////
+    // Implements TimerHandler
+    //////////////////////////////////////////////////////
+    public function onTimer(): void
+    {
+        $this->closeTimeoutSockets();
+    }
+
+    //////////////////////////////////////////////////////
+    // Custom methods
+    //////////////////////////////////////////////////////
     public function handleChannel($key)
     {
         $ch = $key->channel;
@@ -113,9 +125,17 @@ class NonBlockingHandler
                 $nextAction = $ch_state->listener->onConnectable($ch);
                 if ($nextAction === null)
                     throw new  Sink("unknown next action");
-                elseif ($nextAction == NextSocketAction::CONTINUE)
-                    $this->askToRead($ch);
-            } else {
+                elseif ($nextAction == NextSocketAction::READ) {
+                    // Handle as "Write Off"
+                    $op = $this->agent->selector->getOp($ch);
+                    $op = $op & ~Selector::OP_WRITE;
+                    if ($op != Selector::OP_READ)
+                        $this->agent->selector->unregister($ch);
+                    else
+                        $this->agent->selector->modify($ch, $op);
+                }
+            }
+            else {
                 if ($key->readable()) {
                     $nextAction = $ch_state->listener->onReadable($ch);
                     if ($nextAction === null)
@@ -205,7 +225,7 @@ class NonBlockingHandler
             }
 
             try {
-                BayLog::trace("%s register op=%s chState=%s", $this, self::op_mode($chOp->op), $st);
+                BayLog::debug("%s register op=%s chState=%s", $this, self::op_mode($chOp->op), $st);
                 $op = $this->agent->selector->getOp($chOp->ch);
                 if ($op === null) {
                     $this->agent->selector->register($chOp->ch, $chOp->op);
@@ -251,10 +271,7 @@ class NonBlockingHandler
                         $closeList []= $chState;
                     }
                 }
-                catch(Sink $e) {
-                    throw $e;
-                }
-                catch(\Throwable $e) {
+                catch(IOException $e) {
                     BayLog::error_e($e);
                     $closeList []= $chState;
                 }
@@ -288,7 +305,7 @@ class NonBlockingHandler
         BayLog::debug("%s askToConnect addr=%s ch=%s", $this, $addr, $ch);
 
         //$ch->connect($addr);
-        $this->addOperation($ch, Selector::OP_READ, false, true);
+        $this->addOperation($ch, Selector::OP_WRITE, false, true);
     }
 
 

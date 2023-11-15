@@ -82,7 +82,10 @@ class FcgWarpHandler extends FcgProtocolHandler implements WarpHandler
 
     public function postWarpEnd(Tour $tur): void
     {
-        $this->sendStdIn($tur, null, 0, 0, null);
+        $callback = function() {
+            $this->ship->agent->nonBlockingHandler->askToRead($this->ship->socket);
+        };
+        $this->sendStdIn($tur, null, 0, 0, $callback);
     }
 
     public function verifyProtocol(string $protocol): void
@@ -247,7 +250,7 @@ class FcgWarpHandler extends FcgProtocolHandler implements WarpHandler
     private function sendStdIn(Tour $tur, ?string $data, int $ofs, int $len, ?callable $callback) : void
     {
         $cmd = new CmdStdIn(WarpData::get($tur)->warpId, $data, $ofs, $len);
-        $this->commandPacker->post($this->ship, $cmd, $callback);
+        $this->ship->post($cmd, $callback);
     }
 
     private function sendBeginReq(Tour $tur) : void
@@ -255,7 +258,7 @@ class FcgWarpHandler extends FcgProtocolHandler implements WarpHandler
         $cmd = new CmdBeginRequest(WarpData::get($tur)->warpId);
         $cmd->role = CmdBeginRequest::FCGI_RESPONDER;
         $cmd->keepConn = true;
-        $this->commandPacker->post($this->ship, $cmd);
+        $this->ship->post($cmd);
     }
 
     private function sendParams(Tour $tur) : void
@@ -300,9 +303,9 @@ class FcgWarpHandler extends FcgProtocolHandler implements WarpHandler
             }
         }
 
-        $this->commandPacker->post($this->ship, $cmd);
+        $this->ship->post($cmd);
 
         $cmdParamsEnd = new CmdParams($warpId);
-        $this->commandPacker->post($this->ship, $cmdParamsEnd);
+        $this->ship->post($cmdParamsEnd);
     }
 }

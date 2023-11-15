@@ -62,7 +62,7 @@ class SpinReadTransporter implements SpinHandler_SpinListener, Valve
     // implements SpinHandler_SpinListener
     //////////////////////////////////////////////////////
 
-    public function lap()
+    public function lap() : array
     {
         try {
             $buf = fread($this->inFD, $this->readLen);
@@ -104,7 +104,7 @@ class SpinReadTransporter implements SpinHandler_SpinListener, Valve
         }
     }
 
-    public function checkTimeout(int $durationSec)
+    public function checkTimeout(int $durationSec) : bool
     {
         return $durationSec > $this->timeoutSec;
     }

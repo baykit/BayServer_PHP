@@ -73,6 +73,10 @@ class AjpWarpHandler extends AjpProtocolHandler implements WarpHandler
 
     public function postWarpEnd(Tour $tur): void
     {
+        $callback = function() {
+            $this->ship->agent->nonBlockingHandler->askToRead($this->ship->socket);
+        };
+        $this->ship->post(null, $callback);
     }
 
     public function verifyProtocol(string $protocol): void
@@ -246,7 +250,7 @@ class AjpWarpHandler extends AjpProtocolHandler implements WarpHandler
                 }
             }
         }
-        $this->commandPacker->post($this->ship, $cmd);
+        $this->ship->post($cmd);
     }
 
     private function sendData(Tour $tur, string $data, int $ofs, int $len, ?callable $lis)
@@ -255,6 +259,6 @@ class AjpWarpHandler extends AjpProtocolHandler implements WarpHandler
 
         $cmd = new CmdData($data, $ofs, $len);
         $cmd->toServer = true;
-        $this->commandPacker->post($this->ship, $cmd, $lis);
+        $this->ship->post($cmd, $lis);
     }
 }

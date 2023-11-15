@@ -6,6 +6,10 @@ use baykit\bayserver\util\StringUtil;
 
 class BcfElement extends BcfObject
 {
+    public $name;
+    public $arg;
+    public $contentList;
+
     public function __construct($name, $arg, $fileName, $lineNo)
     {
         parent::__construct($fileName, $lineNo);

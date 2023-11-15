@@ -20,6 +20,7 @@ class CGIStdOutYacht extends Yacht
     private $tmpBuf;
     private $curPos;
     private $headerReading;
+    private $handler;
 
     public function __construct()
     {
@@ -43,6 +44,7 @@ class CGIStdOutYacht extends Yacht
         $this->headerReading = true;
         $this->tmpBuf = "";
         $this->curPos = 0;
+        $this->handler = null;
     }
 
     ////////////////////////////////////////////////////////////////////
@@ -94,6 +96,7 @@ class CGIStdOutYacht extends Yacht
             $available = $this->tour->res->sendContent($this->tourId, $buf, 0, strlen($buf));
         }
 
+        $this->handler->access();
         if($available)
             return NextSocketAction::CONTINUE;
         else
@@ -114,7 +117,14 @@ class CGIStdOutYacht extends Yacht
 
     public function checkTimeout(int $durationSec): bool
     {
-        BayLog::warn("%s invalid timeout check", $this);
+        BayLog::debug("%s Check StdOut timeout: dur=%d, timeout=%d", $this, $durationSec, $this->timeout);
+
+        if($$this->handler->timedOut()) {
+            // Kill cgi process instead of handing timeout
+            BayLog::warn("%s Kill process!: %d", $this, $this->handler->process);
+            proc_terminate($this->handler->process, SIGKILL);
+            return true;
+        }
         return false;
     }
 
@@ -122,9 +132,10 @@ class CGIStdOutYacht extends Yacht
     // Custom methods
     ////////////////////////////////////////////////////////////////////
 
-    public function init(Tour $tur, Valve $vv) : void
+    public function init(Tour $tur, Valve $vv, CGIReqContentHandler $handler) : void
     {
         $this->initYacht();
+        $this->handler = $handler;
         $this->tour = $tur;
         $this->tourId = $tur->tourId;
         $this->tour->res->setConsumeListener(function ($len, $resume) use ($vv) {

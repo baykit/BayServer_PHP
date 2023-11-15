@@ -36,6 +36,7 @@ class TourRes implements Reusable {
     public $bytesConsumed;
     public $bytesLimit;
     public $resConsumeListener;
+    public $tourReturned;
 
     private $canCompress;
     private $compressor;
@@ -45,7 +46,7 @@ class TourRes implements Reusable {
     {
         $this->tour = $tur;
         $this->headers = new Headers();
-
+        $this->tourReturned = false;
     }
 
     public function __toString()
@@ -76,6 +77,7 @@ class TourRes implements Reusable {
         $this->resConsumeListener = null;
         $this->canCompress = false;
         $this->compressor = null;
+        $this->tourReturned = false;
     }
 
     public function charset() : ?string
@@ -122,11 +124,42 @@ class TourRes implements Reusable {
                 }
             }
         }
-        $this->tour->ship->sendHeaders($this->tour->shipId, $this->tour);
 
-        $this->headerSent = true;
+        try {
+            $this->tour->ship->sendHeaders($this->tour->shipId, $this->tour);
+        }
+        catch(IOException $e) {
+            BayLog::debug_e($e, "%s abort: %s", $this->tour, $e->getMessage());
+            $this->tour->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ABORTED);
+            throw $e;
+        }
+        finally {
+            $this->headerSent = true;
+        }
     }
 
+    public function sendRedirect($chkId, $status, $location) : void
+    {
+        $this->tour->checkTourId($chkId);
+
+        if($this->headerSent) {
+            BayLog.error("Try to redirect after response header is sent (Ignore)");
+        }
+        else {
+            $this->setConsumeListener(ContentConsumeListener::$devNull);
+            try {
+                $this->tour->ship->sendRedirect($this->tour->shipId, $this->tour, $status, $location);
+            }
+            catch(IOException $e) {
+                $this->tour->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ABORTED);
+                throw $e;
+            }
+            finally {
+                $this->headerSent = true;
+                $this->endContent($chkId);
+            }
+        }
+    }
 
     public function setConsumeListener(callable $listener) : void
     {
@@ -159,22 +192,31 @@ class TourRes implements Reusable {
         if ($this->resConsumeListener === null)
             throw new Sink("Response consume listener is null");
 
+        $this->bytesPosted += $len;
+        BayLog::debug("%s post res content len=%d posted=%d limit=%d consumed=%d",
+            $this->tour, $len, $this->bytesPosted, $this->bytesLimit, $this->bytesConsumed);
 
-        if ($this->canCompress) {
-            $this->getCompressor()->compress($buf, $ofs, $len, $consumed_cb);
-        } else {
-            try {
-                $this->tour->ship->sendResContent($this->tour->shipId, $this->tour, $buf, $ofs, $len, $consumed_cb);
+        if($this->tour->isZombie() || $this->tour->isAborted()) {
+            // Don't send peer any data. Do nothing
+            BayLog::debug("%s Aborted or zombie tour. do nothing: %s state=%s", $this, $this->tour, $tur->state);
+            $consumed_cb();
+        }
+        else {
+            if ($this->canCompress) {
+                $this->getCompressor()->compress($buf, $ofs, $len, $consumed_cb);
             }
-            catch(IOException $e) {
-                $consumed_cb();
-                throw $e;
+            else {
+                try {
+                    $this->tour->ship->sendResContent($this->tour->shipId, $this->tour, $buf, $ofs, $len, $consumed_cb);
+                }
+                catch(IOException $e) {
+                    $consumed_cb();
+                    $this->tour->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ABORTED);
+                    throw $e;
+                }
             }
         }
-        $this->bytesPosted += $len;
 
-        BayLog::debug("%s post res content len=%d posted=%d limit=%d consumed=%d",
-                $this->tour, $len, $this->bytesPosted, $this->bytesLimit, $this->bytesConsumed);
         if ($this->bytesLimit > 0 && $this->bytesPosted > $this->bytesLimit) {
             throw new ProtocolException("Post data exceed content-length: {$this->bytesPosted}/{$this->bytesLimit}");
         }
@@ -194,6 +236,11 @@ class TourRes implements Reusable {
 
         BayLog::debug("%s end ResContent", $this);
 
+        if ($this->tour->isEnded()) {
+            BayLog::debug("%s Tour is already ended (Ignore).", $this);
+            return;
+        }
+
         if (!$this->tour->isZombie() && $this->tour->city !== null)
             $this->tour->city->log($this->tour);
 
@@ -203,16 +250,34 @@ class TourRes implements Reusable {
         }
 
         // Callback
-        $callback = function () {
+        $callback = function () use ($checkId) {
+            $this->tour->checkTourId($checkId);
             $this->tour->ship->returnTour($this->tour);
+            $this->tourReturned = true;
         };
 
         try {
-            $this->tour->ship->sendEndTour($this->tour->shipId, $this->tour, $callback);
+            if($this->tour->isZombie() || $this->tour->isAborted()) {
+                // Don't send peer any data. Only return tour
+                BayLog::debug("%s Aborted or zombie tour. do nothing: %s state=%s", $this, $this->tour, $this->tour->state);
+                $callback();
+            }
+            else {
+                try {
+                    $this->tour->ship->sendEndTour($this->tour->shipId, $this->tour, $callback);
+                }
+                catch(IOException $e) {
+                    BayLog::debug("%s Error on sending end tour", $this);
+                    $callback();
+                    throw $e;
+                }
+            }
         }
-        catch(IOException $e) {
-            $callback();
-            throw $e;
+        finally {
+            BayLog::debug("%s Tour is returned: %s", $this, $this->tourReturned);
+            if (!$this->tourReturned) {
+                $this->tour->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ENDED);
+            }
         }
     }
 
@@ -242,7 +307,20 @@ class TourRes implements Reusable {
                 BayLog::error_e($e);
         } else {
             $this->setConsumeListener(function ($len, $resume) {});
-            $this->tour->ship->sendError($this->tour->shipId, $this->tour, $status, $message, $e);
+
+            if($this->tour->isZombie() || $this->tour->isAborted()) {
+                # Don't send peer any data
+                BayLog::debug("%s Aborted or zombie tour. do nothing: %s state=%s", $this, $this->tour, $this->tour->state);
+            }
+            else {
+                try {
+                    $this->tour->ship->sendError($this->tour->shipId, $this->tour, $status, $message, $e);
+                }
+                catch(IOException $e) {
+                    BayLog::error_e($e, "%s Error in sending error", $this);
+                    $this->tour->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ABORTED);
+                }
+            }
             $this->headerSent = true;
         }
         $this->endContent($checkId);

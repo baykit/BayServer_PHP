@@ -266,10 +266,17 @@ abstract class Transporter implements ChannelListener, Reusable, Valve, Postman
     public function onConnectable($chkCh) : int
     {
         $this->checkChannel($chkCh);
-        BayLog::trace("%s onConnectable (^o^)/: ch=%s", $this, $chkCh);
+        BayLog::debug("%s onConnectable (^o^)/: ch=%s", $this, $this->ch);
+
+        #$status = socket_get_status($this->ch);
+        #var_dump($status);
+        #$address = stream_socket_get_name($this->ch, true);
+        #if ($address === false)
+        #    BayLog::error("Connect Error: %s", SysUtil::lastSocketErrorMessage());
 
         # check connection by sending 0 bytes data.
         $success = stream_socket_sendto($this->ch, "");
+        BayLog::debug("%s write zero bytes success=%s", $this, $success);
         if ($success === false || $success == -1) {
             BayLog::error("Connect failed: %s", SysUtil::lastErrorMessage());
             return NextSocketAction::CLOSE;

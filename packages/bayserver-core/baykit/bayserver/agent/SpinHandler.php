@@ -23,7 +23,7 @@ class SpinHandler_ListenerInfo {
     }
 }
 
-class SpinHandler
+class SpinHandler implements TimerHandler
 {
     public $listeners = [];
     public $agent;
@@ -33,6 +33,7 @@ class SpinHandler
     {
         $this->agent = $agt;
         $this->spinCount = 0;
+        $this->agent->addTimerHandler($this);
     }
 
     public function __toString() : string
@@ -40,7 +41,17 @@ class SpinHandler
         return (string)$this->agent;
     }
 
+    //////////////////////////////////////////////////////
+    // Implements TimerHandler
+    //////////////////////////////////////////////////////
+    public function onTimer(): void
+    {
+        $this->stopTimeoutSpins();
+    }
 
+    //////////////////////////////////////////////////////
+    // Custom methods
+    //////////////////////////////////////////////////////
     public function processData() : bool
     {
         if (count($this->listeners) == 0)

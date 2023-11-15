@@ -44,13 +44,24 @@ class WarpData implements ReqContentHandler
             if($postLen > $maxLen) {
                 $postLen = $maxLen;
             }
+
             $turId = $tur->id();
+            $callback = function () use ($len, $turId, $tur) {
+                $tur->req->consumed($turId, $len);
+            };
+
+            if (!$this->started) {
+                # The buffer will become corrupted due to reuse.
+                $newBuf = $buf;
+                $buf = &$newBuf;
+            }
+
             $this->warpShip->warpHandler()->postWarpContents(
                 $tur,
                 $buf,
                 $start + $pos,
                 $postLen,
-                function () use ($len, $turId, $tur) { $tur->req->consumed($turId, $len); });
+                $callback);
         }
     }
 
@@ -75,6 +86,7 @@ class WarpData implements ReqContentHandler
         if(!$this->started) {
             $this->warpShip->protocolHandler->commandPacker->flush($this->warpShip);
             BayLog::debug("%s Start Warp tour", $this);
+            $this->warpShip->flush();
             $this->started = true;
         }
     }

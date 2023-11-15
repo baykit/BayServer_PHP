@@ -61,6 +61,7 @@ class GrandAgent
     public $pid;
     public $anchorable;
     public $unanchorableTransporters = [];
+    public $timerHandlers = [];
 
 
     public function __construct(
@@ -168,8 +169,9 @@ class GrandAgent
 
                 if (!$processed) {
                     # timeout check if there is nothing to do
-                    $this->nonBlockingHandler->closeTimeoutSockets();
-                    $this->spinHandler->stopTimeoutSpins();
+                    foreach ($this->timerHandlers as $h) {
+                        $h->onTimer();
+                    }
                 }
             }
         }
@@ -269,6 +271,16 @@ class GrandAgent
 
     public function clean() {
         $this->nonBlockingHandler->closeAll();
+    }
+
+    public function addTimerHandler($handler)
+    {
+        $this->timerHandlers[] = $handler;
+    }
+
+    public function removeTimerHandler($handler)
+    {
+        ArrayUtil::remove($handler, $this->timerHandlers);
     }
 
     ######################################################

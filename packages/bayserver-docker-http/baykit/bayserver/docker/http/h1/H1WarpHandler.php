@@ -289,17 +289,22 @@ class H1WarpHandler extends H1ProtocolHandler implements WarpHandler {
                 BayLog::info("%s warp_http reqHdr: %s=%s", $tur, $kv[0], $kv[1]);
         }
 
-        $this->commandPacker->post($this->ship, $cmd);
+        $this->ship->post($cmd);
     }
 
     public function postWarpContents(Tour $tur, string $buf, int $start, int $len, callable $lis): void
     {
         $cmd = new CmdContent($buf, $start, $len);
-        $this->commandPacker->post($this->ship, $cmd, $lis);
+        $this->ship->post($cmd, $lis);
      }
 
     public function postWarpEnd(Tour $tur): void
     {
+        $callback = function() {
+            $this->ship->agent->nonBlockingHandler->askToRead($this->ship->socket);
+        };
+
+        $this->ship->post(null, $callback);
     }
 
     public function verifyProtocol(string $protocol): void
