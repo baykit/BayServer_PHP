@@ -26,12 +26,16 @@ class CGIReqContentHandler implements ReqContentHandler
     public $stdErr = null;
     public $stdOutClosed;
     public $stdErrClosed;
+    public $lastAccess;
 
     public function __construct(CGIDocker $dkr, Tour $tur)
     {
         $this->cgiDocker = $dkr;
         $this->tour = $tur;
         $this->tourId = $tur->id();
+        $this->stdOutClosed = true;
+        $this->stdErrClosed = true;
+        $this->lastAccess = null;
     }
 
 
@@ -48,11 +52,13 @@ class CGIReqContentHandler implements ReqContentHandler
 
         BayLog::info("%s CGITask:onReadContent: wrote=%d", $tur, $wroteLen);
         $tur->req->consumed(Tour::TOUR_ID_NOCHECK, $len);
+        $this->access();
     }
 
     public function onEndContent(Tour $tur): void
     {
         BayLog::trace("%s CGITask:endReqContent", $tur);
+        $this->access();
     }
 
     public function onAbort(Tour $tur): bool
@@ -108,6 +114,7 @@ class CGIReqContentHandler implements ReqContentHandler
 
         $this->stdOutClosed = false;
         $this->stdErrClosed = $this->isStderrEnabled() ? false: true;
+        $this->access();
     }
 
 
@@ -135,18 +142,27 @@ class CGIReqContentHandler implements ReqContentHandler
             $this->processFinished();
     }
 
-    public function isStderrEnabled() {
+    public function isStderrEnabled() : bool {
         return $this->stdErr !== null;
+    }
+
+    public function access() : void {
+        $this->lastAccess = time();
+    }
+
+    public function timedOut() : bool
+    {
+        if($this->cgiDocker->timeoutSec <= 0)
+            return false;
+
+        $durationSec = time() - $this->lastAccess;
+        BayLog::debug("%s Check CGI timeout: dur=%d, timeout=%d", $this->tour, $durationSec, $this->cgiDocker->timeoutSec);
+        return $durationSec > $this->cgiDocker->timeoutSec;
     }
 
     private function processFinished() : void
     {
-/*        $ret = pcntl_waitpid($this->pid,$stat);
-        if($ret == -1 || $ret == 0)
-            BayLog::error("%s Cannot wait pid: %d (%s)", $this->tour, $this->pid, SysUtil::lastErrorMessage());
-
-        $code = pcntl_wexitstatus($stat);
-        BayLog::debug("%s CGI Process end: pid=%d code=%d", $this->tour, $this->pid, $code);*/
+        BayLog::debug("%s processFinished pid=%d", $this->tour, $this->pid);
 
         $code = proc_close($this->process);
 
@@ -163,8 +179,6 @@ class CGIReqContentHandler implements ReqContentHandler
         catch(IOException $e) {
             BayLog::error_e($e);
         }
-
     }
-
 }
 

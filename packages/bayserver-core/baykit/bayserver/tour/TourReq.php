@@ -150,38 +150,38 @@ class TourReq implements Reusable {
     public function postContent(int $checkId, string $data, int $start, int $len) : bool
     {
         $this->tour->checkTourId($checkId);
+
+        $dataPassed = false;
         if(!$this->tour->isRunning()) {
             BayLog::debug("%s tour is not running.", $this->tour);
-            return true;
         }
-
-        if ($this->tour->req->contentHandler === null) {
+        else if ($this->tour->req->contentHandler == null) {
             BayLog::warn("%s content read, but no content handler", $this->tour);
-            return true;
         }
-
-        if ($this->consumeListener === null) {
+        else if($this->consumeListener == null) {
             throw new Sink("Request consume listener is null");
         }
-
-        if ($this->bytesPosted + $len > $this->bytesLimit) {
+        else if ($this->bytesPosted + $len > $this->bytesLimit) {
             throw new ProtocolException(
                 BayMessage::get(
                     Symbol::HTTP_READ_DATA_EXCEEDED,
                     $this->bytesPosted + $len,
                     $this->bytesLimit));
         }
-
-        // If has error, only read content. (Do not call content handler)
-        if($this->tour->error === null)
+        else if($this->tour->error != null) {
+            // If has error, only read content. (Do not call content handler)
+            BayLog::debug("%s tour has error.", $this->tour);
+        }
+        else {
             $this->contentHandler->onReadContent($this->tour, $data, $start, $len);
+            $dataPassed = true;
+        }
 
         $this->bytesPosted += $len;
-
         BayLog::debug("%s read content: len=%d posted=%d limit=%d consumed=%d available=%b",
                 $this->tour, $len, $this->bytesPosted, $this->bytesLimit, $this->bytesConsumed, $this->available);
 
-        if($this->tour->error === null)
+        if(!$dataPassed)
             return true;
 
         $oldAvailable = $this->available;

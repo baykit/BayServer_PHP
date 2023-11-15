@@ -19,6 +19,7 @@ class WarpShip extends Ship
 
     public $connected;
     public $socketTimeoutSec;
+    public $cmdBuf = [];
 
 
     public function __toString() : string
@@ -36,6 +37,8 @@ class WarpShip extends Ship
         if(count($this->tourMap) != 0)
             BayLog::error("BUG: Some tours is active: %s", $this->tourMap);
         $this->connected = false;
+        $this->tourMap = [];
+        $this->cmdBuf = [];
     }
 
 
@@ -116,24 +119,6 @@ class WarpShip extends Ship
             return null;
     }
 
-    public function isTimeout(int $durationSec) : bool
-    {
-        $timeout = true;
-        if($this->keeping) {
-            // warp connection never timeout in keeping
-            $this->timeout = false;
-        }
-        elseif ($this->socketTimeoutSec <= 0)
-            $timeout = false;
-        else
-            $timeout = $durationSec >= $this->socketTimeoutSec;
-
-        BayLog::debug("%s Warp check timeout: dur=%d, timeout=%s, keeping=%s limit=%d",
-            $this, $durationSec, $timeout, $this->keeping, $this->socketTimeoutSec);
-        return $timeout;
-    }
-
-
     /////////////////////////////////////////////////
     // Private methods
     /////////////////////////////////////////////////
@@ -150,6 +135,9 @@ class WarpShip extends Ship
                 catch (IOException $e) {
                     BayLog::error_e($e);
                 }
+            }
+            else {
+                $tur->res->endContent(Tour::TOUR_ID_NOCHECK);
             }
         }
 
@@ -168,7 +156,47 @@ class WarpShip extends Ship
         $this->postman->abort();
     }
 
+    public function isTimeout(int $durationSec) : bool
+    {
+        $timeout = true;
+        if($this->keeping) {
+            // warp connection never timeout in keeping
+            $this->timeout = false;
+        }
+        elseif ($this->socketTimeoutSec <= 0)
+            $timeout = false;
+        else
+            $timeout = $durationSec >= $this->socketTimeoutSec;
 
+        BayLog::debug("%s Warp check timeout: dur=%d, timeout=%s, keeping=%s limit=%d",
+            $this, $durationSec, $timeout, $this->keeping, $this->socketTimeoutSec);
+        return $timeout;
+    }
 
+    public function post($cmd, $listener=null) : void
+    {
+        if(!$this->connected) {
+            $this->cmdBuf[] = [$cmd, $listener];
+        }
+        else if ($cmd == null) {
+            $listener();
+        }
+        else {
+            $this->protocolHandler->commandPacker->post($this, $cmd, $listener);
+        }
+    }
+
+    public function flush() : void
+    {
+        foreach($this->cmdBuf as $cmd_and_lis) {
+            $cmd = $cmd_and_lis[0];
+            $lis = $cmd_and_lis[1];
+            if($cmd == null)
+                $lis();
+            else
+                $this->protocolHandler->commandPacker->post($this, $cmd, $lis);
+        }
+        $this->cmdBuf = [];
+    }
 
 }

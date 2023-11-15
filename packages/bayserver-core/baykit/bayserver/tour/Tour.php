@@ -120,11 +120,14 @@ class Tour implements Reusable {
             try {
                 $this->city->enter($this);
             } catch (HttpException $e) {
+                $this->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ABORTED);
                 BayLog::error_e($e);
                 throw $e;
             } catch (Sink $e) {
+                $this->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ABORTED);
                 throw $e;
             } catch (\Exception $e) {
+                $this->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ABORTED);
                 BayLog::error_e($e);
                 throw new HttpException(HttpStatus::INTERNAL_SERVER_ERROR, $e->getMessage());
             }

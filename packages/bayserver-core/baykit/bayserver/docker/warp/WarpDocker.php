@@ -149,12 +149,13 @@ abstract class WarpDocker extends ClubBase
                 if($ch === false) {
                     throw new IOException("Connect failed: {$address}: {$error_message}({$error_code})");
                 }
+                stream_set_blocking($ch, false);
 
                 $tp = $this->newTransporter($agt, $ch);
                 $protoHnd = ProtocolHandlerStore::getStore($this->protocol(), false, $agt->agentId)->rent();
                 $wsip->initWarp($ch, $agt, $tp, $this, $protoHnd);
                 $tp->init($agt->nonBlockingHandler, $ch, new WarpDataListener($wsip));
-                BayLog::debug("%s init warp ship: %s", $wsip, $address);
+                BayLog::debug("%s init warp ship: addr=%s ch=%s", $wsip, $address, $ch);
                 $needConnect = true;
             }
 
@@ -164,7 +165,7 @@ abstract class WarpDocker extends ClubBase
 
             if($needConnect) {
                 $agt->nonBlockingHandler->addChannelListener($wsip->socket, $tp);
-                $agt->nonBlockingHandler->askToConnect($wsip->socket, $this->hostAddr);
+                $agt->nonBlockingHandler->askToConnect($wsip->socket, $address);
             }
          }
         catch(IOException $e) {

@@ -80,11 +80,11 @@ class InboundShip extends Ship
         return $this->portDocker;
     }
 
-    public function getTour(int $turKey, bool $force=false) : ?Tour
+    public function getTour(int $turKey, bool $force=false, bool $rent=true) : ?Tour
     {
         $storeKey = $this->uniqKey($this->shipId, $turKey);
         $tur = $this->tourStore->get($storeKey);
-        if ($tur === null) {
+        if ($tur === null && $rent) {
             $tur = $this->tourStore->rent($storeKey, $force);
             if($tur === null)
                 return null;
@@ -92,10 +92,6 @@ class InboundShip extends Ship
             $this->activeTours[] = $tur;
         }
 
-        if($tur->ship != $this)
-            throw new Sink();
-
-        $tur->checkTourId($tur->id());
         return $tur;
     }
 
@@ -161,14 +157,8 @@ class InboundShip extends Ship
             foreach ($this->portDocker()->additionalHeaders() as $nv) {
                 $tur->res->headers->add($nv[0], $nv[1]);
             }
-            try {
-                $this->protocolHandler->sendResHeaders($tur);
-            }
-            catch(IOException $e) {
-                BayLog::debug_e($e, "%s abort: %s", $tur, $e->getMessage());
-                $tur->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ABORTED);
-                throw $e;
-            }
+
+            $this->protocolHandler->sendResHeaders($tur);
         }
     }
 
@@ -189,15 +179,6 @@ class InboundShip extends Ship
     public function sendResContent(int $chkId, Tour $tur, string $bytes, int $ofs, int $len, ?callable $callback) : void
     {
         $this->checkShipId($chkId);
-
-        if($tur->isZombie() || $tur->isAborted()) {
-            // Don't send peer any data. Do nothing
-            BayLog::debug("%s Aborted or zombie tour. do nothing: %s state=%s", $this, $tur, $tur->state);
-            $tur->changeState(Tour::TOUR_ID_NOCHECK, TourState::ENDED);
-            if($callback != null)
-                $callback();
-            return;
-        }
 
         $maxLen = $this->protocolHandler->maxResPacketDataSize();
         if($len > $maxLen) {
@@ -221,34 +202,23 @@ class InboundShip extends Ship
 
         BayLog::debug("%s sendEndTour: %s state=%s", $this, $tur, $tur->state);
 
-        if($tur->isZombie() || $tur->isAborted()) {
-            // Don't send peer any data. Only return tour
-            BayLog::debug("%s Aborted or zombie tour. do nothing: %s state=%s", $this, $tur, $tur->state);
-            $tur->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ENDED);
-            $callback();
+        if(!$tur->isValid()) {
+            throw new Sink("Tour is not valid");
         }
-        else {
-            if(!$tur->isValid()) {
-                throw new Sink("Tour is not valid");
+        $keepAlive = false;
+        if ($tur->req->headers->getConnection() == Headers::CONNECTION_KEEP_ALIVE)
+            $keepAlive = true;
+        if($keepAlive) {
+            $resConn = $tur->res->headers->getConnection();
+            $keepAlive = ($resConn == Headers::CONNECTION_KEEP_ALIVE)
+                || ($resConn == Headers::CONNECTION_UNKOWN);
+            if ($keepAlive) {
+                if ($tur->res->headers->contentLength() < 0)
+                    $keepAlive = false;
             }
-            $keepAlive = false;
-            if ($tur->req->headers->getConnection() == Headers::CONNECTION_KEEP_ALIVE)
-                $keepAlive = true;
-            if($keepAlive) {
-                $resConn = $tur->res->headers->getConnection();
-                $keepAlive = ($resConn == Headers::CONNECTION_KEEP_ALIVE)
-                    || ($resConn == Headers::CONNECTION_UNKOWN);
-                if ($keepAlive) {
-                    if ($tur->res->headers->contentLength() < 0)
-                        $keepAlive = false;
-                }
-            }
-
-            //BayLog.trace("%s sendEndTour: set running false: %s id=%d", this, tur, chkTourId);
-            $tur->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ENDED);
-
-            $this->protocolHandler->sendEndTour($tur, $keepAlive, $callback);;
         }
+
+        $this->protocolHandler->sendEndTour($tur, $keepAlive, $callback);;
     }
 
     public function sendError(int $chkId, Tour $tour, int $status, String $message, ?\Throwable $e) : void

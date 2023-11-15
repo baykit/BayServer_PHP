@@ -21,6 +21,7 @@ use baykit\bayserver\Symbol;
 use baykit\bayserver\tour\Tour;
 use baykit\bayserver\util\CGIUtil;
 use baykit\bayserver\util\HttpStatus;
+use baykit\bayserver\util\IOException;
 use baykit\bayserver\util\StringUtil;
 use baykit\bayserver\util\SysUtil;
 
@@ -28,7 +29,7 @@ class CGIDocker extends ClubBase
 {
 
     const DEFAULT_PROC_READ_METHOD = Harbor::FILE_SEND_METHOD_SELECT;
-    const DEFAULT_TIMEOUT_SEC = 60;
+    const DEFAULT_TIMEOUT_SEC = 0;
 
     public $interpreter;
     public $scriptBase;
@@ -45,14 +46,16 @@ class CGIDocker extends ClubBase
     {
         parent::init($elm, $parent);
 
-        if($this->procReadMethod == Harbor::FILE_SEND_METHOD_SELECT && !SysUtil::supportSelectPipe()) {
-            BayLog::warn(ConfigException::createMessage(CGIMessage::get(CGISymbol::CGI_PROC_READ_METHOD_SELECT_NOT_SUPPORTED), $elm->fileName, $elm->lineNo));
-            $this->procReadMethod = Harbor::FILE_SEND_METHOD_TAXI;
+        if($this->procReadMethod == Harbor::FILE_SEND_METHOD_TAXI) {
+            $this->procReadMethod = Harbor::FILE_SEND_METHOD_SELECT;
+        }
+        else if($this->procReadMethod == Harbor::FILE_SEND_METHOD_SPIN && !SysUtil::supportNonblockPipeRead()) {
+            BayLog::warn(ConfigException::createMessage(CGIMessage::get(CGISymbol::CGI_PROC_READ_METHOD_SPIN_NOT_SUPPORTED), $elm->fileName, $elm->lineNo));
+            $this->procReadMethod = Harbor::FILE_SEND_METHOD_SELECT;
         }
 
-        if($this->procReadMethod == Harbor::FILE_SEND_METHOD_SPIN && !SysUtil::supportNonblockPipeRead()) {
-            BayLog::warn(ConfigException::createMessage(CGIMessage::get(CGISymbol::CGI_PROC_READ_METHOD_SPIN_NOT_SUPPORTED), $elm->fileName, $elm->lineNo));
-            $this->procReadMethod = Harbor::FILE_SEND_METHOD_TAXI;
+        if($this->procReadMethod == Harbor::FILE_SEND_METHOD_SELECT && !SysUtil::supportSelectPipe()) {
+            BayLog::warn(ConfigException::createMessage(CGIMessage::get(CGISymbol::CGI_PROC_READ_METHOD_SELECT_NOT_SUPPORTED), $elm->fileName, $elm->lineNo));
         }
     }
 
@@ -159,14 +162,14 @@ class CGIDocker extends ClubBase
                 stream_set_blocking($handler->stdOut, false);
 
                 $outTp = new PlainTransporter(false, $bufsize);
-                $outYat->init($tur, $outTp);
+                $outYat->init($tur, $outTp, $handler);
                 $outTp->init($tur->ship->agent->nonBlockingHandler, $handler->stdOut, $outYat);
                 $outTp->openValve();
 
                 if($handler->isStderrEnabled()) {
                     stream_set_blocking($handler->stdErr, false);
                     $errTp = new PlainTransporter(false, $bufsize);
-                    $errYat->init($tur);
+                    $errYat->init($tur, $handler);
                     $errTp->init($tur->ship->agent->nonBlockingHandler, $handler->stdErr, $errYat);
                     $errTp->openValve();
                 }
@@ -177,19 +180,19 @@ class CGIDocker extends ClubBase
                 stream_set_blocking($handler->stdErr, false);
 
                 $outTp = new SpinReadTransporter($bufsize);
-                $outYat->init($tur, $outTp);
-                $outTp->init($tur->ship->agent->spinHandler, $outYat, $handler->stdOut, -1, $this->timeoutSec, nil);
+                $outYat->init($tur, $outTp, $handler);
+                $outTp->init($tur->ship->agent->spinHandler, $outYat, $handler->stdOut, -1, $this->timeoutSec, null);
                 $outTp->openValve();
 
                 $errTp = new SpinReadTransporter($bufsize);
-                $errYat->init($tur);
-                $errTp->init($tur->ship->agent->spinHandler, $errYat, $handler->stdErr, -1, $this->timeoutSec, nil);
+                $errYat->init($tur, $handler);
+                $errTp->init($tur->ship->agent->spinHandler, $errYat, $handler->stdErr, -1, $this->timeoutSec, null);
                 $errTp->openValve();
                 break;
             }
 
             case Harbor::FILE_SEND_METHOD_TAXI:
-                throw new Sink();
+                throw new IOException("Taxi not supported");
         }
 
     }

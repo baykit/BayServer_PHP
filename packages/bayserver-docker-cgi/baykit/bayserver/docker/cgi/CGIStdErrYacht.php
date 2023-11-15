@@ -33,6 +33,7 @@ class CGIStdErrYacht extends Yacht
     {
         $this->tourId = 0;
         $this->tour = null;
+        $this->handler = null;
     }
 
     ////////////////////////////////////////////////////////////////////
@@ -45,6 +46,7 @@ class CGIStdErrYacht extends Yacht
         if(strlen($buf) > 0)
             BayLog::error("CGI Stderr: %s", $buf);
 
+        $this->handler->access();
         return NextSocketAction::CONTINUE;
     }
 
@@ -62,18 +64,19 @@ class CGIStdErrYacht extends Yacht
 
     public function checkTimeout(int $durationSec): bool
     {
-        BayLog::warn("%s invalid timeout check", $this);
-        return false;
+        BayLog::debug("%s Check StdErr timeout: dur=%d", $this, $durationSec);
+        return $this->handler->timedOut();
     }
 
     ////////////////////////////////////////////////////////////////////
     // Custom methods
     ////////////////////////////////////////////////////////////////////
 
-    public function init(Tour $tur) : void
+    public function init(Tour $tur, CGIReqContentHandler $handler) : void
     {
         $this->initYacht();
         $this->tour = $tur;
         $this->tourId = $tur->tourId;
+        $this->handler = $handler;
     }
 }
