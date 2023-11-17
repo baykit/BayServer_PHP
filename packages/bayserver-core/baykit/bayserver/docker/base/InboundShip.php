@@ -100,7 +100,7 @@ class InboundShip extends Ship
         $turKey = InboundShip::$errCounter->next();
         $storeKey = $this->uniqKey($this->shipId, -$turKey);
         $tur = $this->tourStore->rent($storeKey,true);
-        $tur.init(-$turKey, $this);
+        $tur->init(-$turKey, $this);
         $this->activeTours[] = $tur;
         return $tur;
     }

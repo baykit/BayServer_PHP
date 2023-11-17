@@ -29,7 +29,7 @@ class CmdGoAway extends H2Command
     public $errorCode;
     public $debugData;
 
-    public function __construct(int $streamId, H2Flags $flags)
+    public function __construct(int $streamId, H2Flags $flags=null)
     {
         parent::__construct(H2Type::GOAWAY, $streamId, $flags);
     }
