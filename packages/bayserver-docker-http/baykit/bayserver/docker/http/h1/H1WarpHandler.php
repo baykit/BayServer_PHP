@@ -184,7 +184,7 @@ class H1WarpHandler extends H1ProtocolHandler implements WarpHandler {
             $sid = $this->ship->id();
             $tur->res->setConsumeListener(function ($len, $resume) use ($sid) {
                 if($resume) {
-                    $this->wsip->resume($sid);
+                    $this->ship->resume($sid);
                 }
             });
         }
