@@ -1,5 +1,9 @@
 # BayServer for PHP
 
+# 2.3.1
+
+- [core][http] Fixes some bugs
+
 # 2.3.0
 
 - [CGI] Supports "timeout" parameter. (The timed-out CGI processes are killed)
