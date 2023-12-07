@@ -1,7 +1,7 @@
 {
     "name": "baykit/bayserver",
     "description": "One of the fastest web server",
-    "version": "2.3.0",
+    "version": "2.3.1",
     "require": {
     },
     "autoload": {
