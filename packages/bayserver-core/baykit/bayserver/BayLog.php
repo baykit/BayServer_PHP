@@ -67,7 +67,7 @@ class BayLog {
         BayLog::log(BayLog::LOG_LEVEL_DEBUG, 3, null, $fmt, $args);
     }
 
-    public static function debug_e(\Throwable $err, string $fmt, ...$args) : void
+    public static function debug_e(\Throwable $err, string $fmt=null, ...$args) : void
     {
         BayLog::log(BayLog::LOG_LEVEL_DEBUG, 3, $err, $fmt, $args);
     }
