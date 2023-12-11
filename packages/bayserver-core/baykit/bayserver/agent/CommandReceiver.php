@@ -39,7 +39,7 @@ class CommandReceiver
                         $this->agent->printUsage();
                         break;
                     case GrandAgent::CMD_SHUTDOWN:
-                        $this->agent->shutdown();
+                        $this->agent->reqShutdown();
                         $this->aborted = true;
                         break;
                     case GrandAgent::CMD_ABORT:

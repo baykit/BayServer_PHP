@@ -6,6 +6,7 @@ use baykit\bayserver\agent\LifecycleListener;
 use baykit\bayserver\agent\NextSocketAction;
 use baykit\bayserver\BayLog;
 use baykit\bayserver\Sink;
+use baykit\bayserver\util\IOException;
 use baykit\bayserver\util\Valve;
 use baykit\bayserver\watercraft\Yacht;
 
@@ -63,7 +64,12 @@ class SendFileYacht extends Yacht
     public function notifyEof(): int
     {
         BayLog::debug("%s EOF(^o^) %s", $this, $this->file_name);
-        $this->tour->res->endContent($this->tourId);
+        try {
+            $this->tour->res->endContent($this->tourId);
+        }
+        catch(IOException $e) {
+            BayLog::debug_e($e);
+        }
         return NextSocketAction::CLOSE;
     }
 

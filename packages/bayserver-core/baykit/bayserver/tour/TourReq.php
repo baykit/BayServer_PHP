@@ -236,23 +236,25 @@ class TourReq implements Reusable {
 
     public function abort() : bool
     {
-        if (!$this->tour->isPreparing()) {
-            BayLog::debug("%s cannot abort non-preparing tour", $this->tour);
+        BayLog::debug("%s abort", $this->tour);
+        if ($this->tour->isPreparing()) {
+            $this->tour->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ABORTED);
+            return true;
+        }
+        elseif ($this->tour->isRunning()) {
+            $aborted = true;
+            if ($this->contentHandler != null)
+                $aborted = $this->contentHandler->onAbort($this->tour);
+
+            if($aborted)
+                $this->tour->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ABORTED);
+
+            return $aborted;
+        }
+        else {
+            BayLog::debug("%s tour is not preparing or not running", $this->tour);
             return false;
         }
-
-        BayLog::debug("%s abort", $this->tour);
-        if ($this->tour->isAborted())
-            throw new Sink("tour already aborted");
-
-        $aborted = true;
-        if ($this->tour->isRunning() && $this->contentHandler != null)
-            $aborted = $this->contentHandler->onAbort($this->tour);
-
-        if($aborted)
-            $this->tour->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ABORTED);
-
-        return $aborted;
     }
 
 

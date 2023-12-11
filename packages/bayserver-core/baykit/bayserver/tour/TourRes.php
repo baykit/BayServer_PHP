@@ -36,7 +36,6 @@ class TourRes implements Reusable {
     public $bytesConsumed;
     public $bytesLimit;
     public $resConsumeListener;
-    public $tourReturned;
 
     private $canCompress;
     private $compressor;
@@ -46,7 +45,6 @@ class TourRes implements Reusable {
     {
         $this->tour = $tur;
         $this->headers = new Headers();
-        $this->tourReturned = false;
     }
 
     public function __toString()
@@ -77,7 +75,6 @@ class TourRes implements Reusable {
         $this->resConsumeListener = null;
         $this->canCompress = false;
         $this->compressor = null;
-        $this->tourReturned = false;
     }
 
     public function charset() : ?string
@@ -250,10 +247,11 @@ class TourRes implements Reusable {
         }
 
         // Callback
-        $callback = function () use ($checkId) {
+        $tourReturned = false;
+        $callback = function () use ($checkId, &$tourReturned) {
             $this->tour->checkTourId($checkId);
             $this->tour->ship->returnTour($this->tour);
-            $this->tourReturned = true;
+            $tourReturned = true;
         };
 
         try {
@@ -274,8 +272,10 @@ class TourRes implements Reusable {
             }
         }
         finally {
-            BayLog::debug("%s Tour is returned: %s", $this, $this->tourReturned);
-            if (!$this->tourReturned) {
+            // If tour is returned, we cannot change its state because
+            // it will become uninitialized.
+            BayLog::debug("%s Tour is returned: %s", $this, $tourReturned);
+            if (!$tourReturned) {
                 $this->tour->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ENDED);
             }
         }
@@ -301,8 +301,8 @@ class TourRes implements Reusable {
             return;
 
         if ($this->headerSent) {
-            BayLog::warn("Try to send error after response header is sent (Ignore)");
-            BayLog::warn("%s: status=%d, message=%s", $this, $status, $message);
+            BayLog::debug("Try to send error after response header is sent (Ignore)");
+            BayLog::debug("%s: status=%d, message=%s", $this, $status, $message);
             if ($e !== null)
                 BayLog::error_e($e);
         } else {

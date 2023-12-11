@@ -138,7 +138,7 @@ class GrandAgent
 
                 if ($this->aborted) {
                     // agent finished
-                    BayLog::debug("%s End loop", $this);
+                    BayLog::debug("%s aborted by another thread", $this);
                     break;
                 }
 
@@ -148,6 +148,12 @@ class GrandAgent
                     $selkeys = $this->selector->select($this->selectTimeoutSec);
 
                 $processed = $this->nonBlockingHandler->registerChannelOps() > 0;
+
+                if ($this->aborted) {
+                    // agent finished
+                    BayLog::debug("%s aborted by another thread", $this);
+                    break;
+                }
 
                 if (count($selkeys) == 0)
                     $processed |= $this->spinHandler->processData();
@@ -177,6 +183,7 @@ class GrandAgent
         }
         catch (\Throwable $e) {
             BayLog::fatal_e($e, "%s fatal error", $this);
+            $this->shutdown();
         }
         finally {
             BayLog::debug("Agent end: %d", $this->agentId);
@@ -191,14 +198,6 @@ class GrandAgent
         if ($this->acceptHandler) {
             $this->acceptHandler->shutdown();
         }
-        $this->abort(null, 0);
-
-    }
-
-    public function abort(\Exception $err=null, int $status=1) : void
-    {
-        if($err)
-            BayLog::fatal_e($err, "%s abort", $this);
 
         $this->commandReceiver->end();
         foreach (GrandAgent::$listeners as $lis) {
@@ -212,12 +211,21 @@ class GrandAgent
                 return $item->agentId != $this->agentId;
             });
 
+        $this->clean();
         if(BayServer::$harbor->multiCore) {
             exit(1);
         }
-        else {
-            $this->clean();
-        }
+    }
+
+    public function abort() : void
+    {
+        BayLog::info("%s abort", $this);
+    }
+
+    public function reqShutdown() : void
+    {
+        $this->aborted = true;
+        $this->wakeup();
     }
 
     public function reloadCert() : void

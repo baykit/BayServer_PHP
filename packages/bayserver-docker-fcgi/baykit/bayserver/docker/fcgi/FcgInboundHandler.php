@@ -149,7 +149,6 @@ class FcgInboundHandler extends FcgProtocolHandler implements InboundHandler
             BayLog::error(BayMessage::get(Symbol::INT_NO_MORE_TOURS));
             $tur = $this->ship->getTour($cmd->reqId, true);
             $tur->res->sendError(Tour::TOUR_ID_NOCHECK, HttpStatus::SERVICE_UNAVAILABLE, "No available tours");
-            $this->ship->agent->shutdown();
             return NextSocketAction::CONTINUE;
         }
 

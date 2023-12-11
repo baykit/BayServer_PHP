@@ -134,7 +134,6 @@ class AjpInboundHandler extends AjpProtocolHandler implements InboundHandler
             $tur = $this->ship->getTour(self::DUMMY_KEY, true);
             $tur->res->sendError(Tour::TOUR_ID_NOCHECK, HttpStatus::SERVICE_UNAVAILABLE, "No available tours");
             $tur->res->endContent(Tour::TOUR_ID_NOCHECK);
-            $this->ship->agent.shutdown();
             return NextSocketAction::CONTINUE;
         }
 
