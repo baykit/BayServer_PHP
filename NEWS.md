@@ -1,5 +1,10 @@
 # BayServer for PHP
 
+# 2.3.2
+
+- [core] Addresses potential issues arising from I/O errors.
+- [core] Fixes the issue encountered when aborting GrandAgent.
+
 # 2.3.1
 
 - [core][http] Fixes some bugs
