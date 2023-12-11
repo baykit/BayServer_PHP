@@ -105,6 +105,9 @@ class Tour implements Reusable {
         BayLog::debug("%s initialized", $this);
     }
 
+    /**
+     * @throws HttpException
+     */
     public function go() : void
     {
         $this->changeState(Tour::TOUR_ID_NOCHECK, self::STATE_RUNNING);
@@ -121,15 +124,7 @@ class Tour implements Reusable {
                 $this->city->enter($this);
             } catch (HttpException $e) {
                 $this->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ABORTED);
-                BayLog::error_e($e);
                 throw $e;
-            } catch (Sink $e) {
-                $this->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ABORTED);
-                throw $e;
-            } catch (\Exception $e) {
-                $this->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ABORTED);
-                BayLog::error_e($e);
-                throw new HttpException(HttpStatus::INTERNAL_SERVER_ERROR, $e->getMessage());
             }
         }
     }

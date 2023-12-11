@@ -119,7 +119,7 @@ class CGIStdOutYacht extends Yacht
     {
         BayLog::debug("%s Check StdOut timeout: dur=%d, timeout=%d", $this, $durationSec, $this->timeout);
 
-        if($$this->handler->timedOut()) {
+        if($this->handler->timedOut()) {
             // Kill cgi process instead of handing timeout
             BayLog::warn("%s Kill process!: %d", $this, $this->handler->process);
             proc_terminate($this->handler->process, SIGKILL);
