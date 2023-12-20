@@ -112,7 +112,7 @@ class CGIStdOutYacht extends Yacht
     public function notifyClose(): void
     {
         BayLog::debug("%s CGI StdOut: notifyClose", $this);
-        $this->tour->req->contentHandler->stdOutClosed();
+        $this->handler->stdOutClosed();
     }
 
     public function checkTimeout(int $durationSec): bool

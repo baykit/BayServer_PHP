@@ -59,7 +59,7 @@ class CGIStdErrYacht extends Yacht
     public function notifyClose(): void
     {
         BayLog::debug("%s CGI StdErr: notifyClose", $this);
-        $this->tour->req->contentHandler->stdErrClosed();
+        $this->handler->stdErrClosed();
     }
 
     public function checkTimeout(int $durationSec): bool
