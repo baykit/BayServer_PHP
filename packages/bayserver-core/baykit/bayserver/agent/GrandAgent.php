@@ -200,6 +200,8 @@ class GrandAgent
         }
 
         $this->commandReceiver->end();
+        $this->clean();
+
         foreach (GrandAgent::$listeners as $lis) {
             $lis->remove($this->agentId);
         }
@@ -211,7 +213,6 @@ class GrandAgent
                 return $item->agentId != $this->agentId;
             });
 
-        $this->clean();
         if(BayServer::$harbor->multiCore) {
             exit(1);
         }
