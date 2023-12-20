@@ -372,7 +372,12 @@ class NonBlockingHandler implements TimerHandler
     public function closeAll() {
 
         foreach($this->channelMap as $st) {
-            $this->closeChannel($st->channel, $st);
+            try {
+                $this->closeChannel($st->channel, $st);
+            }
+            catch(\Error $e) {
+                BayLog::error_e($e, "Close channel failed (Ignore): %s", $st->channel);
+            }
         }
     }
 
