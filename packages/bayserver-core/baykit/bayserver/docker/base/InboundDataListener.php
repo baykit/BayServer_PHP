@@ -69,7 +69,7 @@ class InboundDataListener implements DataListener
         if(!count($this->ship->activeTours) == 0) {
             // cannot close because there are some running tours
             BayLog::debug($this . " cannot end ship because there are some running tours (ignore)");
-            $this->needEnd = true;
+            $this->ship->needEnd = true;
         }
         else {
             $this->ship->endShip();
