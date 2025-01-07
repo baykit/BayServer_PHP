@@ -8,16 +8,18 @@ use baykit\bayserver\protocol\CommandPacker;
 use baykit\bayserver\protocol\PacketPacker;
 use baykit\bayserver\protocol\ProtocolHandler;
 
-abstract class AjpProtocolHandler extends ProtocolHandler implements AjpCommandHandler
+class AjpProtocolHandler extends ProtocolHandler
 {
 
-    public function __construct($pktStore, $svrMode)
+    public function __construct(
+                        AjpHandler $ajpHandler,
+                        AjpPacketUnpacker $packetUnpacker,
+                        PacketPacker $packetPacker,
+                        AjpCommandUnpacker $commandUnpacker,
+                        CommandPacker $commandPacker,
+                        bool $svrMode)
     {
-        $this->commandUnpacker = new AjpCommandUnPacker($this);
-        $this->packetUnpacker = new AjpPacketUnPacker($pktStore, $this->commandUnpacker);
-        $this->packetPacker = new PacketPacker();
-        $this->commandPacker = new CommandPacker($this->packetPacker, $pktStore);
-        $this->serverMode = $svrMode;
+        parent::__construct($packetUnpacker, $packetPacker, $commandUnpacker, $commandPacker, $ajpHandler, $svrMode);
     }
 
     /////////////////////////////////////////////

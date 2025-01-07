@@ -123,15 +123,15 @@ class CmdForwardRequest extends AjpCommand
         return -1;
     }
 
-    public $method;
-    public $protocol;
-    public $reqUri;
-    public $remoteAddr;
-    public $remoteHost;
-    public $serverName;
-    public $serverPort;
-    public $isSsl;
-    public $headers;
+    public string $method;
+    public ?string $protocol;
+    public string $reqUri;
+    public string $remoteAddr;
+    public string $remoteHost;
+    public string $serverName;
+    public string $serverPort;
+    public string $isSsl;
+    public Headers $headers;
     public $attributes = [];
 
     public function __construct()

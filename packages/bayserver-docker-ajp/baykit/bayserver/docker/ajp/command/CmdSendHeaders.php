@@ -71,6 +71,7 @@ class CmdSendHeaders extends AjpCommand
         $acc = $pkt->newAjpDataAccessor();
         $acc->putByte($this->type);
         $acc->putShort($this->status);
+        $acc->putString(HttpStatus::description($this->status));
 
         $count = 0;
         foreach($this->headers as $name => $values) {
@@ -78,9 +79,12 @@ class CmdSendHeaders extends AjpCommand
         }
 
         $acc->putShort($count);
-        foreach(array_keys($this->headers) as $name => $values) {
-            $code = self::$wellKnownHeaders[strtolower($name)];
+        foreach($this->headers as $name => $values) {
+            $code = null;
+            if(array_key_exists($name, self::$wellKnownHeaders))
+                $code = self::$wellKnownHeaders[strtolower($name)];
             foreach ($values as $value) {
+                BayLog::debug("name=%s value=%s code=%s", $name, $value, $code);
                 if ($code != null) {
                     $acc->putShort($code);
                 } else {

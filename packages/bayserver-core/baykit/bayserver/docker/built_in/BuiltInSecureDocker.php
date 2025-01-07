@@ -4,13 +4,15 @@ namespace baykit\bayserver\docker\built_in;
 
 
 
-use baykit\bayserver\BayServer;
+use baykit\bayserver\agent\GrandAgent;
+use baykit\bayserver\agent\multiplexer\SecureTransporter;
 use baykit\bayserver\BayLog;
-use baykit\bayserver\agent\transporter\SecureTransporter;
-use baykit\bayserver\agent\transporter\Transporter;
+use baykit\bayserver\BayServer;
+use baykit\bayserver\common\Transporter;
 use baykit\bayserver\ConfigException;
 use baykit\bayserver\docker\base\DockerBase;
 use baykit\bayserver\docker\Secure;
+use baykit\bayserver\ship\Ship;
 use baykit\bayserver\util\IOException;
 use baykit\bayserver\util\StringUtil;
 
@@ -112,9 +114,19 @@ class BuiltInSecureDocker extends DockerBase implements  Secure  {
         stream_context_set_option($this->sslctx, 'ssl', 'alpn_protocols', $protocols);
     }
 
-    public function createTransporter(int $bufsize) : Transporter
+    public function newTransporter(int $agtId, Ship $sip, int $bufsiz) : Transporter
     {
-        return new SecureTransporter($this->sslctx, true, $bufsize, $this->traceSsl);
+        $agt = GrandAgent::get($agtId);
+        $tp = new SecureTransporter(
+            $agt->netMultiplexer,
+            $sip,
+            true,
+            $bufsiz,
+            $this->traceSsl,
+            $this->sslctx);
+
+        $tp->init();
+        return $tp;
     }
 
     public function reloadCert() : void

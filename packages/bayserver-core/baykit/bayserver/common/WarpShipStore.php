@@ -1,8 +1,9 @@
 <?php
-namespace baykit\bayserver\docker\warp;
+namespace baykit\bayserver\common;
 
 
 use baykit\bayserver\BayLog;
+use baykit\bayserver\docker\warp\wsip;
 use baykit\bayserver\Sink;
 use baykit\bayserver\util\ArrayUtil;
 use baykit\bayserver\util\ObjectStore;
@@ -43,8 +44,6 @@ class WarpShipStore extends ObjectStore
 
         if($wsip == null)
             throw new Sink("BUG! ship is null");
-        if($wsip->postman != null && $wsip->postman->isZombie())
-            throw new Sink("BUG! channel is zombie: " . $wsip);
         $this->busyList[] = $wsip;
 
         //BayLog::debug("rent: after freeList=%s busyList=%s", ArrayUtil::toString($this->keepList), ArrayUtil::toString($this->busyList));
@@ -57,8 +56,8 @@ class WarpShipStore extends ObjectStore
      */
     public function keep(WarpShip $wsip) : void
     {
-        //BayLog::debug("keep: before freeList=%s busyList=%s", ArrayUtil::toString($this->keepList), ArrayUtil::toString($this->busyList));
-        if(!in_array($wsip, $this->busyList))
+        #BayLog::debug("keep: before freeList=%s busyList=%s", ArrayUtil::toString($this->keepList), ArrayUtil::toString($this->busyList));
+        if(!in_array($wsip, $this->busyList, true))
             BayLog::error("BUG: %s not in busy list",$wsip);
         else
             ArrayUtil::remove($wsip, $this->busyList);
@@ -72,15 +71,15 @@ class WarpShipStore extends ObjectStore
      */
     public function Return(object $wsip, $reuse=true) : void
     {
-        //BayLog::debug("Return: before freeList=%s busyList=%s", ArrayUtil::toString($this->keepList), ArrayUtil::toString($this->busyList));
+        #BayLog::debug("Return: before freeList=%s busyList=%s", ArrayUtil::toString($this->keepList), ArrayUtil::toString($this->busyList));
         $removedFromFree = false;
-        if(in_array($wsip, $this->keepList)) {
+        if(in_array($wsip, $this->keepList, true)) {
             ArrayUtil::remove($wsip, $this->keepList);
             $removedFromFree = true;
         }
 
         $removedFromBusy = false;
-        if(in_array($wsip, $this->busyList)) {
+        if(in_array($wsip, $this->busyList, true)) {
             ArrayUtil::remove($wsip, $this->busyList);
             $removedFromBusy = true;
         }

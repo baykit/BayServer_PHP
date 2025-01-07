@@ -6,38 +6,50 @@ namespace baykit\bayserver\docker\fcgi;
 use baykit\bayserver\agent\NextSocketAction;
 use baykit\bayserver\BayLog;
 use baykit\bayserver\BayServer;
+use baykit\bayserver\common\WarpData;
+use baykit\bayserver\common\WarpHandler;
+use baykit\bayserver\common\WarpShip;
 use baykit\bayserver\docker\fcgi\command\CmdBeginRequest;
 use baykit\bayserver\docker\fcgi\command\CmdEndRequest;
 use baykit\bayserver\docker\fcgi\command\CmdParams;
 use baykit\bayserver\docker\fcgi\command\CmdStdErr;
 use baykit\bayserver\docker\fcgi\command\CmdStdIn;
 use baykit\bayserver\docker\fcgi\command\CmdStdOut;
-use baykit\bayserver\docker\warp\WarpData;
-use baykit\bayserver\docker\warp\WarpHandler;
 use baykit\bayserver\protocol\ProtocolException;
 use baykit\bayserver\Sink;
 use baykit\bayserver\tour\Tour;
 use baykit\bayserver\util\CGIUtil;
+use baykit\bayserver\util\ClassUtil;
 use baykit\bayserver\util\Headers;
 use baykit\bayserver\util\IOException;
 use baykit\bayserver\util\StringUtil;
 
-class FcgWarpHandler extends FcgProtocolHandler implements WarpHandler
+class FcgWarpHandler implements WarpHandler, FcgHandler
 {
     const STATE_READ_HEADER = 1;
     const STATE_READ_CONTENT = 2;
 
-    private $state;
-    private $curWarpId;
-    private $lineBuf = "";
-    private $pos;
-    private $last;
-    private $data;
+    private FcgProtocolHandler $protocolHandler;
+    private int $state;
+    private int $curWarpId = 0;
+    private string $lineBuf = "";
+    private int $pos;
+    private int $last;
+    private ?string $data = null;
 
-    public function __construct($pktStore)
+    public function __construct()
     {
-        parent::__construct($pktStore, true);
         $this->resetState();
+    }
+
+    public function init(FcgProtocolHandler $hnd): void
+    {
+        $this->protocolHandler = $hnd;
+    }
+
+    public function __toString(): string
+    {
+        return ClassUtil::localName(get_class($this));
     }
 
     ///////////////////////////////////////////
@@ -46,7 +58,6 @@ class FcgWarpHandler extends FcgProtocolHandler implements WarpHandler
 
     public function reset() : void
     {
-        parent::reset();
         $this->resetState();
         $this->lineBuf = "";
         $this->pos = 0;
@@ -66,25 +77,22 @@ class FcgWarpHandler extends FcgProtocolHandler implements WarpHandler
 
     public function newWarpData(int $warpId): WarpData
     {
-        return new WarpData($this->ship, $warpId);
+        return new WarpData($this->ship(), $warpId);
     }
 
-    public function postWarpHeaders(Tour $tur): void
+    public function sendReqHeaders(Tour $tur): void
     {
         $this->sendBeginReq($tur);
         $this->sendParams($tur);
     }
 
-    public function postWarpContents(Tour $tur, string $buf, int $start, int $len, callable $lis): void
+    public function sendReqContents(Tour $tur, string $buf, int $start, int $len, ?callable $callback): void
     {
-        $this->sendStdIn($tur, $buf, $start, $len, $lis);
+        $this->sendStdIn($tur, $buf, $start, $len, $callback);
     }
 
-    public function postWarpEnd(Tour $tur): void
+    public function sendEndReq(Tour $tur, bool $keepAlive, ?callable $callback): void
     {
-        $callback = function() {
-            $this->ship->agent->nonBlockingHandler->askToRead($this->ship->socket);
-        };
         $this->sendStdIn($tur, null, 0, 0, $callback);
     }
 
@@ -92,6 +100,10 @@ class FcgWarpHandler extends FcgProtocolHandler implements WarpHandler
     {
     }
 
+    function onProtocolError(ProtocolException $e): bool
+    {
+        throw new Sink();
+    }
 
     ///////////////////////////////////////////
     // Implements FcgCommandHandler
@@ -104,7 +116,7 @@ class FcgWarpHandler extends FcgProtocolHandler implements WarpHandler
 
     public function handleEndRequest(CmdEndRequest $cmd): int
     {
-        $tur = $this->ship->getTour($cmd->reqId);
+        $tur = $this->ship()->getTour($cmd->reqId);
         $this->endReqContent($tur);
         return NextSocketAction::CONTINUE;
     }
@@ -128,7 +140,7 @@ class FcgWarpHandler extends FcgProtocolHandler implements WarpHandler
 
     public function handleStdOut(CmdStdOut $cmd): int
     {
-        $tur = $this->ship->getTour($cmd->reqId);
+        $tur = $this->ship()->getTour($cmd->reqId);
         if($tur == null)
             throw new Sink("Tour not found");
 
@@ -147,7 +159,7 @@ class FcgWarpHandler extends FcgProtocolHandler implements WarpHandler
 
         if ($this->pos < $this->last) {
             if ($this->state == self::STATE_READ_CONTENT) {
-                $available = $tur->res->sendContent(Tour::TOUR_ID_NOCHECK, $this->data, $this->pos, $this->last - $this->pos);
+                $available = $tur->res->sendResContent(Tour::TOUR_ID_NOCHECK, $this->data, $this->pos, $this->last - $this->pos);
                 if(!$available)
                     return NextSocketAction::SUSPEND;
             }
@@ -177,17 +189,18 @@ class FcgWarpHandler extends FcgProtocolHandler implements WarpHandler
                 $tur->res->headers->remove(Headers::STATUS);
             }
 
+            $sip = $this->ship();
             BayLog::debug("%s fcgi: read header status=%d contlen=",
-                $this->ship, $status, $wdat->resHeaders->contentLength());
+                $sip, $status, $wdat->resHeaders->contentLength());
 
-            $sid = $this->ship->id();
-            $tur->res->setConsumeListener(function ($len, $resume) {
+            $sid = $sip->id();
+            $tur->res->setConsumeListener(function ($len, $resume) use ($sip, $sid) {
                 if($resume) {
-                    $this->ship->resume($sid);
+                    $sip->resumeRead($sid);
                 }
             });
 
-            $tur->res->sendHeaders(Tour::TOUR_ID_NOCHECK);
+            $tur->res->sendResHeaders(Tour::TOUR_ID_NOCHECK);
             $this->changeState(self::STATE_READ_CONTENT);
         }
     }
@@ -219,7 +232,7 @@ class FcgWarpHandler extends FcgProtocolHandler implements WarpHandler
                     if (StringUtil::isEmpty($name) || StringUtil::isEmpty($value))
                         throw new ProtocolException("fcgi: Header line of server is invalid: " . $line);
                     $headers->add($name, $value);
-                    if (BayServer::$harbor->traceHeader)
+                    if (BayServer::$harbor->traceHeader())
                         BayLog::info("%s fcgi_warp: resHeader: %s=%s", $this->ship, $name, $value);
                 }
                 $this->lineBuf = "";
@@ -232,8 +245,8 @@ class FcgWarpHandler extends FcgProtocolHandler implements WarpHandler
 
     private function endReqContent(Tour $tur) : void
     {
-        $this->ship->endWarpTour($tur);
-        $tur->res->endContent(Tour::TOUR_ID_NOCHECK);
+        $this->ship()->endWarpTour($tur, true);
+        $tur->res->endResContent(Tour::TOUR_ID_NOCHECK);
         $this->resetState();
     }
 
@@ -250,7 +263,7 @@ class FcgWarpHandler extends FcgProtocolHandler implements WarpHandler
     private function sendStdIn(Tour $tur, ?string $data, int $ofs, int $len, ?callable $callback) : void
     {
         $cmd = new CmdStdIn(WarpData::get($tur)->warpId, $data, $ofs, $len);
-        $this->ship->post($cmd, $callback);
+        $this->ship()->post($cmd, $callback);
     }
 
     private function sendBeginReq(Tour $tur) : void
@@ -258,12 +271,12 @@ class FcgWarpHandler extends FcgProtocolHandler implements WarpHandler
         $cmd = new CmdBeginRequest(WarpData::get($tur)->warpId);
         $cmd->role = CmdBeginRequest::FCGI_RESPONDER;
         $cmd->keepConn = true;
-        $this->ship->post($cmd);
+        $this->ship()->post($cmd);
     }
 
     private function sendParams(Tour $tur) : void
     {
-        $scriptBase =  $this->ship->docker->scriptBase;
+        $scriptBase =  $this->ship()->docker->scriptBase;
         if($scriptBase == null)
             $scriptBase = $tur->town->location;
 
@@ -271,7 +284,7 @@ class FcgWarpHandler extends FcgProtocolHandler implements WarpHandler
             throw new IOException($tur->town . " scriptBase of fcgi docker or location of town is not specified.");
         }
 
-        $docRoot = $this->ship->docker->docRoot;
+        $docRoot = $this->ship()->docker->docRoot;
         if($docRoot == null)
             $docRoot = $tur->town->location;
 
@@ -290,22 +303,28 @@ class FcgWarpHandler extends FcgProtocolHandler implements WarpHandler
                 $cmd->addParam($name, $value);
         });
 
-        $scriptFname = "proxy:fcgi://" . $this->ship->docker->host . ":" .  $this->ship->docker->port . $scriptFname;
+        $scriptFname = "proxy:fcgi://" . $this->ship()->docker->host . ":" .  $this->ship()->docker->port . $scriptFname;
         $cmd->addParam(CGIUtil::SCRIPT_FILENAME, $scriptFname);
 
         $cmd->addParam(FcgParams::CONTEXT_PREFIX, "");
         $cmd->addParam(FcgParams::UNIQUE_ID, strval(time()));
 
 
-        if(BayServer::$harbor->traceHeader) {
+        if(BayServer::$harbor->traceHeader()) {
             foreach ($cmd->params as $kv) {
                 BayLog::info("%s fcgi_warp: env: %s=%s", $this->ship, $kv[0], $kv[1]);
             }
         }
 
-        $this->ship->post($cmd);
+        $this->ship()->post($cmd);
 
         $cmdParamsEnd = new CmdParams($warpId);
-        $this->ship->post($cmdParamsEnd);
+        $this->ship()->post($cmdParamsEnd);
     }
+
+    private function ship(): WarpShip
+    {
+        return $this->protocolHandler->ship;
+    }
+
 }

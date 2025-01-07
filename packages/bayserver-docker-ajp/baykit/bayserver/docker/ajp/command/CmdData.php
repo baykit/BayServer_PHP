@@ -23,7 +23,7 @@ class CmdData extends AjpCommand
     public $length;
     public $data;
 
-    public function __construct(string $data, int $start = 0, int $len = 0)
+    public function __construct(?string $data = null, int $start = 0, int $len = 0)
     {
         parent::__construct(AjpType::DATA, true);
         $this->data = $data;

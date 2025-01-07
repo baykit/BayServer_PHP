@@ -1,5 +1,5 @@
 <?php
-namespace baykit\bayserver\docker\warp;
+namespace baykit\bayserver\docker\base;
 
 
 
@@ -8,11 +8,17 @@ use baykit\bayserver\agent\LifecycleListener;
 use baykit\bayserver\BayLog;
 use baykit\bayserver\bcf\BcfElement;
 use baykit\bayserver\bcf\BcfKeyVal;
-use baykit\bayserver\docker\base\ClubBase;
+use baykit\bayserver\common\RudderState;
+use baykit\bayserver\common\Transporter;
+use baykit\bayserver\common\WarpShipStore;
 use baykit\bayserver\docker\Docker;
+use baykit\bayserver\docker\Warp;
 use baykit\bayserver\HttpException;
-use baykit\bayserver\protocol\ProtocolHandler;
 use baykit\bayserver\protocol\ProtocolHandlerStore;
+use baykit\bayserver\rudder\Rudder;
+use baykit\bayserver\rudder\SocketRudder;
+use baykit\bayserver\rudder\StreamRudder;
+use baykit\bayserver\ship\Ship;
 use baykit\bayserver\tour\Tour;
 use baykit\bayserver\util\HttpStatus;
 use baykit\bayserver\util\IOException;
@@ -22,34 +28,32 @@ use baykit\bayserver\util\StringUtil;
 class WarpDocker_AgentListener implements LifecycleListener
 {
 
-    private $warpDocker;
+    private WarpBase $warpBase;
 
-    public function __construct(Docker $dkr)
+    public function __construct(WarpBase $base)
     {
-        $this->warpDocker = $dkr;
+        $this->warpBase = $base;
     }
 
     public function add(int $agtId): void
     {
-        $this->warpDocker->stores[$agtId] = new WarpShipStore($this->warpDocker->maxShips);
+        $this->warpBase->stores[$agtId] = new WarpShipStore($this->warpBase->maxShips);
     }
 
     public function remove(int $agtId): void
     {
-        unset($this->warpDocker->stores[$agtId]);
+        unset($this->warpBase->stores[$agtId]);
     }
 }
 
 
-abstract class WarpDocker extends ClubBase
+abstract class WarpBase extends ClubBase implements Warp
 {
-    public $scheme;
-    public $host;
-    public $port = -1;
-    public $warpBase;
-    public $maxShips = -1;
-    private $hostAddr;
-    public $timeoutSec = -1; // -1 means "Use harbor.socketTimeoutSec"
+    public string $host;
+    public int $port = -1;
+    public string $warpBase;
+    public int $maxShips = -1;
+    public int $timeoutSec = -1; // -1 means "Use harbor.socketTimeoutSec"
 
     private $tourList = [];
 
@@ -61,7 +65,7 @@ abstract class WarpDocker extends ClubBase
     //////////////////////////////////////////
     public abstract function secure() : bool;
     protected abstract function protocol(): string;
-    protected abstract function newTransporter(GrandAgent $agent, $ch);
+    protected abstract function newTransporter(GrandAgent $agent, Rudder $rd, Ship $sip): Transporter;
 
     //////////////////////////////////////////
     // Implements DockerBase
@@ -123,7 +127,7 @@ abstract class WarpDocker extends ClubBase
     //////////////////////////////////////////
     public function arrive(Tour $tur)
     {
-        $agt = $tur->ship->agent;
+        $agt = GrandAgent::get($tur->ship->agentId);
         $sto = $this->getShipStore($agt->agentId);
 
         $wsip = $sto->rent();
@@ -151,10 +155,11 @@ abstract class WarpDocker extends ClubBase
                 }
                 stream_set_blocking($ch, false);
 
-                $tp = $this->newTransporter($agt, $ch);
+                $rd = new StreamRudder($ch);
+                $tp = $this->newTransporter($agt, $rd, $wsip);
                 $protoHnd = ProtocolHandlerStore::getStore($this->protocol(), false, $agt->agentId)->rent();
-                $wsip->initWarp($ch, $agt, $tp, $this, $protoHnd);
-                $tp->init($agt->nonBlockingHandler, $ch, new WarpDataListener($wsip));
+                $wsip->initWarp($rd, $agt->agentId, $tp, $this, $protoHnd);
+
                 BayLog::debug("%s init warp ship: addr=%s ch=%s", $wsip, $address, $ch);
                 $needConnect = true;
             }
@@ -164,8 +169,8 @@ abstract class WarpDocker extends ClubBase
             $wsip->startWarpTour($tur);
 
             if($needConnect) {
-                $agt->nonBlockingHandler->addChannelListener($wsip->socket, $tp);
-                $agt->nonBlockingHandler->askToConnect($wsip->socket, $address);
+                $agt->netMultiplexer->addRudderState($wsip->rudder, new RudderState($wsip->rudder, $tp));
+                $agt->netMultiplexer->getTransporter($wsip->rudder)->reqConnect($wsip->rudder, $address);
             }
          }
         catch(IOException $e) {
@@ -175,25 +180,46 @@ abstract class WarpDocker extends ClubBase
     }
 
     //////////////////////////////////////////
+    // Implements Warp
+    //////////////////////////////////////////
+
+    public function host() : string
+    {
+        return $this->host;
+    }
+
+    public function port() : int
+    {
+        return $this->port;
+    }
+
+    public function warpBase() : string
+    {
+        return $this->warpBase;
+    }
+
+    public function timeoutSec() : int
+    {
+        return $this->timeoutSec;
+    }
+
+    public function keep(Ship $warpShip) : void
+    {
+        BayLog::debug("%s keep warp ship: %s", $this, $warpShip);
+        $this->getShipStore($warpShip->agentId)->keep($warpShip);
+    }
+
+    public function onEndShip(Ship $warpShip) : void
+    {
+        BayLog::debug("%s Return protocol handler: ", $warpShip);
+        $this->getProtocolHandlerStore($warpShip->agentId)->Return($warpShip->protocolHandler);
+        BayLog::debug("%s return warp ship: %s", $this, $warpShip);
+        $this->getShipStore($warpShip->agentId)->Return($warpShip);
+    }
+
+    //////////////////////////////////////////
     // Other methods
     //////////////////////////////////////////
-    public function keepShip(WarpShip $wsip) : void
-    {
-        BayLog::debug("%s keep warp ship: %s", $this, $wsip);
-        $this->getShipStore($wsip->agent->agentId)->keep($wsip);
-    }
-
-    public function returnShip(WarpShip $wsip) : void
-    {
-        BayLog::debug("%s return warp ship: %s", $this, $wsip);
-        $this->getShipStore($wsip->agent->agentId)->Return($wsip);
-    }
-
-    public function returnProtocolHandler(GrandAgent $agt, ProtocolHandler $protoHnd) : void
-    {
-        BayLog::debug("%s Return protocol handler: ", $protoHnd);
-        $this->getProtocolHandlerStore($agt->agentId)->Return($protoHnd);
-    }
 
     public function getShipStore(int $agtId) : WarpShipStore
     {

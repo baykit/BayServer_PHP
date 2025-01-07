@@ -1,5 +1,5 @@
 <?php
-namespace baykit\bayserver\util;
+namespace baykit\bayserver\common;
 
 use baykit\bayserver\docker\City;
 

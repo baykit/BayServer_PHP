@@ -49,7 +49,7 @@ class AjpPacketPartAccessor extends PacketPartAccessor
         parent::__construct($pkt, $start, $maxLen);
     }
 
-    public function putString(string $str) : void
+    public function putString(?string $str) : void
     {
         if (StringUtil::isEmpty($str)) {
             $this->putShort(0xffff);

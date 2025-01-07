@@ -8,7 +8,8 @@ use baykit\bayserver\agent\UpgradeException;
 use baykit\bayserver\BayLog;
 use baykit\bayserver\BayMessage;
 use baykit\bayserver\BayServer;
-use baykit\bayserver\docker\base\InboundHandler;
+use baykit\bayserver\common\InboundHandler;
+use baykit\bayserver\common\InboundShip;
 use baykit\bayserver\docker\http\h1\command\CmdContent;
 use baykit\bayserver\docker\http\h1\command\CmdEndContent;
 use baykit\bayserver\docker\http\h1\command\CmdHeader;
@@ -20,6 +21,7 @@ use baykit\bayserver\protocol\ProtocolHandlerStore;
 use baykit\bayserver\Symbol;
 use baykit\bayserver\tour\ReqContentHandlerUtil;
 use baykit\bayserver\tour\Tour;
+use baykit\bayserver\util\ClassUtil;
 use baykit\bayserver\util\Headers;
 use baykit\bayserver\util\HttpStatus;
 use baykit\bayserver\util\HttpUtil;
@@ -28,7 +30,7 @@ use baykit\bayserver\util\StringUtil;
 use baykit\bayserver\util\URLEncoder;
 
 
-class H1InboundHandler extends H1ProtocolHandler implements InboundHandler {
+class H1InboundHandler implements H1Handler, InboundHandler {
 
     const STATE_READ_HEADER = 1;
     const STATE_READ_CONTENT = 2;
@@ -36,18 +38,28 @@ class H1InboundHandler extends H1ProtocolHandler implements InboundHandler {
 
     const FIXED_REQ_ID = 1;
 
-    public $headerRead;
-    public $httpProtocol;
+    public H1ProtocolHandler $protocolHandler;
+    public bool $headerRead;
+    public ?string $httpProtocol;
 
-    public $state;
-    public $curReqId = 1;
-    public $curTour;
-    public $curTourId;
+    public int $state;
+    public int $curReqId = 1;
+    public ?Tour $curTour = null;
+    public int $curTourId = -1;
 
-    public function __construct(PacketStore $pktStore)
+    public function __construct()
     {
-        parent::__construct($pktStore, true);
         $this->resetState();
+    }
+
+    public function init(H1ProtocolHandler $hnd): void
+    {
+        $this->protocolHandler = $hnd;
+    }
+
+    public function __toString(): string
+    {
+        return ClassUtil::localName(get_class($this));
     }
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -56,8 +68,6 @@ class H1InboundHandler extends H1ProtocolHandler implements InboundHandler {
 
     public function reset(): void
     {
-        parent::reset();
-        $this->curReqId = 1;
         $this->resetState();
 
         $this->headerRead = false;
@@ -95,7 +105,7 @@ class H1InboundHandler extends H1ProtocolHandler implements InboundHandler {
 
         $tur->res->headers->set(Headers::CONNECTION, $res_con);
 
-        if (BayServer::$harbor->traceHeader) {
+        if (BayServer::$harbor->traceHeader()) {
             BayLog::info("%s resStatus:%d", $tur, $tur->res->headers->status);
             foreach ($tur->res->headers->names() as $name) {
                 foreach ($tur->res->headers->values($name) as $value) {
@@ -105,36 +115,37 @@ class H1InboundHandler extends H1ProtocolHandler implements InboundHandler {
         }
 
         $cmd = CmdHeader::newResHeader($tur->res->headers, $tur->req->protocol);
-        $this->commandPacker->post($this->ship, $cmd);
+        $this->protocolHandler->post($cmd);
     }
 
     public function sendResContent(Tour $tur, string $bytes, int $ofs, int $len, ?callable $callback): void
     {
         $cmd = new CmdContent($bytes, $ofs, $len);
-        $this->commandPacker->post($this->ship, $cmd, $callback);
+        $this->protocolHandler->post($cmd, $callback);
     }
 
-    public function sendEndTour(Tour $tur, bool $keepAlive, callable $callback): void
+    public function sendEndTour(Tour $tur, bool $keepAlive, ?callable $callback): void
     {
-        BayLog::trace("%s sendEndTour: tur=%s keep=%s", $this->ship, $tur, $keepAlive);
+        $sip = $this->ship();
+        BayLog::trace("%s sendEndTour: tur=%s keep=%s", $sip, $tur, $keepAlive);
 
         # Send dummy end request command
         $cmd = new CmdEndContent();
 
-        $sid = $this->ship->shipId;
-        $ensure_func = function() use ($callback, $keepAlive, $sid) {
-            if ($keepAlive && !$this->ship->postman->isZombie()) {
-                $this->ship->keeping = true;
-                $this->ship->resume($sid);
+        $sid = $sip->shipId;
+        $ensure_func = function() use ($callback, $keepAlive, $sip, $sid) {
+            if ($keepAlive) {
+                $sip->keeping = true;
+                $sip->resumeRead($sid);
             }
             else
-                $this->commandPacker->end($this->ship);
+                $sip->postClose();
         };
 
 
         try {
-            $this->commandPacker->post($this->ship, $cmd, function () use ($ensure_func, $callback, $tur) {
-                BayLog::debug("%s call back of end content command: tur=%s", $this->ship, $tur);
+            $this->protocolHandler->post($cmd, function () use ($ensure_func, $callback, $sip, $tur) {
+                BayLog::debug("%s call back of end content command: tur=%s", $sip, $tur);
                 $ensure_func();
                 $callback();
             });
@@ -157,12 +168,24 @@ class H1InboundHandler extends H1ProtocolHandler implements InboundHandler {
         return true;
     }
 
+    function onProtocolError(ProtocolException $e): bool
+    {
+        BayLog::debug("onProtocolError: %s", $e);
+        if($this->curTour == null)
+            $tur = $this->ship()->getErrorTour();
+        else
+            $tur = $this->curTour;
+
+        $tur->res->sendError(Tour::TOUR_ID_NOCHECK, HttpStatus::BAD_REQUEST, $e->getMessage(), $e);
+        return true;
+    }
+
     ////////////////////////////////////////////////////////////////////////////////
     // Implements H1CommandHandler
     ////////////////////////////////////////////////////////////////////////////////
     public function handleHeader(CmdHeader $cmd): int
     {
-        $sip = $this->ship;
+        $sip = $this->ship();
         BayLog::debug("%s handleHeader: method=%s uri=%s proto=%s", $sip, $cmd->method, $cmd->uri, $cmd->version);
 
         if ($this->state == self::STATE_FINISHED)
@@ -180,8 +203,8 @@ class H1InboundHandler extends H1ProtocolHandler implements InboundHandler {
         if ($protocol == "HTTP/2.0") {
             $port = $sip->portDocker();
             if ($port->supportH2) {
-                $sip->portDocker()->returnProtocolHandler($sip->agent, $this);
-                $newHnd = ProtocolHandlerStore::getStore(HtpDocker::H2_PROTO_NAME, true, $sip->agent->agentId)->rent();
+                $sip->portDocker()->returnProtocolHandler($sip->agentId, $this->protocolHandler);
+                $newHnd = ProtocolHandlerStore::getStore(HtpDocker::H2_PROTO_NAME, true, $sip->agentId)->rent();
                 $sip->setProtocolHandler($newHnd);
                 throw new UpgradeException();
             } else {
@@ -226,18 +249,14 @@ class H1InboundHandler extends H1ProtocolHandler implements InboundHandler {
         BayLog::debug("%s read header method=%s protocol=%s uri=%s contlen=%d",
             $sip, $tur->req->method, $tur->req->protocol, $tur->req->uri, $tur->req->headers->contentLength());
 
-        if (BayServer::$harbor->traceHeader) {
+        if (BayServer::$harbor->traceHeader()) {
             foreach ($cmd->headers as $item) {
                 BayLog::info($tur . " h1: reqHeader: " . $item[0] . "=" . $item[1]);
             }
         }
 
         if ($reqContLen > 0) {
-            $sid = $sip->shipId;
-            $tur->req->setConsumeListener($reqContLen, function ($len, $resume) use ($sid, $sip) {
-                if ($resume)
-                    $sip->resume($sid);
-            });
+            $tur->req->setLimit($reqContLen);
         }
 
         try {
@@ -273,7 +292,7 @@ class H1InboundHandler extends H1ProtocolHandler implements InboundHandler {
 
     public function handleContent(CmdContent $cmd): int
     {
-        BayLog::debug("%s handleContent: len=%s", $this->ship, $cmd->len);
+        BayLog::debug("%s handleContent: len=%s", $this->ship(), $cmd->len);
 
         if ($this->state != self::STATE_READ_CONTENT) {
             $s = $this->state;
@@ -283,25 +302,36 @@ class H1InboundHandler extends H1ProtocolHandler implements InboundHandler {
 
         $tur = $this->curTour;
         $tourId = $this->curTourId;
-        $success = $tur->req->postContent($tourId, $cmd->buf, $cmd->start, $cmd->len);
 
-        if ($tur->req->bytesPosted == $tur->req->bytesLimit) {
-            if($tur->error !== null){
-                // Error has occurred on header completed
-                $tur->res->sendHttpException($tourId, $tur->error);
-                $this->resetState();
-                return NextSocketAction::WRITE;
-            }
-            else {
-                try {
+        try {
+            $sid = $this->ship()->shipId;
+            $success = $tur->req->postReqContent(
+                $tourId,
+                $cmd->buf,
+                $cmd->start,
+                $cmd->len,
+                function ($len, $resume) use ($sid) {
+                    if ($resume)
+                        $this->ship()->resume($sid);
+                });
+
+            if ($tur->req->bytesPosted == $tur->req->bytesLimit) {
+                if($tur->error !== null){
+                    // Error has occurred on header completed
+                    BayLog::debug("%s Delay send error", $tur);
+                    throw $tur->error;
+                }
+                else {
                     $this->endReqContent($tourId, $tur);
                     return NextSocketAction::SUSPEND; // end reading
-                } catch (HttpException $e) {
-                    $tur->res->sendHttpException($tourId, $e);
-                    $this->resetState();
-                    return NextSocketAction::WRITE;
                 }
             }
+        }
+        catch (HttpException $e) {
+            $tur->req->abort();
+            $tur->res->sendHttpException($tourId, $e);
+            $this->resetState();
+            return NextSocketAction::WRITE;
         }
 
         if(!$success)
@@ -320,19 +350,24 @@ class H1InboundHandler extends H1ProtocolHandler implements InboundHandler {
         return $this->state == self::STATE_FINISHED;
     }
 
+    private function ship(): InboundShip
+    {
+        return $this->protocolHandler->ship;
+    }
+
     private function endReqContent(int $chkTurId, Tour $tur) : void
     {
-        $tur->req->endContent($chkTurId);
+        $tur->req->endReqContent($chkTurId);
         $this->resetState();
     }
 
     private function startTour(Tour $tur) : void
     {
-        $secure = $this->ship->portDocker()->secure();
+        $secure = $this->ship()->portDocker()->secure();
         HttpUtil::parseHostPort($tur, $secure ? 443 : 80);
         HttpUtil::parseAuthrization($tur);
 
-        $skt = $this->ship->socket;
+        $rd = $this->ship()->rudder;
 
         // Get remote address
         $clientAdr = $tur->req->headers->get(Headers::X_FORWARDED_FOR);
@@ -342,7 +377,7 @@ class H1InboundHandler extends H1ProtocolHandler implements InboundHandler {
         }
         else {
             try {
-                $name = stream_socket_get_name($skt, true);
+                $name = stream_socket_get_name($rd->key(), true);
                 BayLog::debug("name: %s", $name);
                 if ($name) {
                     list($host, $port) = explode(":", $name);
@@ -364,7 +399,7 @@ class H1InboundHandler extends H1ProtocolHandler implements InboundHandler {
                 return null;
         };
 
-        $name = stream_socket_get_name($skt, false);
+        $name = stream_socket_get_name($rd->key(), false);
         list($host, $port) = explode(":", $name);
         $tur->req->serverAddress = $host;
         $tur->req->serverPort = $tur->req->reqPort;
@@ -385,4 +420,5 @@ class H1InboundHandler extends H1ProtocolHandler implements InboundHandler {
         $this->changeState(self::STATE_FINISHED);
         $this->curTour = null;
     }
+
 }

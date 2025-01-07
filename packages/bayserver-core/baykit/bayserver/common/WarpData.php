@@ -1,7 +1,8 @@
 <?php
-namespace baykit\bayserver\docker\warp;
+namespace baykit\bayserver\common;
 
 
+use baykit\bayserver\agent\GrandAgent;
 use baykit\bayserver\BayLog;
 use baykit\bayserver\tour\ReqContentHandler;
 use baykit\bayserver\tour\Tour;
@@ -34,7 +35,7 @@ class WarpData implements ReqContentHandler
     /////////////////////////////////////////
     // Implements ContentHandler
     /////////////////////////////////////////
-    public function onReadContent(Tour $tur, string $buf, int $start, int $len): void
+    public function onReadReqContent(Tour $tur, string $buf, int $start, int $len, ?callable $callback): void
     {
         BayLog::debug("%s onReadReqContent tur=%s len=%d", $this->warpShip, $tur, $len);
         $this->warpShip->checkShipId($this->warpShipId);
@@ -46,8 +47,8 @@ class WarpData implements ReqContentHandler
             }
 
             $turId = $tur->id();
-            $callback = function () use ($len, $turId, $tur) {
-                $tur->req->consumed($turId, $len);
+            $callback = function () use ($len, $turId, $tur, $callback) {
+                $tur->req->consumed($turId, $len, $callback);
             };
 
             if (!$this->started) {
@@ -56,7 +57,7 @@ class WarpData implements ReqContentHandler
                 $buf = &$newBuf;
             }
 
-            $this->warpShip->warpHandler()->postWarpContents(
+            $this->warpShip->warpHandler()->sendReqContents(
                 $tur,
                 $buf,
                 $start + $pos,
@@ -65,14 +66,17 @@ class WarpData implements ReqContentHandler
         }
     }
 
-    public function onEndContent(Tour $tur): void
+    public function onEndReqContent(Tour $tur): void
     {
         BayLog::debug("%s endReqContent tur=%s", $this->warpShip, $tur);
         $this->warpShip->checkShipId($this->warpShipId);
-        $this->warpShip->warpHandler()->postWarpEnd($tur);
+        $this->warpShip->warpHandler()->sendEndReq($tur, false, function ()  {
+            $agt = GrandAgent::get($this->warpShip->agentId);
+            $agt->netMultiplexer->reqRead($this->warpShip->rudder);
+        });
     }
 
-    public function onAbort(Tour $tur): bool
+    public function onAbortReq(Tour $tur): bool
     {
         BayLog::debug("%s onAbortReq tur=%s", $this->warpShip, $tur);
         $this->warpShip->checkShipId($this->warpShipId);
@@ -84,7 +88,6 @@ class WarpData implements ReqContentHandler
     public function start() : void
     {
         if(!$this->started) {
-            $this->warpShip->protocolHandler->commandPacker->flush($this->warpShip);
             BayLog::debug("%s Start Warp tour", $this);
             $this->warpShip->flush();
             $this->started = true;

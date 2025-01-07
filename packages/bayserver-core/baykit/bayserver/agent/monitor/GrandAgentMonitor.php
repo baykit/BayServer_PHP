@@ -1,42 +1,44 @@
 <?php
 
-namespace baykit\bayserver\agent;
+namespace baykit\bayserver\agent\monitor;
 
 
+use baykit\bayserver\agent\GrandAgent;
+use baykit\bayserver\agent\signal\SignalAgent;
 use baykit\bayserver\BayLog;
 use baykit\bayserver\BayMessage;
 use baykit\bayserver\BayServer;
+use baykit\bayserver\rudder\Rudder;
+use baykit\bayserver\rudder\SocketRudder;
+use baykit\bayserver\rudder\StreamRudder;
 use baykit\bayserver\Symbol;
-use baykit\bayserver\util\ArrayUtil;
 use baykit\bayserver\util\BlockingIOException;
 use baykit\bayserver\util\IOException;
 use baykit\bayserver\util\IOUtil;
+use baykit\bayserver\util\Selector;
 use baykit\bayserver\util\SysUtil;
-use Cassandra\BatchStatement;
 
 class GrandAgentMonitor
 {
-    public $agentId;
-    public $anchorable;
-    public $communicationChannel;
-    public $agentProc;
+    public int $agentId;
+    public bool $anchorable;
+    public $comChannel;
+    public $agentProcess;
 
-    static $numAgents = 0;
-    static $curId = 0;
-    static $monitors = [];
+    static int $numAgents = 0;
+    static int $curId = 0;
+    static array $monitors = [];
     static $anchoredPortMap = [];
     static $unanchoredPortMap = [];
-    static $finale = false;
+    static bool $finale = false;
 
-    public function __construct(int $agtId, bool $anchorable, $comChannel, $agentProc)
+    public function __construct(int $agtId, bool $anchorable, $comChannel, $agentProcess)
     {
         $this->agentId = $agtId;
         $this->anchorable = $anchorable;
-        $this->communicationChannel = $comChannel;
-        $this->agentProc = $agentProc;
-        if (stream_set_blocking($comChannel, false) === false) {
-            throw new IOException("Cannot set nonblock: " . SysUtil::lastErrorMessage());
-        }
+        $this->comChannel = $comChannel;
+        stream_set_blocking($this->comChannel, false);
+        $this->agentProcess = $agentProcess;
     }
 
     public function __toString()
@@ -47,7 +49,7 @@ class GrandAgentMonitor
     public function onReadable()
     {
         try {
-            $res = IOUtil::recvInt32($this->communicationChannel);
+            $res = IOUtil::recvInt32($this->comChannel);
         }
         catch(BlockingIOException $e) {
             BayLog::debug("%s No data", $this);
@@ -94,13 +96,13 @@ class GrandAgentMonitor
 
     public function send(int $cmd) : void
     {
-        BayLog::debug("%s send command %s pipe=%s", $this, $cmd, $this->communicationChannel);
-        IOUtil::sendInt32($this->communicationChannel, $cmd);
+        BayLog::debug("%s send command %s pipe=%s", $this, $cmd, $this->comChannel);
+        IOUtil::writeInt32($this->comChannel, $cmd);
     }
 
     public function close() : void
     {
-        stream_socket_shutdown($this->communicationChannel, STREAM_SHUT_RDWR);
+        stream_socket_shutdown($this->comChannel, STREAM_SHUT_RDWR);
     }
 
     ######################################################
@@ -132,7 +134,7 @@ class GrandAgentMonitor
             exit(1);
         }
 
-        if (BayServer::$harbor->multiCore) {
+        if (BayServer::$harbor->multiCore()) {
             $args = BayServer::$commandlineArgs;
             $newArgv = $args;
             //ArrayUtil::insert("php", $newArgv, 0);
@@ -165,7 +167,7 @@ class GrandAgentMonitor
                 $client = stream_socket_accept($server);
                 stream_socket_shutdown($server,  STREAM_SHUT_RDWR );
 
-                $agentProc = $proc;
+                $agentProcess = $proc;
             }
             else {
                 $comCh = IOUtil::openLocalPipe();
@@ -186,16 +188,16 @@ class GrandAgentMonitor
                 }
 
                 $client = $comCh[0];
-                $agentProc = $pid;
+                $agentProcess = $pid;
             }
         }
         else {
             $client = null;
-            $agentProc = null;
+            $agentProcess = null;
         }
-        self::$monitors[$agtId] = new GrandAgentMonitor($agtId, $anchorable, $client, $agentProc);
+        self::$monitors[$agtId] = new GrandAgentMonitor($agtId, $anchorable, $client, $agentProcess);
 
-        if(!BayServer::$harbor->multiCore) {
+        if(!BayServer::$harbor->multiCore()) {
             GrandAgent::add($agtId, $anchorable);
             $agt = GrandAgent::get($agtId);
             $agt->runCommandReceiver($comCh[1]);
@@ -203,19 +205,60 @@ class GrandAgentMonitor
         }
     }
 
+    public static function start() : void {
+        while (count(GrandAgentMonitor::$monitors) > 0) {
+            $sel = new Selector();
+            $monitors = [];
+            foreach (GrandAgentMonitor::$monitors as $mon) {
+                BayLog::debug("Monitoring pipe of %s", $mon);
+                $sel->register($mon->comChannel, Selector::OP_READ);
+                $monitors[] = $mon;
+            }
+
+            $serverSkt = null;
+            if (SignalAgent::$signalAgent) {
+                $serverSkt = SignalAgent::$signalAgent->serverSkt;
+                $sel->register($serverSkt, Selector::OP_READ);
+            }
+
+            try {
+                $selkeys = $sel->select();
+            }
+            catch (IOException $e) {
+                BayLog::warn_e($e);
+                pcntl_signal_dispatch();
+                continue;
+            }
+
+            BayLog::debug("select %d keys", count($selkeys));
+            foreach($selkeys as $selkey) {
+                if ($selkey->channel == $serverSkt) {
+                    SignalAgent::$signalAgent->onSocketReadable();
+                }
+                else {
+                    foreach($monitors as $mon) {
+                        if ($mon->comChannel === $selkey->channel)
+                            $mon->onReadable();
+                    }
+                }
+            }
+        }
+
+    }
+
     private function agentAborted() : void
     {
         BayLog::info(BayMessage::get(Symbol::MSG_GRAND_AGENT_SHUTDOWN, $this->agentId));
 
         if(SysUtil::runOnWindows()) {
-            proc_terminate($this->agentProc);
-            proc_close($this->agentProc);
+            proc_terminate($this->agentProcess);
+            proc_close($this->agentProcess);
         }
         else {
             // pcntl_kill is unavailable on some systems
             // pcntl_kill($this->agentProc, SIGTERM);
-            exec("kill -TERM $this->agentProc");
-            pcntl_waitpid($this->agentProc, $status);
+            exec("kill -TERM $this->agentProcess");
+            pcntl_waitpid($this->agentProcess, $status);
         }
         # remove from array
         self::$monitors = array_filter(
@@ -227,7 +270,7 @@ class GrandAgentMonitor
         if (!self::$finale) {
             if (count(self::$monitors) < self::$numAgents) {
                 try {
-                    if (!BayServer::$harbor->multiCore) {
+                    if (!BayServer::$harbor->multiCore()) {
                         GrandAgent::add(-1, $this->anchorable);
                     }
                     self::add($this->anchorable);

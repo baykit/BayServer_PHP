@@ -6,6 +6,9 @@ namespace baykit\bayserver\docker\ajp;
 use baykit\bayserver\agent\NextSocketAction;
 use baykit\bayserver\BayLog;
 use baykit\bayserver\BayServer;
+use baykit\bayserver\common\WarpData;
+use baykit\bayserver\common\WarpHandler;
+use baykit\bayserver\common\WarpShip;
 use baykit\bayserver\docker\ajp\command\CmdData;
 use baykit\bayserver\docker\ajp\command\CmdEndResponse;
 use baykit\bayserver\docker\ajp\command\CmdForwardRequest;
@@ -13,26 +16,35 @@ use baykit\bayserver\docker\ajp\command\CmdGetBodyChunk;
 use baykit\bayserver\docker\ajp\command\CmdSendBodyChunk;
 use baykit\bayserver\docker\ajp\command\CmdSendHeaders;
 use baykit\bayserver\docker\ajp\command\CmdShutdown;
-use baykit\bayserver\docker\warp\WarpData;
-use baykit\bayserver\docker\warp\WarpHandler;
 use baykit\bayserver\protocol\ProtocolException;
 use baykit\bayserver\tour\Tour;
+use baykit\bayserver\util\ClassUtil;
 use baykit\bayserver\util\StringUtil;
 
-class AjpWarpHandler extends AjpProtocolHandler implements WarpHandler
+class AjpWarpHandler implements WarpHandler, AjpHandler
 {
     const FIXED_WARP_ID = 1;
 
     const STATE_READ_HEADER = 1;
     const STATE_READ_CONTENT = 2;
 
-    private $state;
-    private $contReadLen;
+    private AjpProtocolHandler $protocolHandler;
+    private int $state;
+    private int $contReadLen = 0;
 
-    public function __construct($pktStore)
+    public function __construct()
     {
-        parent::__construct($pktStore, true);
         $this->resetState();
+    }
+
+    public function init(AjpProtocolHandler $hnd): void
+    {
+        $this->protocolHandler = $hnd;
+    }
+
+    public function __toString(): string
+    {
+        return ClassUtil::localName(get_class($this));
     }
 
     ///////////////////////////////////////////
@@ -41,10 +53,8 @@ class AjpWarpHandler extends AjpProtocolHandler implements WarpHandler
 
     public function reset() : void
     {
-        parent::reset();
         $this->resetState();
-        $this->reqCommand = null;
-        $this->curTourId = 0;
+        $this->contReadLen = 0;
     }
 
     ///////////////////////////////////////////
@@ -58,31 +68,32 @@ class AjpWarpHandler extends AjpProtocolHandler implements WarpHandler
 
     public function newWarpData(int $warpId): WarpData
     {
-        return new WarpData($this->ship, $warpId);
+        return new WarpData($this->ship(), $warpId);
     }
 
-    public function postWarpHeaders(Tour $tur): void
+    public function sendReqHeaders(Tour $tur): void
     {
         $this->sendForwardRequest($tur);
     }
 
-    public function postWarpContents(Tour $tur, string $buf, int $start, int $len, callable $lis): void
+    public function sendReqContents(Tour $tur, string $buf, int $start, int $len, ?callable $callback): void
     {
-        $this->sendData($tur, $buf, $start, $len, $lis);
+        $this->sendData($tur, $buf, $start, $len, $callback);
     }
 
-    public function postWarpEnd(Tour $tur): void
+    public function sendEndReq(Tour $tur, bool $keepAlive, ?callable $callback): void
     {
-        $callback = function() {
-            $this->ship->agent->nonBlockingHandler->askToRead($this->ship->socket);
-        };
-        $this->ship->post(null, $callback);
+        $this->ship()->post(null, $callback);
     }
 
     public function verifyProtocol(string $protocol): void
     {
     }
 
+    function onProtocolError(ProtocolException $e): bool
+    {
+        // TODO: Implement onProtocolError() method.
+    }
 
     ///////////////////////////////////////////
     // Implements AjpCommandHandler
@@ -96,13 +107,14 @@ class AjpWarpHandler extends AjpProtocolHandler implements WarpHandler
 
     public function handleEndResponse(CmdEndResponse $cmd): int
     {
-        BayLog::debug("%s handleEndResponse reuse=%b", $this, $cmd->reuse);
-        $tur = $this->ship->getTour(self::FIXED_WARP_ID);
+        $wsip = $this->ship();
+        BayLog::debug("%s handleEndResponse reuse=%b", $wsip, $cmd->reuse);
+        $tur = $wsip->getTour(self::FIXED_WARP_ID);
 
         if ($this->state == self::STATE_READ_HEADER)
             $this->endResHeader($tur);
 
-        $this->endResContent($tur);
+        $this->endResContent($tur, $cmd->reuse);
         if($cmd->reuse)
             return NextSocketAction::CONTINUE;
         else
@@ -116,22 +128,23 @@ class AjpWarpHandler extends AjpProtocolHandler implements WarpHandler
 
     public function handleSendBodyChunk(CmdSendBodyChunk $cmd): int
     {
-        BayLog::debug($this . " handleBodyChunk");
-        $tur = $this->ship->getTour(self::FIXED_WARP_ID);
+        $wsip = $this->ship();
+        BayLog::debug("%s handleBodyChunk", $wsip);
+        $tur = $wsip->getTour(self::FIXED_WARP_ID);
 
         if ($this->state == self::STATE_READ_HEADER) {
 
-            $sid = $this->ship->id();
-            $tur->res->setConsumeListener(function ($len, $resume) use ($sid) {
+            $sid = $wsip->id();
+            $tur->res->setConsumeListener(function ($len, $resume) use ($wsip, $sid) {
                 if($resume) {
-                    $this->ship->resume($sid);
+                    $wsip->resumeRead($sid);
                 }
             });
 
             $this->endResHeader($tur);
         }
 
-        $available = $tur->res->sendContent($tur->tourId, $cmd->chunk, 0, $cmd->length);
+        $available = $tur->res->sendResContent($tur->tourId, $cmd->chunk, 0, $cmd->length);
         $this->contReadLen += $cmd->length;
         if($available)
             return NextSocketAction::CONTINUE;
@@ -141,21 +154,21 @@ class AjpWarpHandler extends AjpProtocolHandler implements WarpHandler
 
     public function handleSendHeaders(CmdSendHeaders $cmd): int
     {
-        BayLog::debug($this . " handleSendHeaders");
+        BayLog::debug("%s handleSendHeaders", $this->ship());
 
-        $tur = $this->ship->getTour(self::FIXED_WARP_ID);
+        $tur = $this->ship()->getTour(self::FIXED_WARP_ID);
 
         if ($this->state != self::STATE_READ_HEADER)
             throw new ProtocolException("Invalid AJP command: " . $cmd->type . " state=" . $this->state);
 
         $wdata = WarpData::get($tur);
 
-        if(BayServer::$harbor->traceHeader)
+        if(BayServer::$harbor->traceHeader())
             BayLog::info($wdata . " recv res status: " . $cmd->status);
         $wdata->resHeaders->status = $cmd->status;
         foreach ($cmd->headers as $name => $values) {
             foreach($values as $value) {
-                if (BayServer::$harbor->traceHeader)
+                if (BayServer::$harbor->traceHeader())
                     BayLog::info($wdata . " recv res header: " . $name . "=" . $value);
                 $wdata->resHeaders->add($name, $value);
             }
@@ -171,7 +184,7 @@ class AjpWarpHandler extends AjpProtocolHandler implements WarpHandler
 
     public function handleGetBodyChunk(CmdGetBodyChunk $cmd): int
     {
-        BayLog::debug($this . " handleGetBodyChunk");
+        BayLog::debug("%s handleGetBodyChunk", $this->ship());
         return NextSocketAction::CONTINUE;
     }
 
@@ -188,14 +201,14 @@ class AjpWarpHandler extends AjpProtocolHandler implements WarpHandler
     {
         $wdat = WarpData::get($tur);
         $wdat->resHeaders->copyTo($tur->res->headers);
-        $tur->res->sendHeaders(Tour::TOUR_ID_NOCHECK);
+        $tur->res->sendResHeaders(Tour::TOUR_ID_NOCHECK);
         $this->changeState(self::STATE_READ_CONTENT);
     }
 
-    private function endResContent(Tour $tur) : void
+    private function endResContent(Tour $tur, bool $keep) : void
     {
-        $this->ship->endWarpTour($tur);
-        $tur->res->endContent(Tour::TOUR_ID_NOCHECK);
+        $this->ship()->endWarpTour($tur, $keep);
+        $tur->res->endResContent(Tour::TOUR_ID_NOCHECK);
         $this->resetState();
     }
 
@@ -212,7 +225,8 @@ class AjpWarpHandler extends AjpProtocolHandler implements WarpHandler
     private function sendForwardRequest(Tour $tur) : void
     {
         BayLog::debug($tur . " construct header");
-    
+        $wsip = $this->ship();
+
         $cmd = new CmdForwardRequest();
         $cmd->toServer = true;
         $cmd->method = $tur->req->method;
@@ -223,7 +237,7 @@ class AjpWarpHandler extends AjpProtocolHandler implements WarpHandler
         if(!StringUtil::endsWith($twnPath, "/"))
             $twnPath .= "/";
         $relUri = substr($relUri, strlen($twnPath));
-        $reqUri =  $this->ship->docker->warpBase . $relUri;
+        $reqUri =  $wsip->docker->warpBase . $relUri;
 
         $pos = strpos($reqUri, '?');
         if($pos !== false) {
@@ -241,16 +255,16 @@ class AjpWarpHandler extends AjpProtocolHandler implements WarpHandler
         $tur->req->headers->copyTo($cmd->headers);
         //$cmd->headers.setHeader(Headers.HOST, docker.host + ":" + docker.port);
         //$cmd->headers.setHeader(Headers.CONNECTION, "keep-alive");
-        $cmd->serverPort =  $this->ship->docker->port;
+        $cmd->serverPort =  $wsip->docker->port;
 
-        if(BayServer::$harbor->traceHeader) {
+        if(BayServer::$harbor->traceHeader()) {
             foreach($cmd->headers->names() as $name) {
                 foreach($cmd->headers->values($name) as $value) {
                     BayLog::info("%s sendWarpHeader: %s=%s", WarpData::get($tur), $name, $value);
                 }
             }
         }
-        $this->ship->post($cmd);
+        $wsip->post($cmd);
     }
 
     private function sendData(Tour $tur, string $data, int $ofs, int $len, ?callable $lis)
@@ -259,6 +273,11 @@ class AjpWarpHandler extends AjpProtocolHandler implements WarpHandler
 
         $cmd = new CmdData($data, $ofs, $len);
         $cmd->toServer = true;
-        $this->ship->post($cmd, $lis);
+        $this->ship()->post($cmd, $lis);
+    }
+
+    private function ship(): WarpShip
+    {
+        return $this->protocolHandler->ship;
     }
 }

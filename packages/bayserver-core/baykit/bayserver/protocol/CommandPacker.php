@@ -2,11 +2,9 @@
 
 namespace baykit\bayserver\protocol;
 
-use baykit\bayserver\BayLog;
-use baykit\bayserver\util\DataConsumeListener;
+use baykit\bayserver\ship\Ship;
 use baykit\bayserver\util\IOException;
 use baykit\bayserver\util\Reusable;
-use baykit\bayserver\watercraft\Ship;
 
 class CommandPacker implements Reusable
 {
@@ -32,7 +30,7 @@ class CommandPacker implements Reusable
     // Implements Reusable
     /////////////////////////////////////////////////////////////////////////////////
 
-    public function post(Ship $sip, Command $cmd, callable $lsnr=null)
+    public function post(Ship $sip, Command $cmd, ?callable $lsnr=null)
     {
         $pkt = $this->pktStore->rent($cmd->type);
 
@@ -40,7 +38,7 @@ class CommandPacker implements Reusable
             $cmd->pack($pkt);
 
             $this->pkt_packer->post(
-                $sip->postman,
+                $sip,
                 $pkt,
                 function () use ($lsnr, $pkt) {
                     $this->pktStore->Return($pkt);
@@ -53,15 +51,5 @@ class CommandPacker implements Reusable
             $this->pktStore->Return($pkt);
             throw $e;
         }
-    }
-
-    public function flush(Ship $sip) : void
-    {
-        $this->pkt_packer->flush($sip->postman);
-    }
-
-    public function end(Ship $sip) : void
-    {
-        $this->pkt_packer->end($sip->postman);
     }
 }

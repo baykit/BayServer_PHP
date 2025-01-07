@@ -13,9 +13,14 @@ use baykit\bayserver\docker\Docker;
 use baykit\bayserver\docker\Trouble;
 use baykit\bayserver\docker\base\DockerBase;
 
-use baykit\bayserver\util\Groups;
+use baykit\bayserver\common\Groups;
+use baykit\bayserver\util\Locale;
 use baykit\bayserver\util\StringUtil;
 use baykit\bayserver\util\SysUtil;
+use function baykit\bayserver\docker\getMultiplexerType;
+use function baykit\bayserver\docker\getMultiplexerTypeName;
+use function baykit\bayserver\docker\getRecipientType;
+use function baykit\bayserver\docker\getRecipientTypeName;
 
 class BuiltInHarborDocker extends DockerBase implements Harbor
 {
@@ -31,62 +36,79 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
     const DEFAULT_CONTROL_PORT = -1;
     const DEFAULT_MULTI_CORE = True;
     const DEFAULT_GZIP_COMP = False;
-    const DEFAULT_FILE_SEND_METHOD = Harbor::FILE_SEND_METHOD_SELECT;
+    const DEFAULT_NET_MULTIPLEXER = Harbor::MULTIPLEXER_TYPE_SPIDER;
+    const DEFAULT_FILE_MULTIPLEXER = Harbor::MULTIPLEXER_TYPE_SPIDER;
+    const DEFAULT_LOG_MULTIPLEXER = Harbor::MULTIPLEXER_TYPE_SPIDER;
+    const DEFAULT_CGI_MULTIPLEXER = Harbor::MULTIPLEXER_TYPE_SPIDER;
+    const DEFAULT_RECIPIENT = Harbor::RECIPIENT_TYPE_SPIDER;
     const DEFAULT_PID_FILE = "bayserver.pid";
 
     # Default charset
-    public $charset = self::DEFAULT_CHARSET;
+    private string $charset = self::DEFAULT_CHARSET;
 
     # Default locale
-    public $locale = null;
+    private ?Locale $locale = null;
 
     # Number of ship agents
-    public $grandAgents = self::DEFAULT_GRAND_AGENTS;
+    private int $grandAgents = self::DEFAULT_GRAND_AGENTS;
 
     # Number of train runners
-    public $trainRunners = self::DEFAULT_TRAIN_RUNNERS;
+    private int $trainRunners = self::DEFAULT_TRAIN_RUNNERS;
 
     # Number of taxi runners
-    public $taxiRunners = self::DEFAULT_TAXI_RUNNERS;
+    private int $taxiRunners = self::DEFAULT_TAXI_RUNNERS;
 
     # Max count of ships
-    public $maxShips = self::DEFAULT_MAX_SHIPS;
+    private int $maxShips = self::DEFAULT_MAX_SHIPS;
 
     # Socket timeout in seconds
-    public $socketTimeoutSec = self::DEFAULT_WAIT_TIMEOUT_SEC;
+    private int $socketTimeoutSec = self::DEFAULT_WAIT_TIMEOUT_SEC;
 
     # Keep-Alive timeout in seconds
-    public $keepTimeoutSec = self::DEFAULT_KEEP_TIMEOUT_SEC;
+    private int $keepTimeoutSec = self::DEFAULT_KEEP_TIMEOUT_SEC;
 
     # Internal buffer size of Tour
-    public $tourBufferSize = self::DEFAULT_TOUR_BUFFER_SIZE;
+    private int $tourBufferSize = self::DEFAULT_TOUR_BUFFER_SIZE;
 
     # Trace req/res header flag
-    public $traceHeader = self::DEFAULT_TRACE_HEADER;
+    private bool $traceHeader = self::DEFAULT_TRACE_HEADER;
 
     # Trouble docker
-    public $trouble = null;
+    private ?Trouble $trouble = null;
 
     # Auth groups
-    public $groups = null;
+    private ?Groups $groups = null;
 
     # File name to redirect stdout/stderr
-    public $redirectFile = null;
+    private ?string $redirectFile = null;
 
     # Gzip compression flag
-    public $gzipComp = self::DEFAULT_GZIP_COMP;
+    private bool $gzipComp = self::DEFAULT_GZIP_COMP;
 
     # Port number of signal agent
-    public $controlPort = self::DEFAULT_CONTROL_PORT;
+    private int $controlPort = self::DEFAULT_CONTROL_PORT;
 
     # Multi core flag
-    public $multiCore = self::DEFAULT_MULTI_CORE;
+    private bool $multiCore = self::DEFAULT_MULTI_CORE;
 
-    # Method to send file
-    public $fileSendMethod = self::DEFAULT_FILE_SEND_METHOD;
+    # Multiplexer type of network I/O
+    private int $netMultiplexer = self::DEFAULT_NET_MULTIPLEXER;
+
+    # Multiplexer type of file read
+    private int $fileMultiplexer = self::DEFAULT_FILE_MULTIPLEXER;
+
+    # Multiplexer type of log output
+    private int $logMultiplexer = self::DEFAULT_LOG_MULTIPLEXER;
+
+    # Multiplexer type of CGI input
+    private int $cgiMultiplexer = self::DEFAULT_CGI_MULTIPLEXER;
+
+    # Recipient type
+    private int $recipient = self::DEFAULT_RECIPIENT;
+
 
     # PID file name
-    public $pidFile = self::DEFAULT_PID_FILE;
+    private $pidFile = self::DEFAULT_PID_FILE;
 
     public function __construct()
     {
@@ -114,25 +136,62 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
             BayLog::warn(BayMessage::get(Symbol::CFG_MAX_SHIPS_IS_TO_SMALL, $this->maxShips));
         }
 
-        /*
-        if ($this->multiCore and !SysUtil::supportFork()) {
-            BayLog::warn(BayMessage::get(Symbol::CFG_MULTI_CORE_NOT_SUPPORTED));
-            $this->multiCore = false;
-        }
-        */
-
-        if ($this->fileSendMethod == Harbor::FILE_SEND_METHOD_SELECT and !SysUtil::supportSelectFile()) {
-            BayLog::warn(BayMessage::get(Symbol::CFG_FILE_SEND_METHOD_SELECT_NOT_SUPPORTED));
-            $this->fileSendMethod = Harbor::FILE_SEND_METHOD_SPIN;
+        if ($this->netMultiplexer != Harbor::MULTIPLEXER_TYPE_SPIDER) {
+            BayLog::warn(
+                BayMessage::get(
+                    Symbol::CFG_NET_MULTIPLEXER_NOT_SUPPORTED,
+                    getMultiplexerTypeName($this->netMultiplexer),
+                    getMultiplexerTypeName(self::DEFAULT_NET_MULTIPLEXER)));
+            $this->netMultiplexer = self::DEFAULT_NET_MULTIPLEXER;
         }
 
-        if ($this->fileSendMethod == Harbor::FILE_SEND_METHOD_SPIN and !SysUtil::supportNonblockFileRead()) {
-            BayLog::warn(BayMessage::get(Symbol::CFG_FILE_SEND_METHOD_SPIN_NOT_SUPPORTED));
-            $this->fileSendMethod = Harbor::FILE_SEND_METHOD_TAXI;
+        if ($this->fileMultiplexer == Harbor::MULTIPLEXER_TYPE_SPIN and !SysUtil::supportNonblockFileRead() ||
+            $this->fileMultiplexer != Harbor::MULTIPLEXER_TYPE_SPIDER) {
+            BayLog::warn(
+                BayMessage::get(
+                    Symbol::CFG_FILE_MULTIPLEXER_NOT_SUPPORTED,
+                    getMultiplexerTypeName($this->fileMultiplexer),
+                    getMultiplexerTypeName(self::DEFAULT_FILE_MULTIPLEXER)));
+            $this->fileMultiplexer = self::DEFAULT_FILE_MULTIPLEXER;
         }
 
-        if ($this->fileSendMethod == Harbor::FILE_SEND_METHOD_TAXI) {
-            throw new ConfigException($elm->fileName, $elm->lineNo, "Taxi not supported");
+        if ($this->logMultiplexer != Harbor::MULTIPLEXER_TYPE_SPIDER) {
+            BayLog::warn(
+                BayMessage::get(
+                    Symbol::CFG_LOG_MULTIPLEXER_NOT_SUPPORTED,
+                    getMultiplexerTypeName($this->logMultiplexer),
+                    getMultiplexerTypeName(self::DEFAULT_LOG_MULTIPLEXER)));
+            $this->logMultiplexer = self::DEFAULT_LOG_MULTIPLEXER;
+        }
+
+        if ($this->logMultiplexer != Harbor::MULTIPLEXER_TYPE_SPIDER) {
+            BayLog::warn(
+                BayMessage::get(
+                    Symbol::CFG_LOG_MULTIPLEXER_NOT_SUPPORTED,
+                    getMultiplexerTypeName($this->logMultiplexer),
+                    getMultiplexerTypeName(self::DEFAULT_LOG_MULTIPLEXER)));
+            $this->logMultiplexer = self::DEFAULT_LOG_MULTIPLEXER;
+        }
+
+        if (($this->cgiMultiplexer == Harbor::MULTIPLEXER_TYPE_SPIN and !SysUtil::supportNonblockFileRead()) ||
+            $this->cgiMultiplexer != Harbor::MULTIPLEXER_TYPE_SPIDER) {
+            BayLog::warn(
+                BayMessage::get(
+                    Symbol::CFG_CGI_MULTIPLEXER_NOT_SUPPORTED,
+                    getMultiplexerTypeName($this->cgiMultiplexer),
+                    getMultiplexerTypeName(self::DEFAULT_CGI_MULTIPLEXER)));
+            $this->cgiMultiplexer = self::DEFAULT_CGI_MULTIPLEXER;
+        }
+
+        if ($this->netMultiplexer == Harbor::MULTIPLEXER_TYPE_SPIDER &&
+            $this->recipient != Harbor::RECIPIENT_TYPE_SPIDER) {
+            BayLog::warn(
+                BayMessage::get(
+                    Symbol::CFG_NET_MULTIPLEXER_DOES_NOT_SUPPORT_THIS_RECIPIENT,
+                    getMultiplexerTypeName($this->netMultiplexer),
+                    getRecipientTypeName($this->recipient),
+                    getRecipientTypeName(Harbor::RECIPIENT_TYPE_SPIDER)));
+            $this->recipient = Harbor::RECIPIENT_TYPE_SPIDER;
         }
 
         if (!$this->multiCore && $this->grandAgents > 1) {
@@ -144,7 +203,7 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
     //////////////////////////////////////////////////////
     // Implements DockerBase
     //////////////////////////////////////////////////////
-    ///
+
     public function initDocker(Docker $dkr) : bool
     {
         if ($dkr instanceof Trouble)
@@ -210,21 +269,40 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
             case "gzipcomp":
                 $this->gzipComp = StringUtil::parseBool($kv->value);
                 break;
-            case "sendfilemethod":
-                $v = strtolower($kv->value);
-                switch ($v) {
-                    case "select":
-                        $this->fileSendMethod = Harbor::FILE_SEND_METHOD_SELECT;
-                        break;
-                    case "spin":
-                        $this->fileSendMethod = Harbor::FILE_SEND_METHOD_SPIN;
-                        break;
-                    case "taxi":
-                        $this->fileSendMethod = Harbor::FILE_SEND_METHOD_TAXI;
-                        breka;
-                    default:
-                        throw new ConfigException($kv->fileName, $kv->lineNo,
-                            BayMessage::get(Symbol::CFG_INVALID_PARAMETER_VALUE, $kv->value));
+            case "netmultiplexer":
+                try {
+                    $this->netMultiplexer = getMultiplexerType(strtolower($kv->value));
+                }
+                catch(\InvalidArgumentException $e) {
+                    BayLog::error_e($e);
+                    throw new ConfigException($kv->fileName, $kv->lineNo, BayMessage::get(Symbol::CFG_INVALID_PARAMETER_VALUE, kv.value));
+                }
+                break;
+            case "filemultiplexer":
+                try {
+                    $this->fileMultiplexer = getMultiplexerType(strtolower($kv->value));
+                }
+                catch(\InvalidArgumentException $e) {
+                    BayLog::error_e($e);
+                    throw new ConfigException($kv->fileName, $kv->lineNo, BayMessage::get(Symbol::CFG_INVALID_PARAMETER_VALUE, kv.value));
+                }
+                break;
+            case "logmultiplexer":
+                try {
+                    $this->logMultiplexer = getMultiplexerType(strtolower($kv->value));
+                }
+                catch(\InvalidArgumentException $e) {
+                    BayLog::error_e($e);
+                    throw new ConfigException($kv->fileName, $kv->lineNo, BayMessage::get(Symbol::CFG_INVALID_PARAMETER_VALUE, kv.value));
+                }
+                break;
+            case "cgimultiplexer":
+                try {
+                    $this->cgiMultiplexer = getMultiplexerType(strtolower($kv->value));
+                }
+                catch(\InvalidArgumentException $e) {
+                    BayLog::error_e($e);
+                    throw new ConfigException($kv->fileName, $kv->lineNo, BayMessage::get(Symbol::CFG_INVALID_PARAMETER_VALUE, kv.value));
                 }
                 break;
             case "pidfile":
@@ -237,5 +315,134 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
         return true;
     }
 
+    //////////////////////////////////////////////////////
+    // Implements Harbor
+    //////////////////////////////////////////////////////
+
+    /** Default charset */
+    public function charset() : string
+    {
+        return $this->charset;
+    }
+
+    /** Default locale */
+    public function locale(): Locale
+    {
+        return $this->locale;
+    }
+
+    /** Number of grand agents */
+    public function grandAgents(): int
+    {
+        return $this->grandAgents;
+    }
+
+    /** Number of train runners */
+    public function trainRunners(): int
+    {
+        return $this->trainRunners;
+    }
+
+    /** Number of taxi runners */
+    public function taxiRunners(): int
+    {
+        return $this->taxiRunners;
+    }
+
+    /** Max count of ships */
+    public function maxShips(): int
+    {
+        return $this->maxShips;
+    }
+
+    /** Trouble docker */
+    public function trouble(): ?Trouble
+    {
+        return $this->trouble;
+    }
+
+    /** Socket timeout in seconds */
+    public function socketTimeoutSec(): int
+    {
+        return $this->socketTimeoutSec;
+    }
+
+    /** Keep-Alive timeout in seconds */
+    public function keepTimeoutSec(): int
+    {
+        return $this->keepTimeoutSec;
+    }
+
+    /** Trace req/res header flag */
+    public function traceHeader(): bool
+    {
+        return $this->traceHeader;
+    }
+
+    /** Internal buffer size of Tour */
+    public function tourBufferSize(): int
+    {
+        return $this->tourBufferSize;
+    }
+
+    /** File name to redirect stdout/stderr */
+    public function redirectFile(): ?string
+    {
+        return $this->redirectFile;
+    }
+
+    /** Port number of signal agent */
+    public function controlPort(): int
+    {
+        return $this->controlPort;
+    }
+
+    /** Gzip compression flag */
+    public function gzipComp(): bool
+    {
+        return $this->gzipComp;
+    }
+
+    /** Multiplexer of Network I/O */
+    public function netMultiplexer(): int
+    {
+        return $this->netMultiplexer;
+    }
+
+    /** Multiplexer of File I/O */
+    public function fileMultiplexer(): int
+    {
+        return $this->fileMultiplexer;
+    }
+
+    /** Multiplexer of Log output */
+    public function logMultiplexer(): int
+    {
+        return $this->logMultiplexer;
+    }
+
+    /** Multiplexer of CGI input */
+    public function cgiMultiplexer(): int
+    {
+        return $this->cgiMultiplexer;
+    }
+
+    /** Recipient */
+    public function recipient(): int
+    {
+        return $this->recipient;
+    }
+
+    /** PID file name */
+    public function pidFile(): string
+    {
+        return $this->pidFile;
+    }
+
+    /** Multi core flag */
+    public function multiCore(): bool
+    {
+        return $this->multiCore;
+    }
 
 }

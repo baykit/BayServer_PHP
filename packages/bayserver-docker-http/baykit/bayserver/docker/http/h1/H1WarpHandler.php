@@ -6,22 +6,23 @@ namespace baykit\bayserver\docker\http\h1;
 use baykit\bayserver\agent\NextSocketAction;
 use baykit\bayserver\BayLog;
 use baykit\bayserver\BayServer;
+use baykit\bayserver\common\WarpData;
+use baykit\bayserver\common\WarpHandler;
+use baykit\bayserver\common\WarpShip;
 use baykit\bayserver\docker\http\h1\command\CmdContent;
 use baykit\bayserver\docker\http\h1\command\CmdEndContent;
 use baykit\bayserver\docker\http\h1\command\CmdHeader;
-use baykit\bayserver\docker\warp\WarpData;
-use baykit\bayserver\docker\warp\WarpHandler;
 use baykit\bayserver\protocol\PacketStore;
 use baykit\bayserver\protocol\ProtocolException;
 use baykit\bayserver\tour\Tour;
-use baykit\bayserver\util\DataConsumeListener;
+use baykit\bayserver\util\ClassUtil;
 use baykit\bayserver\util\Headers;
 use baykit\bayserver\util\HttpStatus;
 use baykit\bayserver\util\IOException;
 use baykit\bayserver\util\StringUtil;
 
 
-class H1WarpHandler extends H1ProtocolHandler implements WarpHandler {
+class H1WarpHandler implements WarpHandler, H1Handler {
 
     const STATE_READ_HEADER = 1;
     const STATE_READ_CONTENT = 2;
@@ -29,18 +30,28 @@ class H1WarpHandler extends H1ProtocolHandler implements WarpHandler {
 
     const FIXED_WARP_ID = 1;
 
-    public $headerRead;
-    public $httpProtocol;
+    public H1ProtocolHandler $protocolHandler;
+    public bool $headerRead;
+    public ?string $httpProtocol;
 
-    public $state;
-    public $curReqId = 1;
-    public $curTour;
-    public $curTourId;
+    public int $state;
+    public int $curReqId = 1;
+    public ?Tour $curTour;
+    public int $curTourId;
 
-    public function __construct(PacketStore $pktStore)
+    public function __construct()
     {
-        parent::__construct($pktStore, false);
         $this->resetState();
+    }
+
+    public function init(H1ProtocolHandler $hnd): void
+    {
+        $this->protocolHandler = $hnd;
+    }
+
+    public function __toString(): string
+    {
+        return ClassUtil::localName(get_class($this));
     }
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -49,7 +60,6 @@ class H1WarpHandler extends H1ProtocolHandler implements WarpHandler {
 
     public function reset(): void
     {
-        parent::reset();
         $this->curReqId = 1;
         $this->resetState();
 
@@ -61,9 +71,10 @@ class H1WarpHandler extends H1ProtocolHandler implements WarpHandler {
     }
 
     ////////////////////////////////////////////////////////////////////////////////
-    // Implements InboundHandler
+    // Implements WarpHandler
     ////////////////////////////////////////////////////////////////////////////////
 
+    /*
     public function sendResHeaders(Tour $tur): void
     {
         // determine Connection header value
@@ -88,7 +99,7 @@ class H1WarpHandler extends H1ProtocolHandler implements WarpHandler {
 
         $tur->res->headers->set(Headers::CONNECTION, $res_con);
 
-        if (BayServer::$harbor->traceHeader) {
+        if (BayServer::$harbor->traceHeader()) {
             BayLog::info("%s resStatus:%d", $tur, $tur->res->headers->status);
             foreach ($tur->res->headers->names() as $name) {
                 foreach ($tur->res->headers->values($name) as $value) {
@@ -146,45 +157,49 @@ class H1WarpHandler extends H1ProtocolHandler implements WarpHandler {
         $tur->res->sendError(Tour::TOUR_ID_NOCHECK, HttpStatus::BAD_REQUEST, $e->getMessage(), $e);
         return true;
     }
+*/
 
     //////////////////////////////////////////
     // Implements H1CommandHandler
     //////////////////////////////////////////
     public function handleHeader(CmdHeader $cmd): int
     {
-        $tur = $this->ship->getTour(self::FIXED_WARP_ID);
+        $wsip = $this->ship();
+
+        $tur = $wsip->getTour(self::FIXED_WARP_ID);
         $wdat = WarpData::get($tur);
-        BayLog::debug("%s handleHeader status=%d", $wdat, $cmd->status);
-        $this->ship->keeping = false;
+        BayLog::debug("%s handleHeader state=%d http_status=%d", $wdat, $this->state, $cmd->status);
+        $wsip->keeping = false;
         if ($this->state == self::STATE_FINISHED)
             $this->changeState(self::STATE_READ_HEADER);
 
         if ($this->state != self::STATE_READ_HEADER)
             throw new ProtocolException("Header command not expected");
 
-        if(BayServer::$harbor->traceHeader) {
+        if(BayServer::$harbor->traceHeader()) {
             BayLog::info("%s warp_http: resStatus: %d", $wdat, $cmd->status);
         }
 
         foreach( $cmd->headers as $nv) {
             $tur->res->headers->add($nv[0], $nv[1]);
-            if(BayServer::$harbor->traceHeader) {
+            if(BayServer::$harbor->traceHeader()) {
                 BayLog::info("%s warp_http: resHeader: %s=%s", $wdat, $nv[0], $nv[1]);
             }
         }
 
         $tur->res->headers->status = $cmd->status;
         $resContLen = $tur->res->headers->contentLength();
-        $tur->res->sendHeaders(Tour::TOUR_ID_NOCHECK);
+        $tur->res->sendResHeaders(Tour::TOUR_ID_NOCHECK);
         //BayLog.debug(wdat + " contLen in header=" + resContLen);
         if ($resContLen == 0 || $cmd->status == HttpStatus::NOT_MODIFIED) {
             $this->endResContent($tur);
         } else {
+            BayLog::info("%s SET STATE READ CONTENT", $wdat);
             $this->changeState(self::STATE_READ_CONTENT);
-            $sid = $this->ship->id();
-            $tur->res->setConsumeListener(function ($len, $resume) use ($sid) {
+            $sid = $wsip->id();
+            $tur->res->setConsumeListener(function ($len, $resume) use ($sid, $wsip) {
                 if($resume) {
-                    $this->ship->resume($sid);
+                    $wsip->resumeRead($sid);
                 }
             });
         }
@@ -193,7 +208,7 @@ class H1WarpHandler extends H1ProtocolHandler implements WarpHandler {
 
     public function handleContent(CmdContent $cmd): int
     {
-        $tur = $this->ship->getTour(self::FIXED_WARP_ID);
+        $tur = $this->ship()->getTour(self::FIXED_WARP_ID);
         $wdat = WarpData::get($tur);
         BayLog::debug("%s handleContent len=%d posted=%d contLen=%d",
             $wdat, $cmd->len, $tur->res->bytesPosted, $tur->res->bytesLimit);
@@ -202,7 +217,7 @@ class H1WarpHandler extends H1ProtocolHandler implements WarpHandler {
             throw new ProtocolException("Content command not expected");
 
 
-        $available = $tur->res->sendContent(Tour::TOUR_ID_NOCHECK, $cmd->buf, $cmd->start, $cmd->len);
+        $available = $tur->res->sendResContent(Tour::TOUR_ID_NOCHECK, $cmd->buf, $cmd->start, $cmd->len);
         if ($tur->res->bytesPosted == $tur->res->bytesLimit) {
             $this->endResContent($tur);
             return NextSocketAction::CONTINUE;
@@ -236,10 +251,10 @@ class H1WarpHandler extends H1ProtocolHandler implements WarpHandler {
 
     public function newWarpData(int $warpId): WarpData
     {
-        return new WarpData($this->ship, $warpId);
+        return new WarpData($this->ship(), $warpId);
     }
 
-    public function postWarpHeaders(Tour $tur): void
+    public function sendReqHeaders(Tour $tur): void
     {
         $town = $tur->town;
 
@@ -248,7 +263,8 @@ class H1WarpHandler extends H1ProtocolHandler implements WarpHandler {
         if (!StringUtil::endsWith($townPath, "/"))
             $townPath .= "/";
 
-        $newUri = $this->ship->docker->warpBase . substr($tur->req->uri, strlen($townPath));
+        $sip = $this->ship();
+        $newUri = $sip->docker->warpBase . substr($tur->req->uri, strlen($townPath));
 
         $cmd = CmdHeader::newReqHeader(
             $tur->req->method,
@@ -281,34 +297,36 @@ class H1WarpHandler extends H1ProtocolHandler implements WarpHandler {
         else
             $cmd->setHeader(Headers::X_FORWARDED_HOST, $tur->req->headers->get(Headers::HOST));
 
-        $cmd->setHeader(Headers::HOST, $this->ship->docker->host . ":" . $this->ship->docker->port);
+        $cmd->setHeader(Headers::HOST, $sip->docker->host . ":" . $sip->docker->port);
         $cmd->setHeader(Headers::CONNECTION, "Keep-Alive");
 
-        if(BayServer::$harbor->traceHeader) {
+        if(BayServer::$harbor->traceHeader()) {
             foreach($cmd->headers as $kv)
                 BayLog::info("%s warp_http reqHdr: %s=%s", $tur, $kv[0], $kv[1]);
         }
 
-        $this->ship->post($cmd);
+        $sip->post($cmd);
     }
 
-    public function postWarpContents(Tour $tur, string $buf, int $start, int $len, callable $lis): void
+    public function sendReqContents(Tour $tur, string $buf, int $start, int $len,? callable $callback): void
     {
         $cmd = new CmdContent($buf, $start, $len);
-        $this->ship->post($cmd, $lis);
+        $this->ship()->post($cmd, $callback);
      }
 
-    public function postWarpEnd(Tour $tur): void
+    public function sendEndReq(Tour $tur, bool $keepAlive, ?callable $callback): void
     {
-        $callback = function() {
-            $this->ship->agent->nonBlockingHandler->askToRead($this->ship->socket);
-        };
-
-        $this->ship->post(null, $callback);
+        $cmd = new CmdContent();
+        $this->ship()->post($cmd, $callback);
     }
 
     public function verifyProtocol(string $protocol): void
     {
+    }
+
+    function onProtocolError(ProtocolException $e): bool
+    {
+        // TODO: Implement onProtocolError() method.
     }
 
     //////////////////////////////////////////
@@ -322,15 +340,20 @@ class H1WarpHandler extends H1ProtocolHandler implements WarpHandler {
 
     private function endResContent(Tour $tur) : void
     {
-        $this->ship->endWarpTour($tur);
-        $tur->res->endContent(Tour::TOUR_ID_NOCHECK);
+        $this->ship()->endWarpTour($tur, true);
+        $tur->res->endResContent(Tour::TOUR_ID_NOCHECK);
         $this->resetState();
-        $this->ship->keeping = true;
+        $this->ship()->keeping = true;
     }
 
     private function changeState(int $newState) : void
     {
+        BayLog::info("%s CHANGE STATE: %d", $this, $newState);
         $this->state = $newState;
     }
 
+    private function ship() : WarpShip
+    {
+        return $this->protocolHandler->ship;
+    }
 }

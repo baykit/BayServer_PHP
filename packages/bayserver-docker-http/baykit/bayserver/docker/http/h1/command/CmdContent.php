@@ -9,11 +9,11 @@ use baykit\bayserver\protocol\Packet;
 
 class CmdContent extends H1Command
 {
-    public $buf;
-    public $start;
-    public $len;
+    public ?string $buf;
+    public int $start;
+    public int $len;
 
-    public function __construct(string $buf=null, int $start=null, int $length=null)
+    public function __construct(string $buf=null, int $start=0, int $length=0)
     {
         parent::__construct(H1Type::CONTENT);
         $this->buf = $buf;

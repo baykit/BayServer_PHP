@@ -1,9 +1,10 @@
 <?php
-namespace baykit\bayserver\util;
+namespace baykit\bayserver\common;
 
 use baykit\bayserver\bcf\BcfElement;
 use baykit\bayserver\bcf\BcfKeyVal;
 use baykit\bayserver\bcf\BcfParser;
+use baykit\bayserver\util\StringUtil;
 
 class Groups_Member {
     public $name;

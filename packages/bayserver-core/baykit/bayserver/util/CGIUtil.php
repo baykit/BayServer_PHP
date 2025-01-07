@@ -89,6 +89,7 @@ class CGIUtil
         self::addEnv($lis, self::SERVER_SOFTWARE, BayServer::getSoftwareName());
 
         self::addEnv($lis, self::CONTEXT_DOCUMENT_ROOT, $docRoot);
+        //self::addEnv($lis, self::DOCUMENT_ROOT, $docRoot);
 
 
         foreach($tour->req->headers->names() as $name) {

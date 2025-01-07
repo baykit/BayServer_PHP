@@ -3,41 +3,50 @@ namespace baykit\bayserver\docker\cgi;
 
 use baykit\bayserver\agent\NextSocketAction;
 use baykit\bayserver\BayLog;
+use baykit\bayserver\common\ReadOnlyShip;
+use baykit\bayserver\common\Transporter;
+use baykit\bayserver\rudder\Rudder;
 use baykit\bayserver\Sink;
 use baykit\bayserver\tour\Tour;
+use baykit\bayserver\util\IOException;
 use baykit\bayserver\util\StringUtil;
 use baykit\bayserver\util\Valve;
 use baykit\bayserver\watercraft\Yacht;
 
 
-class CGIStdOutYacht extends Yacht
+class CGIStdOutShip extends ReadOnlyShip
 {
-    public $fileWroteLen;
+    private int $fileWroteLen = 0;
 
-    public $tour;
-    public $tourId;
+    private ?Tour $tour;
+    private int $tourId;
 
-    private $tmpBuf;
-    private $curPos;
-    private $headerReading;
-    private $handler;
-
-    public function __construct()
-    {
-        $this->reset();
-    }
+    private string $tmpBuf = "";
+    private int $curPos = 0;
+    private bool $headerReading = false;
+    private ?CGIReqContentHandler $handler;
 
     public function __toString() : string
     {
-        return "CGIYat#{$this->yachtId}/{$this->objectId} tour={$this->tour} id={$this->tourId}";
+        return "agt#{$this->agentId} out_ship#{$this->shipId}/{$this->objectId}";
     }
 
-    ////////////////////////////////////////////////////////////////////
+    public function initOutShip(Rudder $rd, int $agtId, Tour $tur, Transporter $tp, CGIReqContentHandler $handler) : void
+    {
+        parent::init($agtId, $rd, $tp);
+        $this->handler = $handler;
+        $this->tour = $tur;
+        $this->tourId = $tur->tourId;
+        $this->headerReading = true;
+    }
+
+    /////////////////////////////////////
     // Implements Reusable
-    ////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////
 
     public function reset(): void
     {
+        parent::reset();
         $this->fileWroteLen = 0;
         $this->tourId = 0;
         $this->tour = null;
@@ -51,7 +60,7 @@ class CGIStdOutYacht extends Yacht
     // Implements Yacht
     ////////////////////////////////////////////////////////////////////
 
-    public function notifyRead(string $buf, ?array $adr): int
+    public function notifyRead(string $buf): int
     {
         $this->fileWroteLen += strlen($buf);
         BayLog::debug("%s read file %d bytes: total=%d", $this, strlen($buf), $this->fileWroteLen);
@@ -74,7 +83,7 @@ class CGIStdOutYacht extends Yacht
                 #  finish header reading.
                 if (StringUtil::isEmpty($line)) {
                     $this->headerReading = false;
-                    $this->tour->res->sendHeaders($this->tourId);
+                    $this->tour->res->sendResHeaders($this->tourId);
                     $buf = substr($this->tmpBuf, $this->curPos);
                     break;
                 } else {
@@ -92,8 +101,14 @@ class CGIStdOutYacht extends Yacht
         }
 
         $available = true;
-        if(strlen($buf) >= 0) {
-            $available = $this->tour->res->sendContent($this->tourId, $buf, 0, strlen($buf));
+        if(!$this->headerReading) {
+            try {
+                $available = $this->tour->res->sendResContent($this->tourId, $buf, 0, strlen($buf));
+            }
+            catch(IOException $e) {
+                $this->notifyError($e);
+                return NextSocketAction::CLOSE;
+            }
         }
 
         $this->handler->access();
@@ -115,9 +130,14 @@ class CGIStdOutYacht extends Yacht
         $this->handler->stdOutClosed();
     }
 
+    public function notifyError(\Exception $e): void
+    {
+        BayLog::debug($e, "%s CGI notifyError", $this);
+    }
+
     public function checkTimeout(int $durationSec): bool
     {
-        BayLog::debug("%s Check StdOut timeout: dur=%d, timeout=%d", $this, $durationSec, $this->timeout);
+        BayLog::debug("%s Check StdOut timeout: dur=%d", $this, $durationSec);
 
         if($this->handler->timedOut()) {
             // Kill cgi process instead of handing timeout
@@ -132,17 +152,5 @@ class CGIStdOutYacht extends Yacht
     // Custom methods
     ////////////////////////////////////////////////////////////////////
 
-    public function init(Tour $tur, Valve $vv, CGIReqContentHandler $handler) : void
-    {
-        $this->initYacht();
-        $this->handler = $handler;
-        $this->tour = $tur;
-        $this->tourId = $tur->tourId;
-        $this->tour->res->setConsumeListener(function ($len, $resume) use ($vv) {
-            if($resume) {
-                $vv->valveOpen();
-            }
-        });
-    }
 
 }

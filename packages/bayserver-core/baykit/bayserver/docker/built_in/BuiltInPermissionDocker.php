@@ -9,9 +9,10 @@ use baykit\bayserver\ConfigException;
 use baykit\bayserver\docker\base\DockerBase;
 use baykit\bayserver\docker\Permission;
 use baykit\bayserver\HttpException;
+use baykit\bayserver\rudder\Rudder;
 use baykit\bayserver\Symbol;
 use baykit\bayserver\tour\Tour;
-use baykit\bayserver\util\Groups;
+use baykit\bayserver\common\Groups;
 use baykit\bayserver\util\Headers;
 use baykit\bayserver\util\HostMatcher;
 use baykit\bayserver\util\HttpStatus;
@@ -27,8 +28,8 @@ class CheckItem {
         $this->admit = $admit;
     }
 
-    public function socketAdmitted($ch) : bool {
-        return $this->matcher->matchSocket($ch) == $this->admit;
+    public function socketAdmitted(Rudder $rd) : bool {
+        return $this->matcher->matchSocket($rd) == $this->admit;
     }
 
     public function tourAdmitted(Tour $tour) : bool {
@@ -37,7 +38,7 @@ class CheckItem {
 }
 
 interface PermissionMatcher {
-    public function matchSocket($ch) : bool;
+    public function matchSocket(Rudder $rd) : bool;
     public function matchTour(Tour $tour) : bool;
 }
 
@@ -50,9 +51,9 @@ class HostPermissionMatcher implements PermissionMatcher {
         $this->mch = new HostMatcher($hostPtn);
     }
 
-    public function matchSocket($ch) : bool
+    public function matchSocket(Rudder $rd) : bool
     {
-        $name = stream_socket_get_name($ch, true);
+        $name = stream_socket_get_name($rd->key(), true);
         list($host, $port) = explode(":", $name);
         return $this->mch->matchSocket(HttpUtil::resolveHost($host));
     }
@@ -72,10 +73,10 @@ class IpPermissionMatcher implements PermissionMatcher {
         $this->mch = new IpMatcher($ipDesc);
     }
 
-    public function matchSocket($ch) : bool
+    public function matchSocket(Rudder $rd) : bool
     {
         try {
-            $name = stream_socket_get_name($ch, true);
+            $name = stream_socket_get_name($rd->key(), true);
             list($host, $port) = explode(":", $name);
             return $this->mch->match($host);
         }
@@ -163,18 +164,18 @@ class BuiltInPermissionDocker extends DockerBase implements  Permission
     // Implements Permission
     //////////////////////////////////////////////////////
 
-    public function socketAdmitted($ch): void
+    public function socketAdmitted(Rudder $rd): void
     {
         // Check remote host
         $isOk = true;
         foreach ($this->checkList as $chk) {
             if ($chk->admit) {
-                if ($chk->socketAdmitted($ch)) {
+                if ($chk->socketAdmitted($rd)) {
                     $isOk = true;
                     break;
                 }
             } else {
-                if (!$chk->socketAdmitted($ch)) {
+                if (!$chk->socketAdmitted($rd)) {
                     $isOk = false;
                     break;
                 }
@@ -182,7 +183,7 @@ class BuiltInPermissionDocker extends DockerBase implements  Permission
         }
 
         if (!$isOk) {
-            BayLog::error("Permission error: socket not admitted: %s", $ch);
+            BayLog::error("Permission error: socket not admitted: %s", $rd);
             throw new HttpException(HttpStatus::FORBIDDEN);
         }
     }

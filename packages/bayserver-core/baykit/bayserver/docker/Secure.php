@@ -1,7 +1,9 @@
 <?php
 namespace baykit\bayserver\docker;
 
-use baykit\bayserver\agent\transporter\Transporter;
+
+use baykit\bayserver\common\Transporter;
+use baykit\bayserver\ship\Ship;
 
 interface Secure extends Docker
 {
@@ -9,5 +11,5 @@ interface Secure extends Docker
 
     public function reloadCert() : void;
 
-    public function createTransporter(int $bufsize) : Transporter;
+    public function newTransporter(int $agtId, Ship $sip, int $bufsiz) : Transporter;
 }

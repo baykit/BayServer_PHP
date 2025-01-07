@@ -2,9 +2,25 @@
 
 namespace baykit\bayserver\agent;
 
+use baykit\bayserver\agent\letter\AcceptedLetter;
+use baykit\bayserver\agent\letter\ClosedLetter;
+use baykit\bayserver\agent\letter\ConnectedLetter;
+use baykit\bayserver\agent\letter\ErrorLetter;
+use baykit\bayserver\agent\letter\Letter;
+use baykit\bayserver\agent\letter\ReadLetter;
+use baykit\bayserver\agent\letter\WroteLetter;
+use baykit\bayserver\agent\multiplexer\PlainTransporter;
+use baykit\bayserver\agent\multiplexer\SpiderMultiplexer;
+use baykit\bayserver\agent\multiplexer\SpinMultiplexer;
+use baykit\bayserver\agent\transporter\WriteUnit;
+use baykit\bayserver\common\Multiplexer;
+use baykit\bayserver\common\Recipient;
+use baykit\bayserver\common\RudderState;
+use baykit\bayserver\common\Transporter;
+use baykit\bayserver\HttpException;
 use baykit\bayserver\MemUsage;
+use baykit\bayserver\rudder\Rudder;
 use baykit\bayserver\util\ArrayUtil;
-use baykit\bayserver\util\BlockingIOException;
 use baykit\bayserver\util\IOException;
 use parallel\Runtime;
 use baykit\bayserver\BayServer;
@@ -12,9 +28,8 @@ use baykit\bayserver\BayLog;
 use baykit\bayserver\Sink;
 use baykit\bayserver\BayMessage;
 use baykit\bayserver\Symbol;
-use baykit\bayserver\util\SysUtil;
 use baykit\bayserver\util\IOUtil;
-use baykit\bayserver\util\Selector;
+
 
 
 
@@ -29,6 +44,7 @@ class GrandAgent
     const CMD_MEM_USAGE = 3;
     const CMD_SHUTDOWN = 4;
     const CMD_ABORT = 5;
+    const CMD_CATCHUP = 6;
 
     #
     # class variables
@@ -41,28 +57,24 @@ class GrandAgent
     public static $agents = [];
     public static $listeners = [];
 
-    public static $anchorablePortMap = [];
-    public static $unanchorablePortMap = [];
     public static $finale = false;
 
     #
     # instance variables
     #
-    public $agentId;
-    public $nonBlockingHandler;
-    public $spinHandler;
-    public $acceptHandler;
-    public $selectWakeupPipe = [];
-    public $selectTimeoutSec;
-    public $maxInboundShips;
-    public $selector;
-    public $aborted;
-    public $commandReceiver;
-    public $pid;
-    public $anchorable;
-    public $unanchorableTransporters = [];
-    public $timerHandlers = [];
+    public int $agentId;
+    public bool $anchorable;
+    public Multiplexer $netMultiplexer;
+    public SpiderMultiplexer $spiderMultiplexer;
+    public SpinMultiplexer $spinMultiplexer;
+    public Recipient $recipient;
 
+    public int $maxInboundShips;
+    public bool $aborted;
+    public CommandReceiver $commandReceiver;
+    public array $timerHandlers = [];
+    public int $lastTimeoutCheck = 0;
+    public array $letterQueue = [];
 
     public function __construct(
         int $agentId,
@@ -71,69 +83,54 @@ class GrandAgent
     {
         $this->agentId = $agentId;
         $this->anchorable = $anchorable;
-
-        if($anchorable)
-            $this->acceptHandler = new AcceptHandler($this, GrandAgent::$anchorablePortMap);
-
-        $this->nonBlockingHandler = new NonBlockingHandler($this);
-        $this->spinHandler = new SpinHandler($this);
-
-        $this->selectWakeupPipe = IOUtil::openLocalPipe();
-        stream_set_blocking($this->selectWakeupPipe[0], false);
-        stream_set_blocking($this->selectWakeupPipe[1], false);
-
-        $this->selectTimeoutSec = GrandAgent::SELECT_TIMEOUT_SEC;
         $this->maxInboundShips = $maxShips;
-        $this->selector = new Selector();
+
+        $this->spiderMultiplexer = new SpiderMultiplexer($this, $anchorable);
+        $this->spinMultiplexer = new SpinMultiplexer($this, $anchorable);
+        $this->netMultiplexer = $this->spiderMultiplexer;
+        $this->recipient = $this->spiderMultiplexer;
+
         $this->aborted = false;
-        $this->commandReceiver = null;
     }
 
     public function __toString() : string
     {
-        return "Agt#{$this->agentId}";
+        return "agt#{$this->agentId}";
     }
 
     public function run()
     {
         BayLog::info(BayMessage::get(Symbol::MSG_RUNNING_GRAND_AGENT, $this));
 
-        BayLog::debug("%s Register wakeup pipe read: %s (<-%s)", $this, $this->selectWakeupPipe[0], $this->selectWakeupPipe[1]);
-        $this->selector->register($this->selectWakeupPipe[0], Selector::OP_READ);
-        $this->selector->register($this->commandReceiver->communicationChannel, Selector::OP_READ);
+        $this->netMultiplexer->reqRead($this->commandReceiver->rudder);
 
 
-        // Set up unanchorable channel
-        foreach (GrandAgent::$unanchorablePortMap as $ch => $port) {
-            $tp = $port->newTransporter($this, $ch);
-            GrandAgent::$unanchorablePortMap[$ch] = $tp;
-            $this->nonBlockingHandler->addChannelListener($ch, $tp);
-            $this->nonBlockingHandler->askToStart($ch);
-            if(!$this->anchorable) {
-                $this->nonBlockingHandler->askToRead($ch);
+        if($this->anchorable) {
+            // Adds server socket channel of anchorable ports
+            foreach(BayServer::$anchorablePortMap as $portMap) {
+                $this->netMultiplexer->addRudderState($portMap->rudder, new RudderState($portMap->rudder));
             }
         }
-
 
         $busy = true;
 
         try {
             while (true) {
-                if ($this->acceptHandler != null) {
-                    $test_busy = $this->acceptHandler->chCount >= $this->maxInboundShips;
-                    if ($test_busy != $busy) {
-                        $busy = $test_busy;
-                        if ($busy)
-                            $this->acceptHandler->onBusy();
-                        else
-                            $this->acceptHandler->onFree();
+                $test_busy = $this->netMultiplexer->isBusy();
+                if ($test_busy != $busy) {
+                    $busy = $test_busy;
+                    if ($busy)
+                        $this->netMultiplexer->onBusy();
+                    else
+                        $this->netMultiplexer->onFree();
+                }
 
-                        if (!$busy and count($this->selector->keys) <= 1) {
-                            # agent finished
-                            BayLog::debug("%s Selector has no key", $this);
-                            break;
-                        }
-                    }
+                if (!$this->spinMultiplexer->isEmpty()) {
+                    // If "SpinHandler" is running, the select function does not block.
+                    $received = $this->recipient->receive(false);
+                    $this->spinMultiplexer->processData();
+                } else {
+                    $received = $this->recipient->receive(true);
                 }
 
                 if ($this->aborted) {
@@ -142,43 +139,37 @@ class GrandAgent
                     break;
                 }
 
-                if (!$this->spinHandler->isEmpty())
-                    $selkeys = $this->selector->select(0);
-                else
-                    $selkeys = $this->selector->select($this->selectTimeoutSec);
-
-                $processed = $this->nonBlockingHandler->registerChannelOps() > 0;
-
-                if ($this->aborted) {
-                    // agent finished
-                    BayLog::debug("%s aborted by another thread", $this);
-                    break;
-                }
-
-                if (count($selkeys) == 0)
-                    $processed |= $this->spinHandler->processData();
-
-
-                foreach ($selkeys as $key) {
-                    if ($key->channel == $this->selectWakeupPipe[0]) {
-                        # Waked up by ask_to_*
-                        $this->onWakedUp($key->channel);
-                    } elseif ($key->channel == $this->commandReceiver->communicationChannel) {
-                        $this->commandReceiver->onPipeReadable();
-                    } elseif ($this->acceptHandler->isServerSocket($key->channel)) {
-                        $this->acceptHandler->onAcceptable($key->channel);
-                    } else {
-                        $this->nonBlockingHandler->handleChannel($key);
-                    }
-                    $processed = true;
-                }
-
-                if (!$processed) {
-                    # timeout check if there is nothing to do
-                    foreach ($this->timerHandlers as $h) {
-                        $h->onTimer();
+                if ($this->spinMultiplexer->isEmpty() && empty($this->letterQueue)) {
+                    # timed out
+                    # check per 10 seconds
+                    if (time() - $this->lastTimeoutCheck >= 10) {
+                        $this->ring();
                     }
                 }
+
+                while(!empty($this->letterQueue)) {
+                    $let = array_shift($this->letterQueue);
+
+                    if($let instanceof AcceptedLetter) {
+                        $this->onAccepted($let);
+                    }
+                    else if($let instanceof ConnectedLetter) {
+                        $this->onConnected($let);
+                    }
+                    else if($let instanceof ReadLetter) {
+                        $this->onRead($let);
+                    }
+                    else if($let instanceof WroteLetter) {
+                        $this->onWrote($let);
+                    }
+                    else if($let instanceof ClosedLetter) {
+                        $this->onClosed($let);
+                    }
+                    else if($let instanceof ErrorLetter) {
+                        $this->onError($let);
+                    }
+                }
+
             }
         }
         catch (\Throwable $e) {
@@ -195,16 +186,17 @@ class GrandAgent
     public function shutdown() : void
     {
         BayLog::debug("%s shutdown", $this);
-        if ($this->acceptHandler) {
-            $this->acceptHandler->shutdown();
-        }
+        if($this->aborted)
+            return;
+        $this->aborted = true;
 
-        $this->commandReceiver->end();
-        $this->clean();
+        $this->netMultiplexer->shutdown();
 
         foreach (GrandAgent::$listeners as $lis) {
             $lis->remove($this->agentId);
         }
+
+        $this->commandReceiver->end();
 
         # remove from array
         self::$agents = array_filter(
@@ -213,9 +205,10 @@ class GrandAgent
                 return $item->agentId != $this->agentId;
             });
 
-        if(BayServer::$harbor->multiCore) {
+        if(BayServer::$harbor->multiCore()) {
             exit(1);
         }
+        $this->agentId = -1;
     }
 
     public function abort() : void
@@ -255,27 +248,11 @@ class GrandAgent
         MemUsage::get($this->agentId)->printUsage(1);
     }
 
-    public function onWakedUp($ch) : void
-    {
-        BayLog::trace("%s On Waked Up", $this);
-        try {
-            while (true) {
-                IOUtil::recvInt32($ch);
-            }
-        }
-        catch(BlockingIOException $e) {
-            /* Data not received */
-        }
-    }
+
 
     public function wakeup() : void
     {
-        IOUtil::sendInt32($this->selectWakeupPipe[1], 0);
-    }
-
-    public function runCommandReceiver($comChannel)
-    {
-        $this->commandReceiver = new CommandReceiver($this, $comChannel);
+        IOUtil::writeInt32($this->selectWakeupPipe[1], 0);
     }
 
     public function clean() {
@@ -292,19 +269,264 @@ class GrandAgent
         ArrayUtil::remove($handler, $this->timerHandlers);
     }
 
+    // The timer goes off
+    private function ring(): void {
+        foreach($this->timerHandlers as $th) {
+            $th->onTimer();
+        }
+        $this->lastTimeoutCheck = time();
+    }
+
+    public function addCommandReceiver(Rudder $rd)
+    {
+        $this->commandReceiver = new CommandReceiver();
+        $comTransporter = new PlainTransporter($this->netMultiplexer, $this->commandReceiver, true, 8, false);
+        $this->commandReceiver->init($this->agentId, $rd, $comTransporter);
+        $this->netMultiplexer->addRudderState($this->commandReceiver->rudder, new RudderState($this->commandReceiver->rudder, $comTransporter));
+        BayLog::info("CommandReceiver=%s", $this->commandReceiver);
+    }
+
+    public function sendAcceptedLetter(RudderState $st, Rudder $clientRd, bool $wakeup) : void {
+        $this->sendLetter(new AcceptedLetter($st, $clientRd), $wakeup);
+    }
+
+    public function sendConnectedLetter(RudderState $st, bool $wakeup) : void {
+        $this->sendLetter(new ConnectedLetter($st), $wakeup);
+    }
+
+    public function sendReadLetter(RudderState $st, int $n, ?string $adr, bool $wakeup) : void {
+        $this->sendLetter(new ReadLetter($st, $n, $adr), $wakeup);
+    }
+
+    public function sendWroteLetter(RudderState $st, int $n, bool $wakeup) : void {
+        $this->sendLetter(new WroteLetter($st, $n), $wakeup);
+    }
+
+    public function sendClosedLetter(RudderState $st, bool $wakeup) : void {
+        $this->sendLetter(new ClosedLetter($st), $wakeup);
+    }
+
+    public function sendErrorLetter(RudderState $st, \Throwable $e, bool $wakeup) : void {
+        $this->sendLetter(new ErrorLetter($st, $e), $wakeup);
+    }
+
+
+    ######################################################
+    # Private methods
+    ######################################################
+
+    public function sendLetter(Letter $let, bool $wakeup) : void {
+        $this->letterQueue[] = $let;
+        if($wakeup)
+            $this->recipient->wakeup();
+    }
+
+    private function onAccepted(AcceptedLetter $let) : void
+    {
+        BayLog::debug("%s onAccepted", $this);
+        $st = $let->state;
+        try {
+            $p = PortMap::findDocker($st->rudder, BayServer::$anchorablePortMap);
+            $p->onConnected($this->agentId, $let->clientRudder);
+        }
+        catch (HttpException $e) {
+            $st->transporter->onError($st->rudder, $e);
+            $this->nextAction($st, NextSocketAction::CLOSE, false);
+        }
+
+        if (!$this->netMultiplexer->isBusy()) {
+            $let->state->multiplexer->nextAccept($let->state);
+        }
+    }
+
+    private function onConnected(ConnectedLetter $let) : void {
+        $st = $let->state;
+        if ($st->closed) {
+            BayLog::debug("%s Rudder is already closed: rd=%s", $this, $st->rudder);
+            return;
+        }
+
+        BayLog::debug("%s connected rd=%s", $this, $st->rudder);
+
+        try {
+            $nextAct = $st->transporter->onConnected($st->rudder);
+            BayLog::debug("%s nextAct=%s", $this, $nextAct);
+        }
+        catch (IOException $e) {
+            $st->transporter->onError($st->rudder, $e);
+            $nextAct = NextSocketAction::CLOSE;
+        }
+
+        if($nextAct == NextSocketAction::READ) {
+            // Read more
+            $st->multiplexer->cancelWrite($st);
+        }
+
+        $this->nextAction($st, $nextAct, false);
+    }
+
+    private function onRead(ReadLetter $let) : void {
+        $st = $let->state;
+        if ($st->closed) {
+            BayLog::debug("%s Rudder is already closed: rd=%s", $this, $st->rudder);
+            return;
+        }
+
+        try {
+            BayLog::debug("%s read %d bytes (rd=%s) ", $this, $let->nBytes, $st->rudder);
+            $st->bytesRead += $let->nBytes;
+
+            if ($let->nBytes <= 0) {
+                BayLog::debug("%s EOF", $this);
+                $st->readBuf = "";
+                $nextAct = $st->transporter->onRead($st->rudder, $st->readBuf, $let->address);
+            }
+            else {
+                $nextAct = $st->transporter->onRead($st->rudder, $st->readBuf, $let->address);
+            }
+        }
+        catch (IOException $e) {
+            $st->transporter->onError($st->rudder, $e);
+            $nextAct = NextSocketAction::CLOSE;
+        }
+
+        $this->nextAction($st, $nextAct, true);
+    }
+
+    private function onWrote(WroteLetter $let) : void {
+        $st = $let->state;
+        if ($st->closed) {
+            BayLog::debug("%s Rudder is already closed: rd=%s", $this, $st->rudder);
+            return;
+        }
+
+        BayLog::debug("%s wrote %d bytes rd=%s qlen=%d", $this, $let->nBytes, $st->rudder, count($st->writeQueue));
+        $st->bytesWrote += $let->nBytes;
+
+        if(empty($st->writeQueue))
+            throw new Sink("%s Write queue is empty: rd=%s", $this, $st->rudder);
+
+        $unit = $st->writeQueue[0];
+        if (strlen($unit->buf) > 0) {
+            BayLog::debug("Could not write enough data: len=%d", count($unit->buf));
+        }
+        else {
+            $st->multiplexer->consumeOldestUnit($st);
+        }
+
+        $writeMore = true;
+        if (empty($st->writeQueue)) {
+            $writeMore = false;
+            $st->writing = false;
+        }
+
+        if ($writeMore) {
+            $st->multiplexer->nextWrite($st);
+        }
+        else {
+            if($st->finale) {
+                // Close
+                BayLog::debug("%s finale return Close", $this);
+                $this->nextAction($st, NextSocketAction::CLOSE, false);
+            }
+            else {
+                // Write off
+                $st->multiplexer->cancelWrite($st);
+            }
+        }
+    }
+
+    private function onClosed(ClosedLetter $let) : void {
+        $st = $let->state;
+        BayLog::debug("%s onClose rd=%s", $this, $st->rudder);
+        if ($st->closed) {
+            BayLog::debug("%s Rudder is already closed: rd=%s", $this, $st->rudder);
+            return;
+        }
+
+        $st->multiplexer->removeRudderState($st->rudder);
+
+        while($st->multiplexer->consumeOldestUnit($st)) {
+        }
+
+        if ($st->transporter != null)
+            $st->transporter->onClosed($st->rudder);
+
+        $st->closed = true;
+        $st->access();
+    }
+
+    private function onError(ErrorLetter $let) : void {
+
+        try {
+            throw $let->err;
+        }
+        catch (IOException | HttpException $e) {
+            if($let->state->transporter != null) {
+                $let->state->transporter->onError($let->state->rudder, $e);
+                $this->nextAction($let->state, NextSocketAction::CLOSE, false);
+            }
+            else {
+                // Accept error
+                BayLog::debug_e($e, "Accept Error");
+            }
+        }
+    }
+
+    private function nextAction(RudderState $st, int $act, bool $reading) : void {
+        BayLog::debug("%s next action: %s (reading=%b)", $this, $act, $reading);
+        $cancel = false;
+
+        switch($act) {
+            case NextSocketAction::CONTINUE:
+                if($reading)
+                    $st->multiplexer->nextRead($st);
+                break;
+
+            case NextSocketAction::READ:
+                $st->multiplexer->nextRead($st);
+                break;
+
+            case NextSocketAction::WRITE:
+                if($reading)
+                    $cancel = true;
+                break;
+
+            case NextSocketAction::CLOSE:
+                if($reading)
+                    $cancel = true;
+                $st->multiplexer->reqClose($st->rudder);
+                break;
+
+            case NextSocketAction::SUSPEND:
+                if($reading)
+                    $cancel = true;
+                break;
+
+            default:
+                throw new Sink("NextAction=" + $act);
+        }
+
+        if($cancel) {
+            $st->multiplexer->cancelRead($st);
+            BayLog::debug("%s Reading off %s", $this, $st->rudder);
+            $st->reading = false;
+        }
+
+        $st->access();
+    }
+
     ######################################################
     # class methods
     ######################################################
-    public static function init(array $agtIds, array $anchorablePortMap, array $unanchorablePortMap,int $maxShips, bool $multiCore)
+
+    public static function init(array $agtIds, int $maxShips)
     {
         self::$agentCount = count($agtIds);
-        self::$anchorablePortMap = $anchorablePortMap;
-        self::$unanchorablePortMap = $unanchorablePortMap;
         self::$maxShips = $maxShips;
-        self::$multiCore = $multiCore;
 
-        if (BayServer::$harbor->multiCore) {
-            if(count(self::$unanchorablePortMap) > 0) {
+        if (BayServer::$harbor->multiCore()) {
+            if(count(BayServer::$unanchorablePortMap) > 0) {
                 self::add($agtIds[0], false);
                 ArrayUtil::removeByIndex(0, $agtIds);
             }
@@ -331,7 +553,7 @@ class GrandAgent
         if ($agtId > self::$maxAgentId)
             self::$maxAgentId = $agtId;
 
-        $agt = new GrandAgent($agtId, BayServer::$harbor->maxShips, $anchorable);
+        $agt = new GrandAgent($agtId, BayServer::$harbor->maxShips(), $anchorable);
         self::$agents[$agtId] = $agt;
 
         foreach (self::$listeners as $lis) {
@@ -343,9 +565,5 @@ class GrandAgent
     public static function addLifecycleListener(LifecycleListener $lis) : void
     {
         self::$listeners[] = $lis;
-    }
-
-    private static function invokeRunners()
-    {
     }
 }

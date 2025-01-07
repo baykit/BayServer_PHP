@@ -34,10 +34,12 @@ CFG_IPV4_AND_IPV6_ARE_MIXED          IPv4とIPv6が混在しています: %s
 CFG_PARAMETER_IS_NOT_A_NUMBER        Parameterは数値ではありません: %s value="%s"
 CFG_MULTI_CORE_NOT_SUPPORTED          このプラットフォームではマルチコアモードはサポートされません．シングルコアモードで起動します．
 CFG_SINGLE_CORE_NOT_SUPPORTED        このプラットフォームではシングルコアモードはサポートされません．マルチコアモードで起動します．
-CFG_FILE_SEND_METHOD_SELECT_NOT_SUPPORTED  このプラットフォームではselectでファイルを送信できません．タクシーで送信します.
-CFG_FILE_SEND_METHOD_SPIN_NOT_SUPPORTED    このプラットフォームではspinでファイルを送信できません．タクシーで送信します．
-CFG_LOG_WRITE_METHOD_SELECT_NOT_SUPPORTED  このプラットフォームではselectでログを書き込めません．タクシーで書き込みます.
-CFG_LOG_WRITE_METHOD_SPIN_NOT_SUPPORTED    このプラットフォームではspinでログを書き込めません．タクシーで書き込みます．
+CFG_NET_MULTIPLEXER_NOT_SUPPORTED    このプラットフォームのネット・マルチプレクサとして"%s"はサポートされません。"%s"を使用します。
+CFG_FILE_MULTIPLEXER_NOT_SUPPORTED   このプラットフォームのファイル・マルチプレクサとして"%s"はサポートされません。"%s"を使用します。
+CFG_LOG_MULTIPLEXER_NOT_SUPPORTED    このプラットフォームのログ・マルチプレクサとして"%s"はサポートされません。"%s"を使用します。
+CFG_CGI_MULTIPLEXER_NOT_SUPPORTED    このプラットフォームのCGIマルチプレクサとして"%s"はサポートされません。"%s"を使用します。
+CFG_MULTIPLEXER_NEEDS_A_GRAND_AGENT  このマルチプレクサはシングル・エージェントで動作します
+CFG_NET_MULTIPLEXER_DOES_NOT_SUPPORT_THIS_RECIPIENT ネット・マルチプレクサ"%s"は、レシピエント"%s"をサポートしません。"%s"を使用します。
 CFG_MAX_SHIPS_IS_TO_SMALL                maxShipsが小さすぎます。次の値に設定します: %d
 CFG_TCP_NOT_SUPPORTED                TCPはサポートされません
 CFG_UDP_NOT_SUPPORTED                UDPはサポートされません

@@ -22,7 +22,7 @@ class InboundDataListener implements DataListener
 
     public function __toString()
     {
-        return strval($this->ship);
+        return strval($this->ship());
     }
 
     ///////////////////////////////////////////////////////////////////////
@@ -42,7 +42,7 @@ class InboundDataListener implements DataListener
     public function notifyRead(string $buf, ?array $adr): int
     {
         BayLog::trace("%s notify_read", $this);
-        return $this->ship->protocolHandler->bytesReceived($buf);
+        return $this->ship()->bytesReceived($buf);
     }
 
     public function notifyEof(): int
@@ -57,7 +57,7 @@ class InboundDataListener implements DataListener
         if (BayLog::isDebugMode())
             BayLog::error_e($e);
 
-        return $this->ship->protocolHandler->sendReqProtocolError($e);
+        return $this->ship()->sendReqProtocolError($e);
     }
 
     public function notifyClose(): void

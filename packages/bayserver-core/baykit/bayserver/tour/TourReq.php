@@ -4,60 +4,54 @@ namespace baykit\bayserver\tour;
 use baykit\bayserver\BayLog;
 use baykit\bayserver\BayMessage;
 use baykit\bayserver\BayServer;
-use baykit\bayserver\docker\base\InboundShip;
-use baykit\bayserver\HttpException;
 use baykit\bayserver\protocol\ProtocolException;
 use baykit\bayserver\Sink;
 use baykit\bayserver\Symbol;
-use baykit\bayserver\util\Counter;
 use baykit\bayserver\util\Headers;
-use baykit\bayserver\util\HttpStatus;
 use baykit\bayserver\util\Reusable;
-use Couchbase\BaseException;
 
 class TourReq implements Reusable {
 
-    private $tour;
+    private Tour $tour;
 
     /**
      * Request Header info
      */
-    public $key;  // request id in FCGI or stream id in HTTP/2
+    public int $key;  // request id in FCGI or stream id in HTTP/2
 
-    public $uri;
-    public $protocol;
-    public $method;
+    public ?string $uri;
+    public ?string $protocol;
+    public ?string $method;
 
-    public $headers;
+    public Headers $headers;
 
-    public $rewrittenURI; // set if URI is rewritten
-    public $queryString;
-    public $pathInfo;
-    public $scriptName;
-    public $reqHost;  // from Host header
-    public $reqPort;     // from Host header
+    public ?string $rewrittenURI = null; // set if URI is rewritten
+    public ?string $queryString = null;
+    public ?string $pathInfo = null;
+    public ?string $scriptName = null;
+    public ?string $reqHost;  // from Host header
+    public string $reqPort;     // from Host header
 
-    public $remoteUser;
-    public $remotePass;
+    public ?string $remoteUser = null;
+    public ?string $remotePass = null;
 
-    public $remoteAddress;
-    public $remotePort;
+    public ?string $remoteAddress = null;
+    public int $remotePort;
     public $remoteHostFunc;   // callable. (Remote host is resolved on demand since performance reason)
-    public $serverAddress;
-    public $serverPort;
-    public $serverName;
-    public $charset;
+    public ?string $serverAddress = null;
+    public int $serverPort;
+    public ?string $serverName = null;
+    public ?string $charset = null;
 
     /**
      * Request content info
      */
-    public $bytesPosted;
-    public $bytesConsumed;
-    public $bytesLimit;
-    public $contentHandler;
-    public $consumeListener;
-    public $available;
-    public $ended;
+    public int $bytesPosted = 0;
+    public int $bytesConsumed = 0;
+    public int $bytesLimit = 0;
+    public ?ReqContentHandler $contentHandler = null;
+    public bool $available = false;
+    public bool $ended = false;
 
     public function __construct(Tour $tur)
     {
@@ -77,9 +71,9 @@ class TourReq implements Reusable {
         $this->uri = null;
         $this->method = null;
         $this->protocol = null;
-        $this->bytesPosted = null;
-        $this->bytesConsumed = null;
-        $this->bytesLimit = null;
+        $this->bytesPosted = 0;
+        $this->bytesConsumed = 0;
+        $this->bytesLimit = 0;
 
         $this->key = 0;
 
@@ -102,7 +96,6 @@ class TourReq implements Reusable {
         $this->charset = null;
 
         $this->contentHandler = null;
-        $this->consumeListener = null;
         $this->available = false;
         $this->ended = false;
     }
@@ -135,31 +128,27 @@ class TourReq implements Reusable {
         $this->contentHandler = $hnd;
     }
 
-    public function setConsumeListener(int $limit, callable $listener) : void
+    public function setLimit(int $limit) : void
     {
         if ($limit < 0) {
             throw new Sink("Invalid limit");
         }
-        $this->consumeListener = $listener;
         $this->bytesLimit = $limit;
         $this->bytesConsumed = 0;
         $this->bytesPosted = 0;
         $this->available = true;
     }
 
-    public function postContent(int $checkId, string $data, int $start, int $len) : bool
+    public function postReqContent(int $checkId, string $data, int $start, int $len, ?callable $callback) : bool
     {
         $this->tour->checkTourId($checkId);
 
         $dataPassed = false;
-        if(!$this->tour->isRunning()) {
-            BayLog::debug("%s tour is not running.", $this->tour);
+        if(!$this->tour->isReading()) {
+            BayLog::debug("%s tour is not reading.", $this->tour);
         }
         else if ($this->tour->req->contentHandler == null) {
             BayLog::warn("%s content read, but no content handler", $this->tour);
-        }
-        else if($this->consumeListener == null) {
-            throw new Sink("Request consume listener is null");
         }
         else if ($this->bytesPosted + $len > $this->bytesLimit) {
             throw new ProtocolException(
@@ -173,7 +162,7 @@ class TourReq implements Reusable {
             BayLog::debug("%s tour has error.", $this->tour);
         }
         else {
-            $this->contentHandler->onReadContent($this->tour, $data, $start, $len);
+            $this->contentHandler->onReadReqContent($this->tour, $data, $start, $len, $callback);
             $dataPassed = true;
         }
 
@@ -195,7 +184,7 @@ class TourReq implements Reusable {
     }
 
 
-    public function endContent(int $checkId) : void
+    public function endReqContent(int $checkId) : void
     {
         BayLog::debug("%s endReqContent", $this->tour);
         $this->tour->checkTourId($checkId);
@@ -207,15 +196,13 @@ class TourReq implements Reusable {
         }
 
         if ($this->contentHandler !== null)
-            $this->contentHandler->onEndContent($this->tour);
+            $this->contentHandler->onEndReqContent($this->tour);
         $this->ended = true;
     }
 
-    public function consumed(int $checkId, int $length) : void
+    public function consumed(int $checkId, int $length, ?callable $callback) : void
     {
         $this->tour->checkTourId($checkId);
-        if ($this->consumeListener === null)
-            throw new Sink("Request consume listener is null");
 
         $this->bytesConsumed += $length;
         BayLog::debug("%s reqConsumed: len=%d posted=%d limit=%d consumed=%d available=%b",
@@ -231,7 +218,7 @@ class TourReq implements Reusable {
             $resume = true;
         }
 
-        ($this->consumeListener)($length, $resume);
+        $callback($length, $resume);
     }
 
     public function abort() : bool
@@ -244,7 +231,7 @@ class TourReq implements Reusable {
         elseif ($this->tour->isRunning()) {
             $aborted = true;
             if ($this->contentHandler != null)
-                $aborted = $this->contentHandler->onAbort($this->tour);
+                $aborted = $this->contentHandler->onAbortReq($this->tour);
 
             if($aborted)
                 $this->tour->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ABORTED);
@@ -260,7 +247,7 @@ class TourReq implements Reusable {
 
     private function bufferAvailable() : bool
     {
-        return $this->bytesPosted - $this->bytesConsumed < BayServer::$harbor->tourBufferSize;
+        return $this->bytesPosted - $this->bytesConsumed < BayServer::$harbor->tourBufferSize();
     }
 }
 

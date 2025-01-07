@@ -7,15 +7,15 @@ class ReqContentHandlerUtil {
 }
 
 ReqContentHandlerUtil::$devNull = new class implements ReqContentHandler {
-    public function onReadContent(Tour $tur, string $buf, int $start, int $len): void
+    public function onReadReqContent(Tour $tur, string $buf, int $start, int $len): void
     {
     }
 
-    public function onEndContent(Tour $tur): void
+    public function onEndReqContent(Tour $tur): void
     {
     }
 
-    public function onAbort(Tour $tur): bool
+    public function onAbortReq(Tour $tur): bool
     {
         return false;
     }
