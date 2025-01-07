@@ -3,22 +3,26 @@ namespace baykit\bayserver\tour;
 
 use baykit\bayserver\BayLog;
 use baykit\bayserver\BayServer;
-use baykit\bayserver\docker\base\InboundShip;
+use baykit\bayserver\common\InboundShip;
+use baykit\bayserver\docker\City;
+use baykit\bayserver\docker\Club;
+use baykit\bayserver\docker\Town;
 use baykit\bayserver\HttpException;
+use baykit\bayserver\ship\Ship;
 use baykit\bayserver\Sink;
 use baykit\bayserver\util\Counter;
 use baykit\bayserver\util\HttpStatus;
 use baykit\bayserver\util\Reusable;
-use Couchbase\BaseException;
 
 class Tour implements Reusable {
 
     const STATE_UNINITIALIZED = 0;
     const STATE_PREPARING = 1;
-    const STATE_RUNNING = 2;
-    const STATE_ABORTED = 3;
-    const STATE_ENDED = 4;
-    const STATE_ZOMBIE = 5;
+    const STATE_READING =2;
+    const STATE_RUNNING = 3;
+    const STATE_ABORTED = 4;
+    const STATE_ENDED = 5;
+    const STATE_ZOMBIE = 6;
 
     # class variables
     public static $oid_counter;
@@ -27,24 +31,24 @@ class Tour implements Reusable {
     const TOUR_ID_NOCHECK = -1;
     const INVALID_TOUR_ID = 0;
 
-    public $ship;
-    public $shipId;
-    public $objectId; // object id
+    public InboundShip $ship;
+    public int $shipId;
+    public int $objectId; // object id
 
-    public $tourId; // tour id
-    public $errorHandling;
-    public $town;
-    public $city;
-    public $club;
+    public int $tourId; // tour id
+    public bool $errorHandling = false;
+    public ?Town $town = null;
+    public ?City $city = null;
+    public ?Club $club = null;
 
-    public $req;
-    public $res;
+    public TourReq $req;
+    public TourRes $res;
 
-    public $interval;
-    public $isSecure;
-    public $state = self::STATE_UNINITIALIZED;
+    public int $interval = 0;
+    public bool $isSecure = false;
+    public int $state = self::STATE_UNINITIALIZED;
 
-    public $error;
+    public ?\Exception $error = null;
 
     public function __construct()
     {
@@ -110,12 +114,18 @@ class Tour implements Reusable {
      */
     public function go() : void
     {
-        $this->changeState(Tour::TOUR_ID_NOCHECK, self::STATE_RUNNING);
-
         $this->city = $this->ship->portDocker->findCity($this->req->reqHost);
         if($this->city == null)
             $this->city = BayServer::findCity($this->req->reqHost);
+
         BayLog::debug("%s GO TOUR! ...( ^_^)/: city=%s url=%s", $this, $this->req->reqHost, $this->req->uri);
+
+        if($this->req->headers->contentLength() > 0) {
+            $this->changeState(Tour::TOUR_ID_NOCHECK, self::STATE_READING);
+        }
+        else {
+            $this->changeState(Tour::TOUR_ID_NOCHECK, self::STATE_RUNNING);
+        }
 
         if ($this->city === null)
             throw new HttpException(HttpStatus::NOT_FOUND, $this->req->uri);
@@ -131,12 +141,17 @@ class Tour implements Reusable {
 
     public function isValid() : bool
     {
-        return $this->state == self::STATE_PREPARING || $this->state == self::STATE_RUNNING;
+        return $this->state == self::STATE_PREPARING || $this->state == self::STATE_READING || $this->state == self::STATE_RUNNING;
     }
 
     public function isPreparing() : bool
     {
         return $this->state == self::STATE_PREPARING;
+    }
+
+    public function isReading() : bool
+    {
+        return $this->state == self::STATE_READING;
     }
 
     public function isRunning() : bool

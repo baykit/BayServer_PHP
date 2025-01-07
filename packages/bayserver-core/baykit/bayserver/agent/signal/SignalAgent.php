@@ -2,8 +2,7 @@
 
 namespace baykit\bayserver\agent\signal;
 
-use baykit\bayserver\agent\GrandAgent;
-use baykit\bayserver\agent\GrandAgentMonitor;
+use baykit\bayserver\agent\monitor\GrandAgentMonitor;
 use baykit\bayserver\BayLog;
 use baykit\bayserver\BayMessage;
 use baykit\bayserver\Symbol;

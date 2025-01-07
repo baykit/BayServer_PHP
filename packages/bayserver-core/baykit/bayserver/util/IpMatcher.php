@@ -7,16 +7,17 @@ use baykit\bayserver\Symbol;
 
 class IpMatcher
 {
-    private $matchAll;
-    private $netAdrBytes; // byte array
-    private $maskAdrBytes; // byte array
+    private bool $matchAll = false;
+    private string $netAdr;
+    private int $mask;
+    private bool $isV6;
 
     public function __construct(string $ipDesc)
     {
         if ($ipDesc == "*")
             $this->matchAll = true;
         else
-            $this->parseIp($ipDesc);
+            $this->parseCidr($ipDesc);
     }
 
     public function match(string $adr) : bool
@@ -24,58 +25,76 @@ class IpMatcher
         if ($this->matchAll)
             return true;
 
-        $adrBytes = $this->getIpAddr($adr);
-        if($adrBytes === false) {
-            BayLog::warn("Invalid IP address format: %s", $adr);
-            return false;
-        }
-
-        if (count($adrBytes) != count($this->maskAdrBytes))
-            return false;  // IPv4 and IPv6 don't match each other
-
-        for ($i = 0; $i < count($adrBytes); $i++) {
-            if (($adrBytes[$i] & $this->maskAdrBytes[$i]) != $this->netAdrBytes[$i])
+        if($this->isV6) {
+            if(!filter_var($adr, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+                // IPv4 and IPv6 don't match each other
                 return false;
+            }
+            return $this->matchIPv6($adr);
         }
-        return true;
+        else {
+            if(!filter_var($adr, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+                // IPv4 and IPv6 don't match each other
+                return false;
+            }
+            return $this->matchIPv4($adr);
+        }
     }
 
-    private function parseIp(string $ipDesc) : void
+    private function parseCidr(string $ipDesc) : void
     {
         $items = explode("/", $ipDesc);
-        $ip = null;
-        $mask = null;
-        if (count($items) == 0)
+        if (count($items) != 2)
             throw new \InvalidArgumentException(
                 BayMessage::get(Symbol::CFG_INVALID_IP_DESC, $ipDesc));
 
-        $ip = $items[0];
-        if (count($items) == 1)
-            $mask = "255.255.255.255";
-        else
-            $mask = $items[1];
+        $this->netAdr = $items[0];
+        $this->mask = (int)$items[1];
+        BayLog::debug("adr=%s mask=%d", $this->netAdr, $this->mask);
 
-        $this->netAdrBytes = $this->getIpAddr($ip);
-        $this->maskAdrBytes = $this->getIpAddr($mask);
-        if (count($this->netAdrBytes) != count($this->maskAdrBytes)) {
+        if(filter_var($this->netAdr, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            // IPv4
+            $this->isV6 = false;
+            if($this->mask < 0 || $this->mask > 32) {
+                throw new \InvalidArgumentException(
+                    BayMessage::get(Symbol::CFG_INVALID_IP_DESC, $ipDesc));
+            }
+        }
+        else if(filter_var($this->netAdr, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+            // IPv6
+            $this->isV6 = true;
+            if($this->mask < 0 || $this->mask > 128) {
+                throw new \InvalidArgumentException(
+                    BayMessage::get(Symbol::CFG_INVALID_IP_DESC, $ipDesc));
+            }
+        }
+        else {
             throw new \InvalidArgumentException(
-                BayMessage::get(Symbol::CFG_IPV4_AND_IPV6_ARE_MIXED, $ipDesc));
+                BayMessage::get(Symbol::CFG_INVALID_IP_DESC, $ipDesc));
         }
     }
 
-    /**
-     * Convert IP Address format
-     *    string -> bytes[]
-     */
-    private function getIpAddr(string $ipAdress)
+    private function matchIPv4(string $ip): bool
     {
-        $ipAdrIn = inet_pton($ipAdress);
-        if($ipAdrIn === false) {
-            BayLog::warn("Invalid IP address format: %s", $ipAdress);
-            return false;
-        }
-
-        return unpack("C*", $ipAdrIn);
+        $ipBin = ip2long($ip);
+        $netBin = ip2long($this->netAdr);
+        $maskBin = -1 << (32 - $this->mask);
+        return ($ipBin & $maskBin) === ($netBin & $maskBin);
     }
+
+    private function matchIPv6(string $ip): bool
+    {
+        $ipBin = inet_pton($ip);
+        $netBin = inet_pton($this->netAdr);
+
+        $maskBin = str_repeat("\xff", (int)($this->mask / 8));
+        if ($this->mask % 8) {
+            $maskBin .= chr(0xff << (8 - ($this->mask % 8)));
+        }
+        $maskBin = str_pad($maskBin, strlen($ipBin), "\0");
+
+        return ($ipBin & $maskBin) === ($netBin & $maskBin);
+    }
+
 }
 

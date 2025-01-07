@@ -34,10 +34,12 @@ CFG_IPV4_AND_IPV6_ARE_MIXED          IPv4 and IPv6 are mixed: %s
 CFG_PARAMETER_IS_NOT_A_NUMBER        Parameter is not a number: %s value="%s"
 CFG_MULTI_CORE_NOT_SUPPORTED         Multi core mode is not supported on this platform. Start in single core mode.
 CFG_SINGLE_CORE_NOT_SUPPORTED        Single core mode is not supported on this platform. Start in multi core mode.
-CFG_FILE_SEND_METHOD_SELECT_NOT_SUPPORTED  Send file by select is not supported on this platform. We send files by taxi.
-CFG_FILE_SEND_METHOD_SPIN_NOT_SUPPORTED    Send file by spin is not supported on this platform. We send files by taxi.
-CFG_LOG_WRITE_METHOD_SELECT_NOT_SUPPORTED  Write log by select is not supported on this platform. We send files by taxi.
-CFG_LOG_WRITE_METHOD_SPIN_NOT_SUPPORTED  Write log by spin is not supported on this platform. We send files by taxi.
+CFG_NET_MULTIPLEXER_NOT_SUPPORTED    Net multiplexer "%s" not supported on this platform. "%s" is used.
+CFG_FILE_MULTIPLEXER_NOT_SUPPORTED   File multiplexer "%s" not supported on this platform. "%s" is used.
+CFG_LOG_MULTIPLEXER_NOT_SUPPORTED    Log multiplexer "%s" not supported on this platform. "%s" is used.
+CFG_CGI_MULTIPLEXER_NOT_SUPPORTED    CGI multiplexer "%s" not supported on this platform. "%s" is used.
+CFG_NET_MULTIPLEXER_DOES_NOT_SUPPORT_THIS_RECIPIENT Net multiplexer"%s" does not support recipient "%s". "%s" is used.
+CFG_MULTIPLEXER_NEEDS_A_GRAND_AGENT  This multiplexer needs only one grand agent
 CFG_MAX_SHIPS_IS_TO_SMALL                maxShips is too small. Set it at %d
 CFG_TCP_NOT_SUPPORTED                TCP not supported
 CFG_UDP_NOT_SUPPORTED                UDP not supported

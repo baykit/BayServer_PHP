@@ -4,10 +4,10 @@ namespace baykit\bayserver;
 
 use baykit\bayserver\agent\GrandAgent;
 use baykit\bayserver\agent\LifecycleListener;
-use baykit\bayserver\docker\base\InboundShipStore;
+use baykit\bayserver\common\InboundShipStore;
+use baykit\bayserver\docker\base\WarpBase;
 use baykit\bayserver\docker\City;
 use baykit\bayserver\docker\Port;
-use baykit\bayserver\docker\warp\WarpDocker;
 use baykit\bayserver\protocol\PacketStore;
 use baykit\bayserver\protocol\ProtocolHandlerStore;
 use baykit\bayserver\tour\TourStore;
@@ -79,14 +79,14 @@ class MemUsage
     {
         $pname = ($port == null) ? "" : "@" . $port;
         foreach($city->clubs() as $club) {
-            if ($club instanceof WarpDocker) {
+            if ($club instanceof WarpBase) {
                 BayLog::info("%sClub(%s%s) Usage:", StringUtil::indent($indent), $club, $pname);
                 $club->getShipStore($this->agentId)->printUsage($indent+1);
             }
         }
         foreach($city->towns() as $town) {
             foreach($town->clubs as $club) {
-                if ($club instanceof WarpDocker) {
+                if ($club instanceof WarpBase) {
                     BayLog::info("%sClub(%s%s) Usage:", StringUtil::indent($indent), $club, $pname);
                     $club->getShipStore($this->agentId)->printUsage($indent+1);
                 }

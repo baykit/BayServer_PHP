@@ -16,29 +16,30 @@ spl_autoload_register(function ($class_name) {
 });
 */
 
-use baykit\bayserver\agent\GrandAgentMonitor;
-use baykit\bayserver\agent\signal\SignalSender;
-use baykit\bayserver\bcf\BcfParser;
-use baykit\bayserver\bcf\BcfElement;
 use baykit\bayserver\agent\GrandAgent;
+use baykit\bayserver\agent\monitor\GrandAgentMonitor;
 use baykit\bayserver\agent\PortMap;
 use baykit\bayserver\agent\signal\SignalAgent;
-use baykit\bayserver\docker\base\InboundShipStore;
-use baykit\bayserver\protocol\PacketStore;
-use baykit\bayserver\protocol\ProtocolHandlerStore;
-use baykit\bayserver\tour\TourStore;
-use baykit\bayserver\util\Cities;
-use baykit\bayserver\util\IOException;
-use baykit\bayserver\util\MD5Password;
-use baykit\bayserver\util\Selector;
-use baykit\bayserver\util\SysUtil;
-use baykit\bayserver\util\StringUtil;
-use baykit\bayserver\util\Locale;
-use baykit\bayserver\util\Mimes;
-use baykit\bayserver\util\HttpStatus;
+use baykit\bayserver\agent\signal\SignalSender;
+use baykit\bayserver\bcf\BcfElement;
+use baykit\bayserver\bcf\BcfParser;
+use baykit\bayserver\common\Cities;
+use baykit\bayserver\common\InboundShipStore;
+use baykit\bayserver\docker\City;
 use baykit\bayserver\docker\Harbor;
 use baykit\bayserver\docker\Port;
-use baykit\bayserver\docker\City;
+use baykit\bayserver\protocol\PacketStore;
+use baykit\bayserver\protocol\ProtocolHandlerStore;
+use baykit\bayserver\rudder\SocketRudder;
+use baykit\bayserver\rudder\StreamRudder;
+use baykit\bayserver\tour\TourStore;
+use baykit\bayserver\util\HttpStatus;
+use baykit\bayserver\util\IOException;
+use baykit\bayserver\util\Locale;
+use baykit\bayserver\util\MD5Password;
+use baykit\bayserver\util\Mimes;
+use baykit\bayserver\util\StringUtil;
+use baykit\bayserver\util\SysUtil;
 
 class BayServer
 {
@@ -66,10 +67,10 @@ class BayServer
     public static $dockers = null;
 
     # Port docker
-    public static $portDockerList = [];
+    public static array $portDockerList = [];
 
     # Harbor docker
-    public static $harbor = null;
+    public static ?Harbor $harbor = null;
 
     # BayAgent
     public static $bayAgent = null;
@@ -78,7 +79,7 @@ class BayServer
     public static $cities;
 
     # Software name
-    public static $softwareName = null;
+    public static ?string $softwareName = null;
 
     # Command line arguments
     public static $commandlineArgs = null;
@@ -87,6 +88,10 @@ class BayServer
     public static $communicationChannel = null;
 
     static $monitorPort;
+
+    public static $anchorablePortMap = [];
+    public static $unanchorablePortMap = [];
+
 
     public static function initChild($comCh) : void
     {
@@ -237,7 +242,7 @@ class BayServer
                 if (count(self::$portDockerList) == 0)
                     throw new BayException(BayMessage::get(Symbol::CFG_NO_PORT_DOCKER));
 
-                $redirectFile = self::$harbor->redirectFile;
+                $redirectFile = self::$harbor->redirectFile();
 
                 if ($redirectFile != "") {
                     $redirectFile = self::getLocation($redirectFile);
@@ -276,42 +281,7 @@ class BayServer
                 self::childStart($agtId);
             }
 
-            while (count(GrandAgentMonitor::$monitors) > 0) {
-                $sel = new Selector();
-                $monitors = [];
-                foreach (GrandAgentMonitor::$monitors as $mon) {
-                    BayLog::debug("Monitoring pipe of %s", $mon);
-                    $sel->register($mon->communicationChannel, Selector::OP_READ);
-                    $monitors[] = $mon;
-                }
-
-                $serverSkt = null;
-                if (SignalAgent::$signalAgent) {
-                    $serverSkt = SignalAgent::$signalAgent->serverSkt;
-                    $sel->register($serverSkt, Selector::OP_READ);
-                }
-
-                try {
-                    $selkeys = $sel->select();
-                }
-                catch (IOException $e) {
-                    BayLog::warn_e($e);
-                    pcntl_signal_dispatch();
-                    continue;
-                }
-
-                foreach($selkeys as $selkey) {
-                    if ($selkey->channel == $serverSkt) {
-                        SignalAgent::$signalAgent->onSocketReadable();
-                    }
-                    else {
-                        foreach($monitors as $mon) {
-                            if ($mon->communicationChannel === $selkey->channel)
-                                $mon->onReadable();
-                        }
-                    }
-                }
-            }
+            GrandAgentMonitor::start();
 
             SignalAgent::term();
 
@@ -335,6 +305,7 @@ class BayServer
                 BayLog::info(BayMessage::get(Symbol::MSG_OPENING_TCP_PORT, $dkr->host(), $dkr->port(), $dkr->protocol()));
 
                 if ($dkr->secure()) {
+                    BayLog::debug("Open secure port");
                     $skt = stream_socket_server(
                         "ssl://{$adr[0]}:{$adr[1]}",
                         $errno,
@@ -365,8 +336,8 @@ class BayServer
                 //if (stream_set_blocking($skt, false) == false)
                 //    throw new \Exception("Cannot set non blocking: " . socket_strerror(socket_last_error()));
 
-                BayLog::debug(" socket=%s", $skt);
-                $anchorablePortMap[] = new PortMap($skt, $dkr);
+                BayLog::debug("Server socket=%s", $skt);
+                self::$anchorablePortMap[] = new PortMap(new StreamRudder($skt), $dkr);
             } else {
                 # Open UDP port
                 BayLog::error("Unanchord port note supported");
@@ -382,30 +353,27 @@ class BayServer
         if(!SysUtil::runOnWindows())
             self::openPorts($anrhorablePortMap, $unanchorablePortMap);
 
-        if (!self::$harbor->multiCore) {
+        if (!self::$harbor->multiCore()) {
             # Single core mode
             GrandAgent::init(
-                range(1, self::$harbor->grandAgents),
-                $anrhorablePortMap,
-                $unanchorablePortMap,
-                self::$harbor->maxShips,
-                self::$harbor->multiCore);
+                range(1, self::$harbor->grandAgents()),
+                self::$harbor->maxShips());
         }
 
         GrandAgentMonitor::init(
-            self::$harbor->grandAgents,
+            self::$harbor->grandAgents(),
             $anrhorablePortMap,
             $unanchorablePortMap
         );
 
-        SignalAgent::init(self::$harbor->controlPort);
+        SignalAgent::init(self::$harbor->controlPort());
 
         self::createPidFile(SysUtil::pid());
     }
 
     private static function childStart(int $agtId): void
     {
-        BayLog::debug("Agt#%d child_start", $agtId);
+        BayLog::debug("agt#%d child_start", $agtId);
 
         if(SysUtil::runOnWindows()) {
             self::openPorts(
@@ -415,20 +383,17 @@ class BayServer
             $code = null;
             $msg = null;
             $comCh = stream_socket_client("127.0.0.1:" . self::$monitorPort, $code, $msg);
+            $rd = new SocketRudder($comCh);
         }
         else {
             $comCh = self::$communicationChannel;
+            $rd = new StreamRudder($comCh);
         }
 
-        GrandAgent::init(
-            [$agtId],
-            GrandAgentMonitor::$anchoredPortMap,
-            GrandAgentMonitor::$unanchoredPortMap,
-            self::$harbor->maxShips,
-            self::$harbor->multiCore
-        );
+        GrandAgent::init([$agtId], self::$harbor->maxShips());
         $agt = GrandAgent::get($agtId);
-        $agt->runCommandReceiver($comCh);
+
+        $agt->addCommandReceiver($rd);
         $agt->run();
     }
 
@@ -514,7 +479,7 @@ class BayServer
 
     public static function createPidFile($pid)
     {
-        file_put_contents(self::$harbor->pidFile, strval($pid));
+        file_put_contents(self::$harbor->pidFile(), strval($pid));
     }
 
     public static function initClass()

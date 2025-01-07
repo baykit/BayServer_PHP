@@ -2,5 +2,4 @@
 # CGI errors
 #
 
-CGI_PROC_READ_METHOD_SELECT_NOT_SUPPORTED  Reading process output by select is not supported on this platform. We send files by taxi.
-CGI_PROC_READ_METHOD_SPIN_NOT_SUPPORTED    Reading process output by spin is not supported on this platform. We send files by taxi.
+CFG_CGI_MULTIPLEXER_NOT_SUPPORTED    CGI multiplexer "%s" not supported on this platform. "%s" is used.

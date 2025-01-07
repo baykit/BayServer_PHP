@@ -4,17 +4,20 @@ namespace baykit\bayserver\docker\fcgi;
 
 
 use baykit\bayserver\agent\GrandAgent;
-use baykit\bayserver\agent\transporter\PlainTransporter;
+use baykit\bayserver\agent\multiplexer\PlainTransporter;
 use baykit\bayserver\BayLog;
 use baykit\bayserver\bcf\BcfElement;
 use baykit\bayserver\bcf\BcfKeyVal;
+use baykit\bayserver\common\Transporter;
+use baykit\bayserver\docker\base\WarpBase;
 use baykit\bayserver\docker\Docker;
-use baykit\bayserver\docker\warp\WarpDocker;
 use baykit\bayserver\protocol\PacketStore;
 use baykit\bayserver\protocol\ProtocolHandlerStore;
+use baykit\bayserver\rudder\Rudder;
+use baykit\bayserver\ship\Ship;
 use baykit\bayserver\util\IOUtil;
 
-class FcgWarpDocker extends WarpDocker implements FcgDocker
+class FcgWarpDocker extends WarpBase implements FcgDocker
 {
 
     public $scriptBase;
@@ -73,9 +76,16 @@ class FcgWarpDocker extends WarpDocker implements FcgDocker
         return FcgDocker::PROTO_NAME;
     }
 
-    protected function newTransporter(GrandAgent $agent, $ch)
+    protected function newTransporter(GrandAgent $agent, Rudder $rd, Ship $sip): Transporter
     {
-        return new PlainTransporter(false, IOUtil::getSockRecvBufSize($ch));
+        $tp = new PlainTransporter(
+                    $agent->netMultiplexer,
+                    $sip,
+                    false,
+                    IOUtil::getSockRecvBufSize($rd->key()),
+                    false);
+
+        return $tp;
     }
 
 
@@ -92,5 +102,5 @@ PacketStore::registerProtocol(
 ProtocolHandlerStore::registerProtocol(
     FcgDocker::PROTO_NAME,
     false,
-    new FcgiWarpProtocolHandlerFactory());
+    new FcgWarpProtocolHandlerFactory());
 

@@ -11,7 +11,16 @@ class IOUtil
 
     private static $sock_buf_size = -1;
 
-    public static function sendInt32($ch, int $i)
+    public static function sendInt32($skt, int $i)
+    {
+        $data = pack("N", $i);
+        $ret = socket_write($skt, $data);
+        //fflush($ch);
+        if ($ret === false || $ret != 4)
+            throw new IOException("Send failed");
+    }
+
+    public static function writeInt32($ch, int $i)
     {
         $data = pack("N", $i);
         //$ret = stream_socket_sendto($ch, $data);
@@ -39,58 +48,11 @@ class IOUtil
 
     public static function openLocalPipe()
     {
-        # Dynamic and/or Private Ports (49152-65535)
-        # https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml
-        /*
-        $DYNAMIC_PORTS_START = 49152;
-        for ($i = $DYNAMIC_PORTS_START; $i <= 65535; $i++) {
-            try {
-                return self::openLocalPipeByPort($i);
-            } catch (\Throwable $e) {
-                continue;
-            }
-        }
-        return false;
-        */
         return stream_socket_pair(
             SysUtil::runOnWindows() ? STREAM_PF_INET : STREAM_PF_UNIX,
             STREAM_SOCK_STREAM,
             STREAM_IPPROTO_IP);
     }
-
-    /*
-    public static function openLocalPipeByPort(int $port_num) : array
-    {
-        BayLog::debug(BayMessage::get(Symbol::MSG_OPENING_LOCAL_PORT, $port_num));
-        $localhost = "127.0.0.1";
-
-        $server_skt = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
-        if (!socket_set_option($server_skt, SOL_SOCKET, SO_REUSEADDR, 1))
-            throw new \Exception("socket_set_option");
-        if (!socket_bind($server_skt, $localhost, $port_num))
-            throw new \Exception("socket_bind");
-        if (!socket_listen($server_skt, 0))
-            throw new \Exception("socket_listen");
-
-        $source_skt = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
-        if (!socket_connect($source_skt, $localhost, $port_num))
-            throw new \Exception("socket_connect");
-
-        if (!($sink_skt = socket_accept($server_skt)))
-            throw new \Exception("socket_accept");
-
-        BayLog::debug(BayMessage::get(Symbol::MSG_CLOSING_LOCAL_PORT, $port_num));
-        socket_close($server_skt);
-
-        socket_set_nonblock($source_skt);
-        socket_set_nonblock($sink_skt);
-
-        return [$sink_skt, $source_skt];
-    }
-    */
-
-
-
 
     public static function getSockRecvBufSize($skt) : int
     {

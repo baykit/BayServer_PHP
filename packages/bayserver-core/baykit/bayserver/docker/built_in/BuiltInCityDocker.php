@@ -151,8 +151,8 @@ class BuiltInCityDocker extends DockerBase implements  City  {
                 $tur->res->setCharset($mInfo->clubMatch->club->charset);
             }
             else {
-                $tur->req->charset = BayServer::$harbor->charset;
-                $tur->res->setCharset(BayServer::$harbor->charset);
+                $tur->req->charset = BayServer::$harbor->charset();
+                $tur->res->setCharset(BayServer::$harbor->charset());
             }
 
             $tur->req->pathInfo = $mInfo->clubMatch->pathInfo;

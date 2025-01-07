@@ -14,10 +14,14 @@ use baykit\bayserver\BayMessage;
 use baykit\bayserver\BayServer;
 use baykit\bayserver\bcf\BcfElement;
 use baykit\bayserver\bcf\BcfKeyVal;
+use baykit\bayserver\common\RudderState;
 use baykit\bayserver\ConfigException;
 use baykit\bayserver\docker\base\DockerBase;
 use baykit\bayserver\docker\Docker;
+use baykit\bayserver\docker\Harbor;
 use baykit\bayserver\docker\Log;
+use baykit\bayserver\rudder\StreamRudder;
+use baykit\bayserver\Sink;
 use baykit\bayserver\Symbol;
 use baykit\bayserver\tour\Tour;
 use baykit\bayserver\util\SysUtil;
@@ -34,36 +38,34 @@ class BuiltInLogDocker_AgentListener implements LifecycleListener {
 
     public function add(int $agentId) : void
     {
+        $agt = GrandAgent::get($agentId);
+
         $fileName = $this->logDocker->filePrefix . "_" . $agentId . "." . $this->logDocker->fileExt;
-        $boat = new LogBoat();
+        $size = filesize($fileName);
 
         $outFile = fopen($fileName, "ab");
         BayLog::debug("file open: %s res=%s", $fileName, $outFile);
-        if($this->logDocker->logWriteMethod == BuiltInLogDocker::LOG_WRITE_METHOD_SELECT) {
-            $tp = new PlainTransporter(False, 0, true);  # write only
-            $tp->init(GrandAgent::get($agentId)->nonBlockingHandler, $outFile, $boat);
-        }
-        elseif($this->logDocker->logWriteMethod == BuiltInLogDocker::LOG_WRITE_METHOD_SPIN) {
-            $tp = new SpinWriteTransporter();
-            $tp->init(GrandAgent::get($agentId)->spinHandler, $outFile, $boat);
+        $rd = new StreamRudder($outFile);
+        if(BayServer::$harbor->logMultiplexer() == Harbor::MULTIPLEXER_TYPE_SPIDER) {
+            $mpx = $agt->spiderMultiplexer;
         }
         else {
-            throw new \Exception("Taxi not supported");
+            throw new \Exception("Multiplexer not supported");
         }
 
-        try {
-            $boat->initBoat($fileName, $tp);
-        }
-        catch(\Exception $e) {
-            BayLog::fatal(BayMessage::get(Symbol::INT_CANNOT_OPEN_LOG_FILE, $fileName));
-            BayLog::fatal($e);
-        }
-        $this->logDocker->loggers[$agentId] = $boat;
+        $st = new RudderState($rd);
+        $st->bytesWrote = $size;
+        $mpx->addRudderState($rd, $st);
+
+        $this->logDocker->multiplexers[$agentId] = $mpx;
+        $this->logDocker->rudders[$agentId] = $rd;
     }
 
     public function remove(int $agentId) : void
     {
-        unset($this->logDocker->loggers[$agentId]);
+        $rd = $this->logDocker->rudders[$agentId];
+        $this->logDocker->multiplexers[$agentId] = null;
+        $this->logDocker->rudders[$agentId] = null;
     }
 }
 
@@ -71,17 +73,12 @@ class BuiltInLogDocker_AgentListener implements LifecycleListener {
 
 class BuiltInLogDocker extends DockerBase implements Log
 {
-    const LOG_WRITE_METHOD_SELECT = 1;
-    const LOG_WRITE_METHOD_SPIN = 2;
-    const LOG_WRITE_METHOD_TAXI = 3;
-    const DEFAULT_LOG_WRITE_METHOD = BuiltInLogDocker::LOG_WRITE_METHOD_SELECT;
-
     /** Mapping table for format */
     public static $map = [];
 
     /** Log file name parts */
-    public $filePrefix;
-    public $fileExt;
+    public string $filePrefix;
+    public string $fileExt;
 
     /**
      *  Logger for each agent.
@@ -90,13 +87,15 @@ class BuiltInLogDocker extends DockerBase implements Log
     public $loggers = [];
 
     /** Log format */
-    public $format;
+    public string $format;
 
     /** Log items */
     public $logItems = [];
 
-    /** Log write method */
-    public $logWriteMethod = BuiltInLogDocker::DEFAULT_LOG_WRITE_METHOD;
+    public $rudders = [];
+
+    /** Multiplexer to write to file */
+    public $multiplexers = [];
 
     public static $lineSep = PHP_EOL;
 
@@ -168,17 +167,6 @@ class BuiltInLogDocker extends DockerBase implements Log
         // Parse format
         $this->compile($this->format, $this->logItems, $elm->fileName, $elm->lineNo);
 
-        // Check log write method
-        if($this->logWriteMethod == self::LOG_WRITE_METHOD_SELECT && !SysUtil::supportSelectFile()) {
-            BayLog::warn(BayMessage::get(Symbol::CFG_LOG_WRITE_METHOD_SELECT_NOT_SUPPORTED));
-            $this->logWriteMethod = self::LOG_WRITE_METHOD_TAXI;
-        }
-
-        if($this->logWriteMethod == self::LOG_WRITE_METHOD_SPIN && !SysUtil::supportNonblockFileWrite()) {
-            BayLog::warn(BayMessage::get(Symbol::CFG_LOG_WRITE_METHOD_SPIN_NOT_SUPPORTED));
-            $this->logWriteMethod = self::LOG_WRITE_METHOD_TAXI;
-        }
-
         GrandAgent::addLifecycleListener(new BuiltInLogDocker_AgentListener($this));
     }
 
@@ -190,21 +178,6 @@ class BuiltInLogDocker extends DockerBase implements Log
             case "format":
                 $this->format = $kv->value;
                 break;
-
-            case "logwritemethod":
-                switch(strtolower($kv->value)) {
-                    case "select":
-                        $this->logWriteMethod = self::LOG_WRITE_METHOD_SELECT;
-                        break;
-                   case "spin":
-                        $this->logWriteMethod = self::LOG_WRITE_METHOD_SPIN;
-                        break;
-                    case "taxi":
-                        $this->logWriteMethod = self::LOG_WRITE_METHOD_TAXI;
-                        break;
-                    default:
-                        throw new ConfigException($kv->fileName, $kv->lineNo, BayMessage::get(Symbol::CFG_INVALID_PARAMETER_VALUE, $kv->value));
-                }
         }
         return true;
     }
@@ -225,7 +198,12 @@ class BuiltInLogDocker extends DockerBase implements Log
 
         // If threre are message to write, write it
         if (strlen($sb) > 0) {
-            $this->getLogger($tour->ship->agent)->log($sb);
+            $this->multiplexers[$tour->ship->agentId]->reqWrite(
+                $this->rudders[$tour->ship->agentId],
+                $sb,
+                null,
+                "Log"
+            );
         }
     }
 

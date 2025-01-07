@@ -25,7 +25,7 @@ class PacketPartAccessor
     }
 
 
-    public function putBytes(string $buf, int $ofs=0, int $len=-1) : void
+    public function putBytes(?string $buf, int $ofs=0, int $len=-1) : void
     {
         if ($len == -1)
             $len = strlen($buf);

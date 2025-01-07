@@ -3,39 +3,43 @@
 namespace baykit\bayserver\docker\base;
 
 
-use baykit\bayserver\agent\transporter\PlainTransporter;
-use baykit\bayserver\agent\transporter\Transporter;
+use baykit\bayserver\agent\GrandAgent;
+use baykit\bayserver\agent\multiplexer\PlainTransporter;
 use baykit\bayserver\BayLog;
 use baykit\bayserver\BayMessage;
 use baykit\bayserver\bcf\BcfElement;
+use baykit\bayserver\common\Cities;
+use baykit\bayserver\common\InboundShip;
+use baykit\bayserver\common\InboundShipStore;
+use baykit\bayserver\common\RudderState;
 use baykit\bayserver\ConfigException;
 use baykit\bayserver\docker\City;
 use baykit\bayserver\docker\Docker;
 use baykit\bayserver\docker\Permission;
 use baykit\bayserver\docker\Port;
-use baykit\bayserver\docker\base\DockerBaset;
 use baykit\bayserver\docker\Secure;
+use baykit\bayserver\protocol\ProtocolHandler;
 use baykit\bayserver\protocol\ProtocolHandlerStore;
+use baykit\bayserver\rudder\Rudder;
 use baykit\bayserver\Symbol;
-use baykit\bayserver\util\Cities;
 use baykit\bayserver\util\IOUtil;
 use baykit\bayserver\util\StringUtil;
 use baykit\bayserver\util\SysUtil;
 
 abstract class PortBase extends DockerBase implements Port {
 
-    const DEFAULT_NON_BLOCKING_TIMEOUT = 100;
+    const DEFAULT_NON_BLOCKING_TIMEOUT_MILLISEC = 1000;
 
     public $permissionList = [];
-    public $timeoutSec = -1;
-    public $host = null;
-    public $port = null;
-    public $socketPath = null;
-    public $secureDocker = null;
-    public $anchored = true;
+    public int $timeoutSec = -1;
+    public ?string $host = null;
+    public int $port = -1;
+    public ?string $socketPath = null;
+    public ?Secure $secureDocker = null;
+    public bool $anchored = true;
     public $additionalHeaders = [];
-    public $cities;
-    public $nonBlockingTimeoutMillis = PortBase::DEFAULT_NON_BLOCKING_TIMEOUT;
+    public Cities $cities;
+    public int $nonBlockingTimeoutMillis = PortBase::DEFAULT_NON_BLOCKING_TIMEOUT_MILLISEC;
 
     public function __construct()
     {
@@ -212,12 +216,6 @@ abstract class PortBase extends DockerBase implements Port {
         return $this->timeoutSec;
     }
 
-    public final function checkAdmitted($skt) : void
-    {
-        foreach($this->permissionList as $permDkr)
-            $permDkr->socketAdmitted($skt);
-    }
-
     public function additionalHeaders() : array
     {
         return $this->additionalHeaders;
@@ -228,18 +226,31 @@ abstract class PortBase extends DockerBase implements Port {
         return $this->cities->findCity($name);
     }
 
-    public final function newTransporter($agt, $skt) : Transporter
+    public final function onConnected(int $agtId, Rudder $rd) : void
     {
-        $sip = self::getShipStore($agt)->rent();
-        if ($this->secure())
-            $tp = $this->secureDocker->createTransporter(IOUtil::getSockRecvBufSize($skt));
-        else
-            $tp = new PlainTransporter(true, IOUtil::getSockRecvBufSize($skt));
+        $this->checkAdmitted($rd);
 
-        $protoHnd = PortBase::getProtocolHandlerStore($this->protocol(), $agt)->rent();
-        $sip->initInbound($skt, $agt, $tp, $this, $protoHnd);
-        $tp->init($agt->nonBlockingHandler, $skt, new InboundDataListener($sip));
-        return $tp;
+        $sip = self::getShipStore($agtId)->rent();
+        $agt = GrandAgent::get($agtId);
+
+        if ($this->secure()) {
+            $tp = $this->secureDocker->newTransporter($agtId, $sip, IOUtil::getSockRecvBufSize($rd->key()));
+        }
+        else {
+            $tp = new PlainTransporter(
+                        $agt->netMultiplexer,
+                        $sip,
+                        false,
+                        IOUtil::getSockRecvBufSize($rd->key()),
+                false);
+        }
+
+        $protoHnd = PortBase::getProtocolHandlerStore($this->protocol(), $agtId)->rent();
+        $sip->initInbound($rd, $agtId, $tp, $this, $protoHnd);
+
+        $st = new RudderState($rd, $tp);
+        $agt->netMultiplexer->addRudderState($rd, $st);
+        $agt->netMultiplexer->reqRead($rd);
     }
 
 
@@ -247,30 +258,40 @@ abstract class PortBase extends DockerBase implements Port {
     // Other methods
     //////////////////////////////////////////////////////
 
-    public final function returnProtocolHandler($agt, $handler) : void
+    public final function returnProtocolHandler(int $agtId, ProtocolHandler $handler) : void
     {
-        BayLog::debug("%s Return protocol handler: %s", $agt, $handler);
-        $this->getProtocolHandlerStore($handler->protocol(), $agt)->Return($handler);
+        BayLog::debug("agt#%d Return protocol handler: %s", $agtId, $handler);
+        $this->getProtocolHandlerStore($handler->protocol(), $agtId)->Return($handler);
     }
 
-    public function returnShip($sip) : void
+    public function returnShip(InboundShip $sip) : void
     {
         BayLog::debug("%s end (return ships)", $sip);
-        $this->getShipStore($sip->agent)->Return($sip);
+        $this->getShipStore($sip->agentId)->Return($sip);
     }
 
-    public static function getShipStore($agt)
+    //////////////////////////////////////////////////////
+    // Private methods
+    //////////////////////////////////////////////////////
+    public final function checkAdmitted(Rudder $rd) : void
     {
-        return InboundShipStore::getStore($agt->agentId);
+        foreach($this->permissionList as $permDkr)
+            $permDkr->socketAdmitted($rd);
     }
 
-    public static function getProtocolHandlerStore($proto, $agt)
+    public static function getShipStore(int $agtId) : InboundShipStore
     {
-        return ProtocolHandlerStore::getStore($proto, True, $agt->agentId);
+        return InboundShipStore::getStore($agtId);
+    }
+
+    public static function getProtocolHandlerStore(string $proto, int $agtId) : ProtocolHandlerStore
+    {
+        return ProtocolHandlerStore::getStore($proto, True, $agtId);
     }
 
     public function sslCtx()
     {
+        BayLog::debug("SSL Context: %s", $this->secureDocker->sslctx);
         return $this->secureDocker->sslctx;
     }
 }

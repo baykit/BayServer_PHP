@@ -4,27 +4,29 @@ namespace baykit\bayserver\docker\http;
 
 
 use baykit\bayserver\agent\GrandAgent;
-use baykit\bayserver\agent\transporter\PlainTransporter;
-use baykit\bayserver\agent\transporter\SecureTransporter;
+use baykit\bayserver\agent\multiplexer\PlainTransporter;
+use baykit\bayserver\agent\multiplexer\SecureTransporter;
 use baykit\bayserver\BayMessage;
+use baykit\bayserver\common\Transporter;
 use baykit\bayserver\ConfigException;
+use baykit\bayserver\docker\base\WarpBase;
 use baykit\bayserver\docker\http\h1\H1PacketFactory;
 use baykit\bayserver\docker\http\h1\H1WarpProtocolHandlerFactory;
-use baykit\bayserver\docker\http\h2\H2PacketFactory;
-use baykit\bayserver\docker\warp\WarpDocker;
 use baykit\bayserver\protocol\PacketStore;
 use baykit\bayserver\protocol\ProtocolHandlerStore;
+use baykit\bayserver\rudder\Rudder;
+use baykit\bayserver\ship\Ship;
 use baykit\bayserver\Symbol;
 use baykit\bayserver\util\IOUtil;
 use baykit\bayserver\util\StringUtil;
 
-class HtpWarpDocker extends WarpDocker implements HtpDocker
+class HtpWarpDocker extends WarpBase implements HtpDocker
 {
 
-    private $secure;
-    private $supportH2 = true;
+    private bool $secure = false;
+    private bool $supportH2 = true;
 
-    private $traceSSL = false;
+    private bool $traceSSL = false;
 
     private $sslCtx;
 
@@ -94,13 +96,27 @@ class HtpWarpDocker extends WarpDocker implements HtpDocker
         return self::H1_PROTO_NAME;
     }
 
-    protected function newTransporter(GrandAgent $agent, $ch)
+    protected function newTransporter(GrandAgent $agent, Rudder $rd, Ship $sip): Transporter
     {
         if($this->secure) {
-            return new SecureTransporter($this->sslCtx, false, IOUtil::getSockRecvBufSize($ch), $this->traceSSL);
+            $tp = new SecureTransporter(
+                        $this->sslCtx,
+                        $sip,
+                        false,
+                        IOUtil::getSockRecvBufSize($rd->key()),
+                        $this->traceSSL,
+                        $this->sslCtx);
         }
-        else
-            return new PlainTransporter(false, IOUtil::getSockRecvBufSize($ch));
+        else {
+            $tp = new PlainTransporter(
+                        $agent->netMultiplexer,
+                        $sip,
+                        false,
+                        IOUtil::getSockRecvBufSize($rd->key()),
+                        false);
+        }
+        $tp->init();
+        return $tp;
     }
 
 

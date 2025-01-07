@@ -15,6 +15,11 @@ class Selector_Key {
         $this->operation = $op;
     }
 
+    public function __toString() : string
+    {
+        return "SelectorKey(ch={$this->channel}, op={$this->operation})";
+    }
+
     public function readable() : bool
     {
         return ($this->operation & Selector::OP_READ) != 0;
@@ -34,8 +39,8 @@ class Selector {
 
     public function register($ch, $op) : void
     {
-        if($ch == null)
-            throw new Sink();
+        if($ch == null || !$this->isChannel($ch))
+            throw new Sink("Invalid stream: %s", get_class($ch));
 
         foreach ($this->keys as $key) {
             if($key->channel == $ch) {
@@ -49,9 +54,6 @@ class Selector {
 
     public function unregister($ch) : void
     {
-        if($ch == null)
-            throw new Sink();
-
         $pos = -1;
         for($i = 0; $i < count($this->keys); $i++) {
             if($this->keys[$i]->channel == $ch) {
@@ -66,8 +68,8 @@ class Selector {
 
     public function modify($ch, $op) : void
     {
-        if($ch == null)
-            throw new Sink();
+        if($ch == null || !$this->isChannel($ch))
+            throw new Sink("Invalid stream: %s", $ch);
 
         foreach ($this->keys as $key) {
             if($key->channel == $ch) {
@@ -109,6 +111,10 @@ class Selector {
                     $write_list[] = $key->channel;
             }
 
+            if(empty($read_list) && empty($write_list)) {
+                throw new IOException("No channel registered");
+            }
+
             //var_dump( $read_list);
             //var_dump( $write_list);
             //BayLog::debug("SELECTING");
@@ -140,5 +146,10 @@ class Selector {
         } finally {
             //Mutex::unlock($this->lock);
         }
+    }
+
+
+    private function isChannel($ch): bool {
+        return is_resource($ch) || get_class($ch) === 'stream';
     }
 }

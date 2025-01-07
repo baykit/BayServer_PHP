@@ -2,5 +2,4 @@
 # CGI errors
 #
 
-CGI_PROC_READ_METHOD_SELECT_NOT_SUPPORTED  このプラットフォームではselectでプロセスの出力を読み込めません．タクシーで送信します.
-CGI_PROC_READ_METHOD_SPIN_NOT_SUPPORTED    このプラットフォームではspinでプロセスの出力を読み込めません．タクシーで送信します.
+CFG_CGI_MULTIPLEXER_NOT_SUPPORTED    このプラットフォームのCGIマルチプレクサとして"%s"はサポートされません。"%s"を使用します。

@@ -6,16 +6,19 @@ use baykit\bayserver\protocol\CommandPacker;
 use baykit\bayserver\protocol\PacketPacker;
 use baykit\bayserver\protocol\ProtocolHandler;
 
-abstract class FcgProtocolHandler extends ProtocolHandler implements FcgCommandHandler
+class FcgProtocolHandler extends ProtocolHandler
 {
 
-    public function __construct($pktStore, $svrMode)
+    public function __construct(
+                        FcgHandler $h1Handler,
+                        FcgPacketUnpacker $packetUnpacker,
+                        PacketPacker $packetPacker,
+                        FcgCommandUnpacker $commandUnpacker,
+                        CommandPacker $commandPacker,
+                        bool $svrMode)
     {
-        $this->commandUnpacker = new FcgCommandUnPacker($this);
-        $this->packetUnpacker = new FcgPacketUnPacker($pktStore, $this->commandUnpacker);
-        $this->packetPacker = new PacketPacker();
-        $this->commandPacker = new CommandPacker($this->packetPacker, $pktStore);
-        $this->serverMode = $svrMode;
+        parent::__construct($packetUnpacker, $packetPacker, $commandUnpacker, $commandPacker, $h1Handler, $svrMode);
+        $this->commandHandler->reset();
     }
 
     /////////////////////////////////////////////

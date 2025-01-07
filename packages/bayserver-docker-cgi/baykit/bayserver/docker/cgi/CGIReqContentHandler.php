@@ -3,7 +3,10 @@
 namespace baykit\bayserver\docker\cgi;
 
 use baykit\bayserver\BayLog;
+use baykit\bayserver\common\Multiplexer;
 use baykit\bayserver\HttpException;
+use baykit\bayserver\rudder\Rudder;
+use baykit\bayserver\rudder\StreamRudder;
 use baykit\bayserver\tour\ReqContentHandler;
 use baykit\bayserver\tour\Tour;
 use baykit\bayserver\util\HttpStatus;
@@ -15,18 +18,19 @@ class CGIReqContentHandler implements ReqContentHandler
 {
     const READ_CHUNK_SIZE = 8192;
     
-    public $cgiDocker;
-    public $tour;
-    public $tourId;
-    public $available;
+    public CGIDocker $cgiDocker;
+    public ?Tour $tour;
+    public int $tourId;
+    public bool $available;
     public $process;
-    public $pid;
-    public $stdIn;
-    public $stdOut;
-    public $stdErr = null;
-    public $stdOutClosed;
-    public $stdErrClosed;
-    public $lastAccess;
+    public int $pid;
+    public Rudder $stdInRd;
+    public Rudder $stdOutRd;
+    public ?Rudder $stdErrRd = null;
+    public bool $stdOutClosed;
+    public bool $stdErrClosed;
+    public int $lastAccess;
+    public ?Multiplexer $multiplexer = null;
 
     public function __construct(CGIDocker $dkr, Tour $tur)
     {
@@ -35,7 +39,7 @@ class CGIReqContentHandler implements ReqContentHandler
         $this->tourId = $tur->id();
         $this->stdOutClosed = true;
         $this->stdErrClosed = true;
-        $this->lastAccess = null;
+        $this->lastAccess = 0;
     }
 
 
@@ -43,33 +47,42 @@ class CGIReqContentHandler implements ReqContentHandler
     // Implements ReqContentHandler
     //////////////////////////////////////////////////////
 
-    public function onReadContent(Tour $tur, string $buf, int $start, int $len): void
+    public function onReadReqContent(Tour $tur, string $buf, int $start, int $len, ?callable $callback): void
     {
         BayLog::info("%s CGITask:onReadContent: start=%d len=%d", $tur, $start, $len);
 
-        $wroteLen = fwrite($this->stdIn, substr($buf, $start, $start + $len));
-        fflush($this->stdIn);
+        $wroteLen = fwrite($this->stdInRd->key(), substr($buf, $start, $start + $len));
+        fflush($this->stdInRd->key());
 
         BayLog::info("%s CGITask:onReadContent: wrote=%d", $tur, $wroteLen);
-        $tur->req->consumed(Tour::TOUR_ID_NOCHECK, $len);
+        $tur->req->consumed(Tour::TOUR_ID_NOCHECK, $len, $callback);
         $this->access();
     }
 
-    public function onEndContent(Tour $tur): void
+    public function onEndReqContent(Tour $tur): void
     {
         BayLog::trace("%s CGITask:endReqContent", $tur);
         $this->access();
     }
 
-    public function onAbort(Tour $tur): bool
+    public function onAbortReq(Tour $tur): bool
     {
-        BayLog::debug("%s CGITask:abort", $tur);
-        $this->tour->ship->agent->nonBlockingHandler->askToClose($this->stdOut);
-        if($this->isStderrEnabled())
-            $this->tour->ship->agent->nonBlockingHandler->askToClose($this->stdErr);
+        BayLog::debug("%s CGI:abortReq", $tur);
 
-        BayLog::debug("%s KILL PROCESS!: %s", $tur, $this->pid);
-        proc_terminate($this->process, SIGKILL);
+        if(!$this->stdOutClosed && $this->multiplexer != null) {
+            $this->multiplexer->reqClose($this->stdOutRd);
+        }
+        if(!$this->stdErrClosed && $this->multiplexer != null) {
+            $this->multiplexer->reqClose($this->stdErrRd);
+        }
+
+        if($this->process == null) {
+            BayLog::debug("%s Cannot kill process (pid is null)", $tur);
+        }
+        else {
+            BayLog::debug("%s KILL PROCESS!: %s", $tur, $this->pid);
+            proc_terminate($this->process, SIGKILL);
+        }
 
         return false;  # not aborted immediately
     }
@@ -101,16 +114,20 @@ class CGIReqContentHandler implements ReqContentHandler
             throw new HttpException(HttpStatus::INTERNAL_SERVER_ERROR, "Cannot open process: %s: exit code=%s", $cmdArgs, $stat["exitcode"]);
         }
 
-        $this->stdIn = $pips[0];
-        $this->stdOut = $pips[1];
-        if(!SysUtil::runOnWindows())
-            $this->stdErr = $pips[2];
+        $stdIn = $pips[0];
+        $stdOut = $pips[1];
+        $this->stdInRd = new StreamRudder($stdIn);
+        $this->stdOutRd = new StreamRudder($stdOut);
+        if(!SysUtil::runOnWindows()) {
+            $stdErr = $pips[2];
+            $this->stdErrRd = new StreamRudder($stdErr);
+        }
 
         BayLog::debug("PID: %d", $this->pid);
-        BayLog::debug("STDIN: %d", $this->stdIn);
-        BayLog::debug("STDOUT: %d", $this->stdOut);
+        BayLog::debug("STDIN: %s", $this->stdInRd);
+        BayLog::debug("STDOUT: %s", $this->stdOutRd);
         if($this->isStderrEnabled())
-            BayLog::debug("STDERR: %d", $this->stdErr);
+            BayLog::debug("STDERR: %s", $this->stdErrRd);
 
         $this->stdOutClosed = false;
         $this->stdErrClosed = $this->isStderrEnabled() ? false: true;
@@ -120,10 +137,10 @@ class CGIReqContentHandler implements ReqContentHandler
 
     public function closePipes() : void
     {
-        fclose($this->stdIn);
-        fclose($this->stdOut);
+        fclose($this->stdInRd->key());
+        fclose($this->stdOutRd->key());
         if($this->isStderrEnabled())
-            fclose($this->stdErr);
+            fclose($this->stdErrRd->key());
         $this->stdOutClosed();
         $this->stdErrClosed();
     }
@@ -143,7 +160,7 @@ class CGIReqContentHandler implements ReqContentHandler
     }
 
     public function isStderrEnabled() : bool {
-        return $this->stdErr !== null;
+        return $this->stdErrRd !== null;
     }
 
     public function access() : void {
@@ -173,7 +190,7 @@ class CGIReqContentHandler implements ReqContentHandler
                 $this->tour->res->sendError($this->tourId, HttpStatus::INTERNAL_SERVER_ERROR, "Invalid exit status");
             }
             else {
-                $this->tour->res->endContent($this->tourId);
+                $this->tour->res->endResContent($this->tourId);
             }
         }
         catch(IOException $e) {

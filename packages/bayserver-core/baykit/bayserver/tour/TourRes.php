@@ -6,6 +6,7 @@ use baykit\bayserver\agent\transporter\SpinReadTransporter;
 use baykit\bayserver\BayLog;
 use baykit\bayserver\BayServer;
 use baykit\bayserver\docker\Harbor;
+use baykit\bayserver\docker\Trouble;
 use baykit\bayserver\HttpException;
 use baykit\bayserver\protocol\ProtocolException;
 use baykit\bayserver\Sink;
@@ -91,11 +92,11 @@ class TourRes implements Reusable {
     }
 
 
-    public function sendHeaders(int $checkId) : void
+    public function sendResHeaders(int $checkId) : void
     {
         $this->tour->checkTourId($checkId);
 
-        if ($this->tour->isZombie())
+        if($this->tour->isZombie() || $this->tour->isAborted())
             return;
 
         if ($this->headerSent)
@@ -104,7 +105,7 @@ class TourRes implements Reusable {
         $this->bytesLimit = $this->headers->contentLength();
 
         // Compress check
-        if (BayServer::$harbor->gzipComp&&
+        if (BayServer::$harbor->gzipComp() &&
                 $this->headers->contains(Headers::CONTENT_TYPE) &&
                 StringUtil::startsWith(strtolower($this->headers->contentType()), "text/") &&
                 !$this->headers->contains(Headers::CONTENT_ENCODING)) {
@@ -123,7 +124,50 @@ class TourRes implements Reusable {
         }
 
         try {
-            $this->tour->ship->sendHeaders($this->tour->shipId, $this->tour);
+            $handled = false;
+            if(!$this->tour->errorHandling && $this->tour->res->headers->status >= 400) {
+                $trb = BayServer::$harbor->trouble();
+                if($trb !== null) {
+                    $cmd = $trb->find($this->tour->res->headers->status);
+                    if ($cmd !== null) {
+                        $errTour = $this->tour->ship->getErrorTour();
+                        $errTour->req->uri = $cmd->target;
+                        $this->tour->req->headers->copyTo($errTour->req->headers);
+                        $this->tour->res->headers->copyTo($errTour->res->headers);
+                        $errTour->req->remotePort = $this->tour->req->remotePort;
+                        $errTour->req->remoteAddress = $this->tour->req->remoteAddress;
+                        $errTour->req->serverAddress = $this->tour->req->serverAddress;
+                        $errTour->req->serverPort = $this->tour->req->serverPort;
+                        $errTour->req->serverName = $this->tour->req->serverName;
+                        $errTour->res->headerSent = $this->tour->res->headerSent;
+                        $this->tour->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ZOMBIE);
+                        switch ($cmd->method) {
+                            case Trouble::GUIDE: {
+                                $errTour->go();
+                                break;
+                            }
+
+                            case Trouble::TEXT: {
+                                $this->tour->ship->sendResHeaders($errTour);
+                                $data = $cmd->target->getBytes();
+                                $errTour->res->sendResContent(Tour::TOUR_ID_NOCHECK, $data, 0, strlen($data));
+                                $errTour->res->endResContent(Tour::TOUR_ID_NOCHECK);
+                                break;
+                            }
+
+                            case Trouble::REROUTE: {
+                                $errTour->res->sendHttpException(Tour::TOUR_ID_NOCHECK, HttpException::movedTemp($cmd->target));
+                                break;
+                            }
+                        }
+                        $handled = true;
+                    }
+                }
+            }
+
+            if(!$handled) {
+                $this->tour->ship->sendHeaders($this->tour->shipId, $this->tour);
+            }
         }
         catch(IOException $e) {
             BayLog::debug_e($e, "%s abort: %s", $this->tour, $e->getMessage());
@@ -153,7 +197,7 @@ class TourRes implements Reusable {
             }
             finally {
                 $this->headerSent = true;
-                $this->endContent($chkId);
+                $this->endResContent($chkId);
             }
         }
     }
@@ -167,7 +211,7 @@ class TourRes implements Reusable {
     }
 
 
-    public function sendContent(int $checkId, string $buf, int $ofs, int $len) : bool
+    public function sendResContent(int $checkId, string $buf, int $ofs, int $len) : bool
     {
         $this->tour->checkTourId($checkId);
         BayLog::debug("%s sendContent len=%d", $this->tour, $len);
@@ -195,7 +239,7 @@ class TourRes implements Reusable {
 
         if($this->tour->isZombie() || $this->tour->isAborted()) {
             // Don't send peer any data. Do nothing
-            BayLog::debug("%s Aborted or zombie tour. do nothing: %s state=%s", $this, $this->tour, $tur->state);
+            BayLog::debug("%s Aborted or zombie tour. do nothing: %s state=%s", $this, $this->tour, $this->tour->state);
             $consumed_cb();
         }
         else {
@@ -227,7 +271,7 @@ class TourRes implements Reusable {
         return $this->available;
     }
 
-    public function endContent(int $checkId) : void
+    public function endResContent(int $checkId) : void
     {
         $this->tour->checkTourId($checkId);
 
@@ -323,87 +367,7 @@ class TourRes implements Reusable {
             }
             $this->headerSent = true;
         }
-        $this->endContent($checkId);
-    }
-
-
-    ////////////////////////////////////////////////////////////////////////////////
-    // Sending file methods
-    ////////////////////////////////////////////////////////////////////////////////
-
-    public function sendFile(int $checkId, string $fname, ?string $charset, bool $async) : void
-    {
-        $this->tour->checkTourId($checkId);
-
-        if ($this->tour->isZombie())
-            return;
-
-        if (is_dir($fname)) {
-            throw new HttpException(HttpStatus::FORBIDDEN, $fname);
-        }
-        elseif (!file_exists($fname)) {
-            throw new HttpException(HttpStatus::NOT_FOUND, $fname);
-        }
-
-        $mimeType = null;
-
-        $rname = basename($fname);
-        $pos = strrpos($rname, '.');
-        if ($pos >= 0) {
-            $ext = strtolower(substr($rname, $pos + 1));
-            $mimeType = Mimes::type($ext);
-        }
-
-        if ($mimeType === null)
-            $mimeType = "application/octet-stream";
-
-        if (StringUtil::startsWith($mimeType, "text/") && $this->charset() !== null)
-            $mimeType = $mimeType . "; charset=" . $this->charset;
-
-        //resHeaders.setStatus(HttpStatus.OK);
-        $this->headers->setContentType($mimeType);
-        $this->headers->setContentLength(filesize($fname));
-        try {
-            $this->sendHeaders(Tour::TOUR_ID_NOCHECK);
-
-            if ($async) {
-                $bufsize = $this->tour->ship->protocolHandler->maxResPacketDataSize();
-                $infile = fopen($fname, "rb");
-
-                switch(BayServer::$harbor->fileSendMethod) {
-                    case Harbor::FILE_SEND_METHOD_SELECT: {
-                        stream_set_blocking($infile, false);
-
-                        $tp = new PlainTransporter(false, $bufsize);
-                        $this->yacht->init($this->tour, $fname, filesize($fname), $tp);
-                        $tp->init($this->tour->ship->agent->nonBlockingHandler, $infile, $this->yacht);
-                        $tp->openValve();
-                        break;
-                    }
-                    case Harbor::FILE_SEND_METHOD_SPIN: {
-                        $timeout = 10;
-                        stream_set_blocking($infile, false);
-
-                        $tp = new SpinReadTransporter($bufsize);
-                        $this->yacht->init($this->tour, $fname,filesize($fname), $tp);
-                        $tp->init($this->tour->ship->agent->spinHandler, $this->yacht, $infile, filesize($fname), $timeout, nil);
-                        $tp->openValve();
-                        break;
-                    }
-
-                    case Harbor::FILE_SEND_METHOD_TAXI:
-                        throw new Sink();
-                }
-
-            }
-            else {
-                throw new Sink();
-            }
-        }
-        catch (IOException $e) {
-            BayLog::error_e(e);
-            throw new HttpException(HttpStatus::INTERNAL_SERVER_ERROR, $fname);
-        }
+        $this->endResContent($checkId);
     }
 
 
@@ -438,7 +402,7 @@ class TourRes implements Reusable {
 
     private function bufferAvailable() : bool
     {
-        return $this->bytesPosted - $this->bytesConsumed < BayServer::$harbor->tourBufferSize;
+        return $this->bytesPosted - $this->bytesConsumed < BayServer::$harbor->tourBufferSize();
     }
 }
 

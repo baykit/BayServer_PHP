@@ -215,9 +215,9 @@ class SysUtil
             return "{$err["message"]} (at {$err["file"]}:{$err["line"]})";
     }
 
-    public static function lastSocketErrorMessage() : string
+    public static function lastSocketErrorMessage($socket = null) : string
     {
-        return socket_strerror(socket_last_error());
+        return socket_strerror(socket_last_error($socket));
     }
 
     public static function supportUnixDomainSocketAddress() : bool

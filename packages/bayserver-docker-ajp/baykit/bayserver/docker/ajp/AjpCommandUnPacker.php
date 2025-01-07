@@ -4,23 +4,13 @@ namespace baykit\bayserver\docker\ajp;
 
 
 use baykit\bayserver\BayLog;
+use baykit\bayserver\docker\ajp\command\CmdData;
 use baykit\bayserver\docker\ajp\command\CmdEndResponse;
 use baykit\bayserver\docker\ajp\command\CmdForwardRequest;
 use baykit\bayserver\docker\ajp\command\CmdGetBodyChunk;
 use baykit\bayserver\docker\ajp\command\CmdSendBodyChunk;
 use baykit\bayserver\docker\ajp\command\CmdSendHeaders;
 use baykit\bayserver\docker\ajp\command\CmdShutdown;
-use baykit\bayserver\docker\http\h1\command\CmdContent;
-use baykit\bayserver\docker\http\h1\command\CmdHeader;
-use baykit\bayserver\docker\http\h2\command\CmdData;
-use baykit\bayserver\docker\http\h2\command\CmdGoAway;
-use baykit\bayserver\docker\http\h2\command\CmdHeaders;
-use baykit\bayserver\docker\http\h2\command\CmdPing;
-use baykit\bayserver\docker\http\h2\command\CmdPreface;
-use baykit\bayserver\docker\http\h2\command\CmdPriority;
-use baykit\bayserver\docker\http\h2\command\CmdRstStream;
-use baykit\bayserver\docker\http\h2\command\CmdSettings;
-use baykit\bayserver\docker\http\h2\command\CmdWindowUpdate;
 use baykit\bayserver\protocol\CommandUnPacker;
 use baykit\bayserver\protocol\Packet;
 use baykit\bayserver\Sink;

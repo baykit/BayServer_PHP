@@ -17,6 +17,7 @@ use baykit\bayserver\docker\http\h2\command\CmdSettings;
 use baykit\bayserver\docker\http\h2\command\CmdWindowUpdate;
 use baykit\bayserver\protocol\CommandUnPacker;
 use baykit\bayserver\protocol\Packet;
+use baykit\bayserver\protocol\ProtocolException;
 use baykit\bayserver\Sink;
 
 class H2CommandUnPacker extends CommandUnPacker {
@@ -85,7 +86,7 @@ class H2CommandUnPacker extends CommandUnPacker {
                 break;
 
             default:
-                throw new \Exception("Received packet" . $pkt);
+                throw new ProtocolException("Received packet with unknown type: %s", $pkt);
         }
 
         $cmd->unpack($pkt);

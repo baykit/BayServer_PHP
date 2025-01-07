@@ -2,23 +2,24 @@
 
 namespace baykit\bayserver\agent;
 
-use baykit\bayserver\BayLog;
+use baykit\bayserver\docker\Port;
+use baykit\bayserver\rudder\Rudder;
 
 class PortMap
 {
-    public $ch;
-    public $docker;
+    public Rudder $rudder;
+    public Port $docker;
 
-    public function __construct($ch, $docker)
+    public function __construct(Rudder $rd, Port $dkr)
     {
-        $this->ch = $ch;
-        $this->docker = $docker;
+        $this->rudder = $rd;
+        $this->docker = $dkr;
     }
 
-    public static function findDocker($ch, array $map_list)
+    public static function findDocker(Rudder $rd, array $map_list)
     {
         foreach($map_list as $map) {
-            if($map->ch == $ch)
+            if($map->rudder == $rd)
                 return $map->docker;
         }
         return false;

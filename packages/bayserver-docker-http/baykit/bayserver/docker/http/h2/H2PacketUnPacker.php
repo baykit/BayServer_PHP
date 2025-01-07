@@ -7,6 +7,7 @@ use baykit\bayserver\agent\NextSocketAction;
 use baykit\bayserver\BayLog;
 use baykit\bayserver\protocol\PacketStore;
 use baykit\bayserver\protocol\PacketUnPacker;
+use baykit\bayserver\protocol\ProtocolException;
 use baykit\bayserver\util\IOException;
 use baykit\bayserver\util\SimpleBuffer;
 
@@ -122,7 +123,7 @@ class H2PacketUnPacker extends PacketUnPacker {
             if($this->tmpBuf->len == strlen(self::CONNECTION_PREFACE)) {
                 for($i = 0; $i < $this->tmpBuf->len; $i++) {
                     if(self::CONNECTION_PREFACE[$i] != $this->tmpBuf->bytes()[$i])
-                        throw new ProtocolException("Invalid connection preface: " . $this->tmpBuf);
+                        throw new ProtocolException("Invalid connection preface");
                 }
                 $pkt = $this->pktStore->rent(H2Type::PREFACE);
                 $pkt->newDataAccessor()->putBytes($this->tmpBuf->buf, 0, $this->tmpBuf->len);

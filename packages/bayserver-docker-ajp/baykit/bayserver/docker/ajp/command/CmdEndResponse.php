@@ -17,7 +17,7 @@ use baykit\bayserver\protocol\Packet;
  */
 class CmdEndResponse extends AjpCommand
 {
-    public $reuse;
+    public bool $reuse = false;
 
     public function __construct()
     {

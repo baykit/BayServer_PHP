@@ -8,19 +8,22 @@ use baykit\bayserver\docker\http\HtpDocker;
 use baykit\bayserver\protocol\CommandPacker;
 use baykit\bayserver\protocol\PacketPacker;
 use baykit\bayserver\protocol\PacketStore;
+use baykit\bayserver\protocol\PacketUnPacker;
 use baykit\bayserver\protocol\ProtocolHandler;
 
-abstract class H1ProtocolHandler extends ProtocolHandler implements H1CommandHandler {
+class H1ProtocolHandler extends ProtocolHandler{
 
     public $keeping;
 
-    public function __construct(PacketStore $pktStore, bool $svrMode)
+    public function __construct(
+                        H1Handler $h1Handler,
+                        H1PacketUnpacker $packetUnpacker,
+                        PacketPacker $packetPacker,
+                        H1CommandUnpacker $commandUnpacker,
+                        CommandPacker $commandPacker,
+                        bool $svrMode)
     {
-        $this->commandUnpacker = new H1CommandUnPacker($this, $svrMode);
-        $this->packetUnpacker = new H1PacketUnPacker($this->commandUnpacker, $pktStore);
-        $this->packetPacker = new PacketPacker();
-        $this->commandPacker = new CommandPacker($this->packetPacker, $pktStore);
-        $this->server_mode = $svrMode;
+        parent::__construct($packetUnpacker, $packetPacker, $commandUnpacker, $commandPacker, $h1Handler, $svrMode);
         $this->keeping = false;
     }
 

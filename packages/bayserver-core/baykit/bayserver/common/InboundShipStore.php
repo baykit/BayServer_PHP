@@ -1,5 +1,5 @@
 <?php
-namespace baykit\bayserver\docker\base;
+namespace baykit\bayserver\common;
 
 
 use baykit\bayserver\agent\GrandAgent;
@@ -7,7 +7,6 @@ use baykit\bayserver\agent\LifecycleListener;
 use baykit\bayserver\BayLog;
 use baykit\bayserver\util\ObjectStore;
 use baykit\bayserver\util\StringUtil;
-use baykit\bayserver\util\ArrayUtil;
 
 class InboundShipStore_AgentListener implements LifecycleListener
 {

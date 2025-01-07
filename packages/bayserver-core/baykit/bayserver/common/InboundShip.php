@@ -1,17 +1,21 @@
 <?php
-namespace baykit\bayserver\docker\base;
+namespace baykit\bayserver\common;
 
 
 
+use baykit\bayserver\agent\NextSocketAction;
 use baykit\bayserver\BayLog;
 use baykit\bayserver\BayServer;
 use baykit\bayserver\docker\Port;
 use baykit\bayserver\docker\Trouble;
 use baykit\bayserver\HttpException;
 use baykit\bayserver\protocol\ProtocolException;
-use baykit\bayserver\agent\NextSocketAction;
+use baykit\bayserver\protocol\ProtocolHandler;
+use baykit\bayserver\rudder\Rudder;
+use baykit\bayserver\ship\Ship;
 use baykit\bayserver\Sink;
 use baykit\bayserver\tour\Tour;
+use baykit\bayserver\tour\TourHandler;
 use baykit\bayserver\tour\TourStore;
 use baykit\bayserver\util\ArrayUtil;
 use baykit\bayserver\util\Counter;
@@ -19,7 +23,6 @@ use baykit\bayserver\util\Headers;
 use baykit\bayserver\util\HttpStatus;
 use baykit\bayserver\util\IOException;
 use baykit\bayserver\util\StringUtil;
-use baykit\bayserver\watercraft\Ship;
 
 class InboundShip extends Ship
 {
@@ -27,10 +30,11 @@ class InboundShip extends Ship
 
     const MAX_TOURS = 128;
 
-    public $portDocker = null;
-    public $tourStore = null;
-    public $needEnd = null;
-    public $socketTimeoutSec = null;
+    public ?ProtocolHandler $protocolHandler = null;
+    public ?Port $portDocker = null;
+    public ?TourStore $tourStore = null;
+    public bool $needEnd = false;
+    public int $socketTimeoutSec = 0;
     public $activeTours = [];
 
     public function __construct()
@@ -40,18 +44,20 @@ class InboundShip extends Ship
 
     public function __toString()
     {
-        $protocol = $this->protocol();
-        if ($this->postman && $this->postman->secure())
-            $protocol .= "s";
-        return "{$this->agent} ship#{$this->shipId}/#{$this->objectId}[{$protocol}]";
+        if($this->protocolHandler != null)
+            $protocol = $this->protocolHandler->protocol();
+        else
+            $protocol = "";
+
+        return "agt#{$this->agentId} ship#{$this->shipId}/{$this->objectId}[{$protocol}]";
     }
 
-    public function initInbound($skt, $agt, $postman, $port, $protoHnd) : void
+    public function initInbound(Rudder $rd, int $agtId, Transporter $tp, Port $portDkr, ProtocolHandler $protoHnd) : void
     {
-        $this->init($skt, $agt, $postman);
-        $this->portDocker = $port;
-        $this->socketTimeoutSec = $this->portDocker->timeoutSec >= 0 ? $this->portDocker->timeoutSec : BayServer::$harbor->socketTimeoutSec;
-        $this->tourStore = TourStore::getStore($agt->agentId);
+        $this->init($agtId, $rd, $tp);
+        $this->portDocker = $portDkr;
+        $this->socketTimeoutSec = $this->portDocker->timeoutSec >= 0 ? $this->portDocker->timeoutSec : BayServer::$harbor->socketTimeoutSec();
+        $this->tourStore = TourStore::getStore($agtId);
         $this->setProtocolHandler($protoHnd);
     }
 
@@ -71,13 +77,91 @@ class InboundShip extends Ship
         $this->needEnd = false;
     }
 
-    ///////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////
+    // Implements Ship
+    //////////////////////////////////////////////////////
+
+    public function notifyHandshakeDone(string $pcl): int
+    {
+        return NextSocketAction::CONTINUE;
+    }
+
+    public function notifyConnect(): int
+    {
+        throw new Sink();
+    }
+
+    public function notifyRead(string $buf): int
+    {
+        return $this->protocolHandler->bytesReceived($buf);
+    }
+
+    public function notifyEof(): int
+    {
+        BayLog::debug("%s EOF detected", $this);
+        return NextSocketAction::CLOSE;
+    }
+
+    public function notifyError(\Exception $e): void
+    {
+        BayLog::debug($e, "%s Error notified", $this);
+    }
+
+    public function notifyProtocolError(ProtocolException $e): bool
+    {
+        BayLog::debug_e($e);
+        return $this->tourHandler()->onProtocolError($e);
+    }
+
+    public function notifyClose(): void
+    {
+        BayLog::debug("%s notifyClose", $this);
+
+        $this->abortTours();
+
+        if(!empty($this->activeTours)) {
+            // cannot close because there are some running tours
+            BayLog::debug($this . " cannot end ship because there are some running tours (ignore)");
+            $this->needEnd = true;
+        }
+        else {
+            $this->endShip();
+        }
+    }
+
+    public function checkTimeout(int $durationSec): bool
+    {
+        if($this->socketTimeoutSec <= 0)
+            $timeout = false;
+        else if($this->keeping)
+            $timeout = $durationSec >= BayServer::$harbor->keepTimeoutSec();
+        else
+            $timeout = $durationSec >= $this->socketTimeoutSec;
+
+        BayLog::debug("%s Check timeout: dur=%d, timeout=%b, keeping=%b limit=%d keeplim=%d",
+            $this, $durationSec, $timeout, $this->keeping, $this->socketTimeoutSec, BayServer::$harbor->keepTimeoutSec());
+        return $timeout;
+    }
+
+    //////////////////////////////////////////////////////
     // Other methods
-    ///////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////
 
     public function portDocker() : Port
     {
         return $this->portDocker;
+    }
+
+    public function setProtocolHandler(ProtocolHandler $hnd): void
+    {
+        $this->protocolHandler = $hnd;
+        $this->protocolHandler->init($this);
+        BayLog::debug("%s protocol handler is set", $this);
+    }
+
+    public function tourHandler(): TourHandler
+    {
+        return $this->protocolHandler->commandHandler;
     }
 
     public function getTour(int $turKey, bool $force=false, bool $rent=true) : ?Tour
@@ -109,57 +193,11 @@ class InboundShip extends Ship
     public function sendHeaders(int $chkId, Tour $tur) : void {
         $this->checkShipId($chkId);
 
-        if($tur->isZombie() || $tur->isAborted())
-            // Don't send peer any data
-            return;
-
-        $handled = false;
-        if(!$tur->errorHandling && $tur->res->headers->status >= 400) {
-            $trb = BayServer::$harbor->trouble;
-            if($trb !== null) {
-                $cmd = $trb->find($tur->res->headers->status);
-                if ($cmd !== null) {
-                    $errTour = $this->getErrorTour();
-                    $errTour->req->uri = $cmd->target;
-                    $tur->req->headers->copyTo($errTour->req->headers);
-                    $tur->res->headers->copyTo($errTour->res->headers);
-                    $errTour->req->remotePort = $tur->req->remotePort;
-                    $errTour->req->remoteAddress = $tur->req->remoteAddress;
-                    $errTour->req->serverAddress = $tur->req->serverAddress;
-                    $errTour->req->serverPort = $tur->req->serverPort;
-                    $errTour->req->serverName = $tur->req->serverName;
-                    $errTour->res->headerSent = $tur->res->headerSent;
-                    $tur->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ZOMBIE);
-                    switch ($cmd->method) {
-                        case Trouble::GUIDE: {
-                            $errTour->go();
-                            break;
-                        }
-
-                        case Trouble::TEXT: {
-                            $this->protocolHandler->sendResHeaders($errTour);
-                            $data = $cmd->target->getBytes();
-                            $errTour->res->sendContent(Tour::TOUR_ID_NOCHECK, $data, 0, strlen($data));
-                            $errTour->res->endContent(Tour::TOUR_ID_NOCHECK);
-                            break;
-                        }
-
-                        case Trouble::REROUTE: {
-                            $errTour->res->sendHttpException(Tour::TOUR_ID_NOCHECK, HttpException::movedTemp($cmd->target));
-                            break;
-                        }
-                    }
-                    $handled = true;
-                }
-            }
+        foreach ($this->portDocker()->additionalHeaders() as $nv) {
+            $tur->res->headers->add($nv[0], $nv[1]);
         }
-        if(!$handled) {
-            foreach ($this->portDocker()->additionalHeaders() as $nv) {
-                $tur->res->headers->add($nv[0], $nv[1]);
-            }
 
-            $this->protocolHandler->sendResHeaders($tur);
-        }
+        $this->tourHandler()->sendResHeaders($tur);
     }
 
     public function sendRedirect(int $chkId, Tour $tour, int $status, String $location) : void
@@ -187,7 +225,7 @@ class InboundShip extends Ship
         }
         else {
             try {
-                $this->protocolHandler->sendResContent($tur, $bytes, $ofs, $len, $callback);
+                $this->tourHandler()->sendResContent($tur, $bytes, $ofs, $len, $callback);
             }
             catch(IOException $e) {
                 $tur->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ABORTED);
@@ -218,7 +256,7 @@ class InboundShip extends Ship
             }
         }
 
-        $this->protocolHandler->sendEndTour($tur, $keepAlive, $callback);;
+        $this->tourHandler()->sendEndTour($tur, $keepAlive, $callback);;
     }
 
     public function sendError(int $chkId, Tour $tour, int $status, String $message, ?\Throwable $e) : void
@@ -277,7 +315,7 @@ class InboundShip extends Ship
     public function endShip() : void
     {
         BayLog::debug("%s endShip", $this);
-        $this->portDocker->returnProtocolHandler($this->agent, $this->protocolHandler);
+        $this->portDocker->returnProtocolHandler($this->agentId, $this->protocolHandler);
         $this->portDocker->returnShip($this);
     }
 
@@ -322,6 +360,8 @@ class InboundShip extends Ship
     public static function initClass() {
         InboundShip::$errCounter = new Counter();
     }
+
+
 }
 
 InboundShip::initClass();

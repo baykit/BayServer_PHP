@@ -186,13 +186,6 @@ abstract class Transporter implements ChannelListener, Reusable, Valve, Postman
         if (!$this->chValid)
             return NextSocketAction::CLOSE;
 
-        if (!$this->handshaked) {
-            $this->handshakeNonblock();
-            BayLog::debug("%s Handshake: done", $this->dataListener);
-            $this->handshakeFinished();
-            $this->handshaked = true;
-        }
-
         $empty = false;
         while (true) {
             # BayLog::debug "#{$this} Send queue len=#{@write_queue.length}"

@@ -10,7 +10,7 @@ use baykit\bayserver\protocol\CommandUnPacker;
 use baykit\bayserver\protocol\Packet;
 use baykit\bayserver\Sink;
 
-class H1CommandUnpacker extends CommandUnPacker {
+class H1CommandUnPacker extends CommandUnPacker {
 
     public $serverMode;
     public $cmdHandler;

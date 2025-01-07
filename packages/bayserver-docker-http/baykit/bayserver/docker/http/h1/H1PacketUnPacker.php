@@ -23,7 +23,7 @@ use baykit\bayserver\util\SimpleBuffer;
  *
  *
  */
-class H1PacketUnpacker extends PacketUnPacker {
+class H1PacketUnPacker extends PacketUnPacker {
 
     const STATE_READ_HEADERS = 1;
     const STATE_READ_CONTENT = 2;
