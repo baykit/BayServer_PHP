@@ -14,6 +14,7 @@ use baykit\bayserver\agent\multiplexer\SpiderMultiplexer;
 use baykit\bayserver\agent\multiplexer\SpinMultiplexer;
 use baykit\bayserver\agent\transporter\WriteUnit;
 use baykit\bayserver\common\Multiplexer;
+use baykit\bayserver\common\Postpone;
 use baykit\bayserver\common\Recipient;
 use baykit\bayserver\common\RudderState;
 use baykit\bayserver\common\Transporter;
@@ -72,9 +73,10 @@ class GrandAgent
     public int $maxInboundShips;
     public bool $aborted;
     public CommandReceiver $commandReceiver;
-    public array $timerHandlers = [];
-    public int $lastTimeoutCheck = 0;
-    public array $letterQueue = [];
+    private array $timerHandlers = [];
+    private int $lastTimeoutCheck = 0;
+    private array $letterQueue = [];
+    private array $postponeQueue = [];
 
     public function __construct(
         int $agentId,
@@ -310,6 +312,41 @@ class GrandAgent
         $this->sendLetter(new ErrorLetter($st, $e), $wakeup);
     }
 
+    public function addPostpone(Postpone $p) : void
+    {
+        $this->postponeQueue[] = $p;
+    }
+
+    public function countPostpone() : int
+    {
+        return count($this->postponeQueue);
+    }
+
+    public function reqCatchUp(): void
+    {
+        BayLog::debug("%s Req catchUp", $this);
+        if($this->countPostpone() > 0) {
+            $this->catchUp();
+        }
+        else {
+            try {
+                $this->commandReceiver->sendCommandToMonitor($this, self::CMD_CATCHUP, false);
+            }
+            catch (IOException $e) {
+                BayLog::error($e);
+                $this->abort();
+            }
+        }
+    }
+
+    public function catchUp(): void
+    {
+        BayLog::debug("%s catchUp", $this);
+        if(!empty($this->postponeQueue)) {
+            $p = array_shift($this->postponeQueue);
+            $p->run();
+        }
+    }
 
     ######################################################
     # Private methods

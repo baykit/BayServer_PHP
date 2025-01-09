@@ -31,11 +31,13 @@ class CGIDocker extends ClubBase
 {
     const DEFAULT_TIMEOUT_SEC = 0;
 
-    public $interpreter;
-    public $scriptBase;
-    public $docRoot;
-    public $timeoutSec = self::DEFAULT_TIMEOUT_SEC;
-
+    public ?string $interpreter = null;
+    public ?string $scriptBase = null;
+    public ?string $docRoot = null;
+    public int $timeoutSec = self::DEFAULT_TIMEOUT_SEC;
+    private int $maxProcesses = 0;
+    private int $processCount = 0;
+    private int $waitCount = 0;
     /** Method to read stdin/stderr */
 
     //////////////////////////////////////////////////////
@@ -70,26 +72,12 @@ class CGIDocker extends ClubBase
                 $this->docRoot = $kv->value;
                 break;
 
-            case "processreadmethod":
-                $v = strtolower($kv->value);
-                switch ($v) {
-                    case "select":
-                        $this->procReadMethod = Harbor::FILE_SEND_METHOD_SELECT;
-                        break;
-                    case "spin":
-                        $this->procReadMethod = Harbor::FILE_SEND_METHOD_SPIN;
-                        break;
-                    case "taxi":
-                        $this->procReadMethod = Harbor::FILE_SEND_METHOD_TAXI;
-                        break;
-                    default:
-                        throw new ConfigException($kv->fileName, $kv->lineNo,
-                            BayMessage::get(Symbol::CFG_INVALID_PARAMETER_VALUE, $kv->value));
-                }
-                break;
-
             case "timeout":
                 $this->timeoutSec = intval($kv->value);
+                break;
+
+            case "maxprocesses":
+                $this->maxProcesses = intval($kv->value);
                 break;
         }
         return true;
@@ -134,62 +122,42 @@ class CGIDocker extends ClubBase
             throw new HttpException(HttpStatus::NOT_FOUND, $fileName);
         }
 
-        $bufsize = $tur->ship->protocolHandler->maxResPacketDataSize();
-        $handler = new CGIReqContentHandler($this, $tur);
-
+        $handler = new CGIReqContentHandler($this, $tur, $env);
         $tur->req->setContentHandler($handler);
-        $handler->startTour($env);
-        $fname = "cgi#" . (string)$handler->pid;
+        $handler->reqStartTour();
 
-        $agt = GrandAgent::get($tur->ship->agentId);
-
-        switch(BayServer::$harbor->cgiMultiplexer()) {
-            case Harbor::MULTIPLEXER_TYPE_SPIN: {
-                throw new Sink();
-            }
-
-            case Harbor::MULTIPLEXER_TYPE_SPIDER: {
-                stream_set_blocking($handler->stdOutRd->key(), false);
-                if($handler->stdErrRd != null)
-                    stream_set_blocking($handler->stdErrRd->key(), false);
-
-                $mpx = $agt->spiderMultiplexer;
-                break;
-            }
-
-            default:
-                throw new IOException("Multiplexer not supported: %d", BayServer::$harbor->cgiMultiplexer());
-        }
-
-        $outShip = new CGIStdOutShip();
-        $outTp = new PlainTransporter($mpx, $outShip, false, $bufsize, false);
-        $outTp->init();
-        $outShip->initOutShip($handler->stdOutRd, $tur->ship->agentId, $tur, $outTp, $handler);
-
-        $mpx->addRudderState($handler->stdOutRd, new RudderState($handler->stdOutRd, $outTp));
-
-        $sid = $tur->ship->shipId;
-        $tur->res->setConsumeListener(function ($len, $resume) use ($outShip, $sid){
-            if($resume)
-                $outShip->resumeRead($sid);
-        });
-
-        $mpx->reqRead($handler->stdOutRd);
-
-        if($handler->stdErrRd != null) {
-            $errShip = new CGIStdErrShip();
-            $errTp = new PlainTransporter($mpx, $errShip, false, $bufsize, false);
-            $errTp->init();
-            $errShip->initErrShip($handler->stdErrRd, $tur->ship->agentId, $handler);
-
-            $mpx->addRudderState($handler->stdErrRd, new RudderState($handler->stdErrRd, $errTp));
-            $mpx->reqRead($handler->stdErrRd);
-        }
     }
 
     //////////////////////////////////////////////////////
     // Other Methods
     //////////////////////////////////////////////////////
+
+    public function getWaitCount(): int
+    {
+        return $this->waitCount;
+    }
+
+    public function addProcessCount(): bool
+    {
+        if($this->maxProcesses <= 0 || $this->processCount < $this->maxProcesses) {
+            $this->processCount += 1;
+            BayLog::debug("%s Process count: %d", $this, $this->processCount);
+            return true;
+        }
+
+        $this->waitCount += 1;
+        return false;
+    }
+
+    public function subProcessCount()
+    {
+        $this->processCount -= 1;
+    }
+
+    public function subWaitCount()
+    {
+        $this->waitCount -= 1;
+    }
 
     public function createCommand(array &$env) : string
     {
