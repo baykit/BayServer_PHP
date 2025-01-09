@@ -109,7 +109,7 @@ class CommandReceiver extends Ship
         $this->sendCommandToMonitor($agt, GrandAgent::CMD_OK, false);
     }
 
-    private function sendCommandToMonitor(?GrandAgent $agt, int $cmd, bool $sync)
+    public function sendCommandToMonitor(?GrandAgent $agt, int $cmd, bool $sync)
     {
         if($sync)
             IOUtil::writeInt32($this->rudder->key(), GrandAgent::CMD_OK);

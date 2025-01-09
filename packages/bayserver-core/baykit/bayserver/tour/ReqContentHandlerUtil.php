@@ -3,11 +3,11 @@ namespace baykit\bayserver\tour;
 
 
 class ReqContentHandlerUtil {
-    public static $devNull;
+    public static ReqContentHandler $devNull;
 }
 
 ReqContentHandlerUtil::$devNull = new class implements ReqContentHandler {
-    public function onReadReqContent(Tour $tur, string $buf, int $start, int $len): void
+    public function onReadReqContent(Tour $tur, string $buf, int $start, int $len, ?callable $callback): void
     {
     }
 
