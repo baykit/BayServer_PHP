@@ -68,6 +68,6 @@ class CGIStdErrShip extends ReadOnlyShip
 
     public function notifyError(\Exception $e): void
     {
-        BayLog::debug_e($e);
+        BayLog::debug_e($e, "%s CGI StdErr: notifyError", $this);
     }
 }
