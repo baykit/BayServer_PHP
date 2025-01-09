@@ -12,9 +12,9 @@ use baykit\bayserver\util\IOException;
 
 abstract class MultiplexerBase implements Multiplexer {
 
-    private $rudderCount = 0;
-    protected $agent = null;
-    protected $rudders = [];
+    private int $rudderCount = 0;
+    protected ?GrandAgent $agent = null;
+    protected array $rudders = [];
 
     public function __construct(GrandAgent $agt)
     {
