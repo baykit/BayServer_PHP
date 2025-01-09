@@ -72,9 +72,13 @@ class StreamRudder implements Rudder
 
     public function close(): void
     {
-        $ret = fclose($this->stream);
-        if($ret === false)
-            BayLog::error("Cannot close channel: %s(%s)", $this->stream, SysUtil::lastErrorMessage());
-
+        if (!is_resource($this->stream)) {
+            BayLog::error("Stream is already closed: %s", $this->stream);
+        }
+        else {
+            $ret = fclose($this->stream);
+            if($ret === false)
+                BayLog::error("Cannot close channel: %s(%s)", $this->stream, SysUtil::lastErrorMessage());
+        }
     }
 }
