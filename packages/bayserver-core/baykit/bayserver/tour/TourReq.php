@@ -191,6 +191,7 @@ class TourReq implements Reusable {
         if ($this->ended)
             throw new Sink("%s Request content is already ended", $this->tour);
 
+        $this->tour->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_RUNNING);
         if ($this->bytesLimit >= 0 && $this->bytesPosted != $this->bytesLimit) {
             throw new ProtocolException("Read data exceed content-length: " . $this->bytesPosted . "/" . $this->bytesLimit);
         }
@@ -223,23 +224,19 @@ class TourReq implements Reusable {
 
     public function abort() : bool
     {
-        BayLog::debug("%s abort", $this->tour);
+        BayLog::debug("%s abort state=%d", $this->tour, $this->tour->state);
         if ($this->tour->isPreparing()) {
-            $this->tour->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ABORTED);
             return true;
         }
-        elseif ($this->tour->isRunning()) {
+        elseif ($this->tour->isReading()) {
             $aborted = true;
             if ($this->contentHandler != null)
                 $aborted = $this->contentHandler->onAbortReq($this->tour);
 
-            if($aborted)
-                $this->tour->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ABORTED);
-
             return $aborted;
         }
         else {
-            BayLog::debug("%s tour is not preparing or not running", $this->tour);
+            BayLog::debug("%s tour is not preparing or not running: state=%d", $this->tour, $this->tour->state);
             return false;
         }
     }
