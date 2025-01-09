@@ -276,7 +276,7 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
             $st = $this->getRudderState($rdOp->rudder);
 
             if (!is_resource($rdOp->rudder->key())) {
-                BayLog::debug("Resource already closed");
+                BayLog::debug("Rudder already closed: rd=%s", $rdOp->rudder->key());
                 continue;
             }
 
