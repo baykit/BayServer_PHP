@@ -133,7 +133,7 @@ class Tour implements Reusable {
             try {
                 $this->city->enter($this);
             } catch (HttpException $e) {
-                $this->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ABORTED);
+                //$this->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ABORTED);
                 throw $e;
             }
         }
