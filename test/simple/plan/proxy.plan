@@ -4,8 +4,7 @@
     grandAgents 4
     #gzipComp on
     logLevel debug
-    sendFileMethod select
-    multiCore 0
+    multiCore 1
 
     # For windows
     controlPort 2222
@@ -16,8 +15,8 @@
 [port 7070]
      docker http
      #[permission]
-     #     admit ip 127.0.0.1/255.0.0.0
-     #     admit ip ::1/::ffff:ffff
+     #     admit ip 127.0.0.1/32
+     #     admit ip ::1/128
      #     refuse ip *
 
 [port 7074]
@@ -43,7 +42,9 @@
         welcome  index.html
         [club *]
             docker ajpWarp
-            destCity localhost
+            #docker httpWarp
+            #docker fcgiWarp
+            destCity 127.0.0.1
             destPort 2025
             destTown /cgi-demo
 
@@ -59,7 +60,7 @@
 
 
    # [permission]
-    #       admit ip 127.0.0.1/255.255.255.255
-           #refuse ip 127.0.0.0/255.0.0.0
+    #       admit ip 127.0.0.1/32
+           #refuse ip 127.0.0.0/32
 
 

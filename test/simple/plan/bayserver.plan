@@ -24,7 +24,7 @@
 [port 2025]
     docker ajp
     [permission]
-          admit ip 127.0.0.1/255.0.0.0
+          admit ip 127.0.0.1/8
           refuse ip *
 
 [port 2029]
@@ -44,6 +44,7 @@
         welcome  index.html
         [club *.cgi]
             docker cgi
+            maxProcessess 2
 
         [club *.bat]
             docker cgi
@@ -64,8 +65,8 @@
 
 
     #[permission]
-    #         admit ip 127.0.0.1/255.0.0.0
-    #         admit ip ::1/32
+    #         admit ip 127.0.0.1/32
+    #         admit ip ::1/128
     #         refuse ip *
     #         group rocker
  
