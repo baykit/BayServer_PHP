@@ -463,43 +463,51 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
 
     public function onWritable(RudderState $st) : void
     {
-        if (empty($st->writeQueue)) {
-            throw new IOException("%s No data to write: rd=%s", $this->agent, $st->rudder);
-        }
-        $wunit = $st->writeQueue[0];
-
-        BayLog::debug("%s Try to write: pkt=%s buflen=%d rd=%s", $this, $wunit->tag,
-            strlen($wunit->buf), $st->rudder);
-
         try {
-
-            if (strlen($wunit->buf) == 0) {
-                $len = 0;
+            if (empty($st->writeQueue)) {
+                throw new IOException("%s No data to write: rd=%s", $this->agent, $st->rudder);
             }
-            else {
-                $len = $st->rudder->write($wunit->buf);
 
-                BayLog::debug("%s write %d bytes", $this, $len);
-                if($len == 0) {
-                    if (!is_resource($st->rudder->key()) && socket_last_error($st->rudder->key())) {
-                        $msg = socket_strerror(socket_last_error($st->rudder->key()));
-                        socket_clear_error($st->rudder->key());
-                        throw new IOException($msg);
-                    }
+            for($i = 0; $i < count($st->writeQueue); $i++) {
+                $wunit = $st->writeQueue[$i];
 
-                    $st->writeTryCount++;
-                    if ($st->writeTryCount > 100) {
-                        throw new IOException($this . " Too many retry count to write");
-                    }
-                    # Data remains
-                    return;
+                BayLog::debug("%s Try to write: pkt=%s buflen=%d rd=%s", $this, $wunit->tag,
+                    strlen($wunit->buf), $st->rudder);
+
+                $bufsize = strlen($wunit->buf);
+                if (strlen($wunit->buf) == 0) {
+                    $len = 0;
                 }
                 else {
-                    $st->writeTryCount = 0;
-                    $wunit->buf = substr($wunit->buf, $len);
+                    $len = $st->rudder->write($wunit->buf);
+
+                    BayLog::debug("%s write %d bytes", $this, $len);
+                    if($len == 0) {
+                        if (!is_resource($st->rudder->key()) && socket_last_error($st->rudder->key())) {
+                            $msg = socket_strerror(socket_last_error($st->rudder->key()));
+                            socket_clear_error($st->rudder->key());
+                            throw new IOException($msg);
+                        }
+
+                        $st->writeTryCount++;
+                        if ($st->writeTryCount > 100) {
+                            throw new IOException($this . " Too many retry count to write");
+                        }
+                        # Data remains
+                        break;
+                    }
+                    else {
+                        $st->writeTryCount = 0;
+                        $wunit->buf = substr($wunit->buf, $len);
+                    }
+                }
+                $this->agent->sendWroteLetter($st, $len, false);
+
+                if($len < $bufsize) {
+                    BayLog::debug("%s Wrote %d bytes (Data remains)", $this, $len);
+                    break;
                 }
             }
-            $this->agent->sendWroteLetter($st, $len, false);
         }
         catch(IOException $e) {
             BayLog::debug_e($e, "%s IO error", $this);
