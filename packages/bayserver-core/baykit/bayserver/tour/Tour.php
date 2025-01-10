@@ -130,12 +130,7 @@ class Tour implements Reusable {
         if ($this->city === null)
             throw new HttpException(HttpStatus::NOT_FOUND, $this->req->uri);
         else {
-            try {
-                $this->city->enter($this);
-            } catch (HttpException $e) {
-                //$this->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ABORTED);
-                throw $e;
-            }
+            $this->city->enter($this);
         }
     }
 

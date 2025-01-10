@@ -19,6 +19,11 @@ class StringUtil {
         return strrpos($haystack, $needle) === strlen($haystack) - strlen($needle);
     }
 
+    public static function contains(string $haystack, string $needle): bool
+    {
+        return strpos($haystack, $needle) !== false;
+    }
+
     public static function isEmpty(?string $str): bool
     {
         return $str == "";

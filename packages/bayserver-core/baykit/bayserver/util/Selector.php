@@ -98,54 +98,49 @@ class Selector {
         $read_list = [];
         $write_list = [];
 
-        //Mutex::lock($this->lock);
-        try {
-            foreach ($this->keys as $key) {
-                if($key->channel == null)
-                    throw new Sink();
+        foreach ($this->keys as $key) {
+            if($key->channel == null)
+                throw new Sink();
 
-                if ($key->readable())
-                    $read_list[] = $key->channel;
+            if ($key->readable())
+                $read_list[] = $key->channel;
 
-                if ($key->writable())
-                    $write_list[] = $key->channel;
-            }
-
-            if(empty($read_list) && empty($write_list)) {
-                throw new IOException("No channel registered");
-            }
-
-            //var_dump( $read_list);
-            //var_dump( $write_list);
-            //BayLog::debug("SELECTING");
-            if (stream_select($read_list, $write_list, $except_list, $timeout < 0 ? null : $timeout) === false) {
-                throw new IOException("Select failed: err=" . SysUtil::lastErrorMessage() . ", skt_err=" . SysUtil::lastSocketErrorMessage());
-            }
-            //BayLog::debug("SELECTED");
-            //var_dump( $read_list);
-            //var_dump( $write_list);
-
-            $result = [];
-            foreach ($read_list as $ch) {
-                $result[] = new Selector_Key($ch, self::OP_READ);
-            }
-            foreach ($write_list as $ch) {
-                $found = false;
-                foreach ($result as $key) {
-                    if($key == $ch) {
-                        $key->operation |= self::OP_WRITE;
-                        $found = true;
-                        break;
-                    }
-                }
-                if (!$found)
-                    $result[] = new Selector_Key($ch, self::OP_WRITE);
-            }
-
-            return $result;
-        } finally {
-            //Mutex::unlock($this->lock);
+            if ($key->writable())
+                $write_list[] = $key->channel;
         }
+
+        if(empty($read_list) && empty($write_list)) {
+            throw new IOException("No channel registered");
+        }
+
+        //var_dump( $read_list);
+        //var_dump( $write_list);
+        //BayLog::debug("SELECTING");
+        if (stream_select($read_list, $write_list, $except_list, $timeout < 0 ? null : $timeout) === false) {
+            throw new IOException("Select failed: err=" . SysUtil::lastErrorMessage() . ", skt_err=" . SysUtil::lastSocketErrorMessage());
+        }
+        //BayLog::debug("SELECTED");
+        //var_dump( $read_list);
+        //var_dump( $write_list);
+
+        $result = [];
+        foreach ($read_list as $ch) {
+            $result[] = new Selector_Key($ch, self::OP_READ);
+        }
+        foreach ($write_list as $ch) {
+            $found = false;
+            foreach ($result as $key) {
+                if($key == $ch) {
+                    $key->operation |= self::OP_WRITE;
+                    $found = true;
+                    break;
+                }
+            }
+            if (!$found)
+                $result[] = new Selector_Key($ch, self::OP_WRITE);
+        }
+
+        return $result;
     }
 
 
