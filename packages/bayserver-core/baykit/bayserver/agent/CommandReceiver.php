@@ -66,7 +66,7 @@ class CommandReceiver extends Ship
 
     public function checkTimeout(int $durationSec): bool
     {
-        BayLog::debug("%s check timeout", $this);
+        //BayLog::debug("%s check timeout", $this);
         return false;
     }
 

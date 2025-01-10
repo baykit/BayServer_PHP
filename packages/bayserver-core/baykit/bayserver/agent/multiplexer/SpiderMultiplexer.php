@@ -5,7 +5,6 @@ namespace baykit\bayserver\agent\multiplexer;
 use baykit\bayserver\agent\GrandAgent;
 use baykit\bayserver\agent\PortMap;
 use baykit\bayserver\BayLog;
-use baykit\bayserver\rudder\SocketRudder;
 use baykit\bayserver\rudder\StreamRudder;
 use baykit\bayserver\BayServer;
 use baykit\bayserver\agent\TimerHandler;
@@ -18,6 +17,7 @@ use baykit\bayserver\util\Selector;
 use baykit\bayserver\util\Selector_Key;
 use baykit\bayserver\util\IOUtil;
 use baykit\bayserver\util\SysUtil;
+use baykit\bayserver\util\StringUtil;
 
 class ChannelOperation {
     public Rudder $rudder;
@@ -390,7 +390,7 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
             }
             $msg = SysUtil::lastErrorMessage();
             BayLog::debug("%s [port=%d] Error: %s", $this->agent, $portDkr->port(), SysUtil::lastErrorMessage());
-            if(str_contains($msg, "timed out")) {
+            if(StringUtil::contains($msg, "timed out") || StringUtil::contains($msg, "Success")) {
                 // time out is OK
                 return;
             }

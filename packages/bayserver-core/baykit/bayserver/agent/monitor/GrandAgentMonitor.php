@@ -225,7 +225,7 @@ class GrandAgentMonitor
                 $selkeys = $sel->select();
             }
             catch (IOException $e) {
-                BayLog::warn_e($e);
+                BayLog::debug_e($e, "Error on monitoring");
                 pcntl_signal_dispatch();
                 continue;
             }
