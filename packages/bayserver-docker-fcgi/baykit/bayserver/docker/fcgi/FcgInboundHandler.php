@@ -124,8 +124,9 @@ class FcgInboundHandler implements InboundHandler, FcgHandler
         // Send end request command
         $cmd = new CmdEndRequest($tur->req->key);
         $ensureFunc = function () use ($keepAlive, $sip) {
-            if(!$keepAlive)
-                $sip->postClose();
+            // DO NOT close socket by FCGI server
+            //if(!$keepAlive)
+            //    $sip->postClose();
         };
 
         try {
