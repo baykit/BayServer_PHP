@@ -65,7 +65,7 @@ class CGIReqContentHandler implements ReqContentHandler, Postpone
         }
         else {
             // postponed
-            $this->buffers[] = [array_slice($buf, start, len), $callback];
+            $this->buffers[] = [substr($buf, $start, $len), $callback];
         }
         $this->access();
     }

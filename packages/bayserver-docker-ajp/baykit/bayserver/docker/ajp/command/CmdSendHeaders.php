@@ -149,10 +149,11 @@ class CmdSendHeaders extends AjpCommand
         $name = strtolower($name);
         $values = array_key_exists($name, $this->headers) ? $this->headers[$name] : null;
         if($values == null) {
-            $values = [];
-            $this->headers[$name] = &$values;
+            $this->headers[$name] = [$value];
         }
-        $values[] = $value;
+        else {
+            $this->headers[$name][] = $value;
+        }
     }
 
     public function getContentLength() : int
