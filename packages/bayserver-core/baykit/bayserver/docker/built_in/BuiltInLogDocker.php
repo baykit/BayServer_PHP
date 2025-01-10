@@ -41,7 +41,10 @@ class BuiltInLogDocker_AgentListener implements LifecycleListener {
         $agt = GrandAgent::get($agentId);
 
         $fileName = $this->logDocker->filePrefix . "_" . $agentId . "." . $this->logDocker->fileExt;
-        $size = filesize($fileName);
+        if(file_exists($fileName))
+            $size = filesize($fileName);
+        else
+            $size = 0;
 
         $outFile = fopen($fileName, "ab");
         BayLog::debug("file open: %s res=%s", $fileName, $outFile);
