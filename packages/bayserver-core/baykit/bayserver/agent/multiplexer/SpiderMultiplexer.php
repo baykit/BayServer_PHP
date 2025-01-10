@@ -254,12 +254,12 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
                 $rd_op->op |= $op;
                 $rd_op->toConnect = $rd_op->toConnect || $connect;
                 $found = true;
-                BayLog::debug("%s Update operation: %s rd=%s", $this, SpiderMultiplexer::op_mode($rd_op->op), $rd_op->rudder);
+                BayLog::debug("%s Update operation: op=%d(%s) rd=%s", $this, $rd_op->op, SpiderMultiplexer::op_mode($rd_op->op), $rd_op->rudder);
             }
         }
 
         if (!$found) {
-            BayLog::debug("%s New operation: %s rd=%s", $this, SpiderMultiplexer::op_mode($op), $rd);
+            BayLog::debug("%s New operation: %d(%s) rd=%s", $this, $op, SpiderMultiplexer::op_mode($op), $rd);
             $this->operations[] = new ChannelOperation($rd, $op, $connect);
         }
         BayLog::trace("%s wakeup", $this->agent);
@@ -481,7 +481,7 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
                 else {
                     $len = $st->rudder->write($wunit->buf);
 
-                    BayLog::debug("%s write %d bytes", $this, $len);
+                    BayLog::debug("%s wrote %d bytes", $this, $len);
                     if($len == 0) {
                         if (!is_resource($st->rudder->key()) && socket_last_error($st->rudder->key())) {
                             $msg = socket_strerror(socket_last_error($st->rudder->key()));
@@ -504,7 +504,7 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
                 $this->agent->sendWroteLetter($st, $len, false);
 
                 if($len < $bufsize) {
-                    BayLog::debug("%s Wrote %d bytes (Data remains)", $this, $len);
+                    BayLog::debug("%s Data remains", $this);
                     break;
                 }
             }
@@ -536,8 +536,8 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
         if (($op & Selector::OP_WRITE) != 0) {
             if ($op_str != "") {
                 $op_str .= "|";
-                $op_str .= "OP_WRITE";
             }
+            $op_str .= "OP_WRITE";
         }
         return $op_str;
     }

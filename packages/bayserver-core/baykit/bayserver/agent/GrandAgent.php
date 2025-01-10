@@ -445,7 +445,7 @@ class GrandAgent
 
         $unit = $st->writeQueue[0];
         if (strlen($unit->buf) > 0) {
-            BayLog::debug("Could not write enough data: len=%d", count($unit->buf));
+            BayLog::debug("Could not write enough data: len=%d", strlen($unit->buf));
         }
         else {
             $st->multiplexer->consumeOldestUnit($st);
