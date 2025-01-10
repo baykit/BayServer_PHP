@@ -17,6 +17,7 @@ use baykit\bayserver\docker\ajp\command\CmdSendBodyChunk;
 use baykit\bayserver\docker\ajp\command\CmdSendHeaders;
 use baykit\bayserver\docker\ajp\command\CmdShutdown;
 use baykit\bayserver\protocol\ProtocolException;
+use baykit\bayserver\Sink;
 use baykit\bayserver\tour\Tour;
 use baykit\bayserver\util\ClassUtil;
 use baykit\bayserver\util\StringUtil;
@@ -92,7 +93,7 @@ class AjpWarpHandler implements WarpHandler, AjpHandler
 
     function onProtocolError(ProtocolException $e): bool
     {
-        // TODO: Implement onProtocolError() method.
+        throw new Sink();
     }
 
     ///////////////////////////////////////////

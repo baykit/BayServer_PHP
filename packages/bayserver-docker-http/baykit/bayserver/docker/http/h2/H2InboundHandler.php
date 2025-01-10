@@ -136,23 +136,18 @@ class H2InboundHandler implements H2Handler, InboundHandler
 
     function onProtocolError(ProtocolException $e): bool
     {
-        // TODO: Implement onProtocolError() method.
-    }
-
-    public function sendReqProtocolError(ProtocolException $e): bool
-    {
-        BayLog::error($e, $e->getMessage());
-        $cmd = new CmdGoAway(self::CTL_STREAM_ID);
+        BayLog::debug_e($e, "%s Protocol error: %s", $this, $e->getMessage());
+        $cmd = new CmdGoAway(H2ProtocolHandler::CTL_STREAM_ID);
         $cmd->streamId = 0;
         $cmd->lastStreamId = 0;
         $cmd->errorCode = H2ErrorCode::PROTOCOL_ERROR;
         $cmd->debugData = "Thank you!";
         try {
-            $this->commandPacker->post($this->ship, $cmd);
-            $this->commandPacker->end($this->ship);
+            $this->protocolHandler->post($cmd);
+            $this->protocolHandler->ship->postClose();
         }
         catch(IOException $ex) {
-           BayLog::error($ex);
+            BayLog::error_e($ex);
         }
         return false;
     }
@@ -240,7 +235,7 @@ class H2InboundHandler implements H2Handler, InboundHandler
                     $this->endReqContent($tur->id(), $tur);
                 }
             } catch (HttpException $e) {
-                BayLog::debug("%s Http error occurred: %s", $this, $e);
+                BayLog::debug_e($e, "%s Http error occurred", $this);
                 if($reqContLen <= 0) {
                     // no post data
                     $tur->res->sendHttpException(Tour::TOUR_ID_NOCHECK, $e);
