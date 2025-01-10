@@ -257,7 +257,7 @@ class WarpShip extends Ship
         $timeout = true;
         if($this->keeping) {
             // warp connection never timeout in keeping
-            $this->timeout = false;
+            $timeout = false;
         }
         elseif ($this->socketTimeoutSec <= 0)
             $timeout = false;
