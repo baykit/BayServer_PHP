@@ -116,7 +116,7 @@ class CGIReqContentHandler implements ReqContentHandler, Postpone
     public function reqStartTour() : void
     {
         if($this->cgiDocker->addProcessCount()) {
-            BayLog::info("%s start tour: wait count=%d", $this->tour, $this->cgiDocker->getWaitCount());
+            BayLog::debug("%s start tour: wait count=%d", $this->tour, $this->cgiDocker->getWaitCount());
             $this->startTour();
         }
         else {
