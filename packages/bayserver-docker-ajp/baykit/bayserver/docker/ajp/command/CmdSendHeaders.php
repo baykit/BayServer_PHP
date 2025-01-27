@@ -84,7 +84,6 @@ class CmdSendHeaders extends AjpCommand
             if(array_key_exists($name, self::$wellKnownHeaders))
                 $code = self::$wellKnownHeaders[strtolower($name)];
             foreach ($values as $value) {
-                BayLog::debug("name=%s value=%s code=%s", $name, $value, $code);
                 if ($code != null) {
                     $acc->putShort($code);
                 } else {

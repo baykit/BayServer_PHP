@@ -413,20 +413,6 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
 
         $clientRd = new StreamRudder($clientSkt);
         BayLog::debug("%s Accepted: rd=%s", $this->agent, $clientRd);
-        $clientRd->setNonBlocking();
-
-        /*
-        $params = stream_context_get_params($clientSkt);
-        $opts = stream_context_get_options($clientSkt);
-*/
-        /*
-        if ($portDkr->secure()) {
-            // SSL stream socket does not work as nonblocking.
-            BayLog::debug("Set timeout");
-            stream_set_blocking($clientSkt, true);
-            stream_set_timeout($clientSkt, 0, $portDkr->nonBlockingTimeoutMillis * 1000);
-        }
-        */
 
         $this->agent->sendAcceptedLetter($st, $clientRd, false);
     }
