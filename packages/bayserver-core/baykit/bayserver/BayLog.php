@@ -104,14 +104,14 @@ class BayLog {
 
     public static function log(int $lvl, int $stack_idx, ?\Throwable $err, ?string $fmt, ?array $args) : void
     {
-        list($file, $line) = BayLog::getCaller($stack_idx);
-        if (!BayLog::$fullPath) {
-            $file = basename($file);
-        }
-        $pos = "{$file}:{$line}";
+        if ($lvl >= BayLog::$logLevel) {
+            list($file, $line) = BayLog::getCaller($stack_idx);
+            if (!BayLog::$fullPath) {
+                $file = basename($file);
+            }
 
-        if ($fmt !== null) {
-            if ($lvl >= BayLog::$logLevel) {
+            if ($fmt !== null) {
+                $pos = "{$file}:{$line}";
                 try {
                     if ($args === null || count($args) == 0) {
                         $msg = sprintf("%s", $fmt);
@@ -125,13 +125,13 @@ class BayLog {
 
                 echo("[" . date('r') . "] " . BayLog::LOG_LEVEL_NAME[$lvl] . ". {$msg} (at {$pos})\n");
             }
-        }
 
-        if ($err !== null) {
-            if (self::isDebugMode() || self::$logLevel == self::LOG_LEVEL_FATAL)
-                self::printStackTrace($err);
-            else
-                BayLog::log($lvl, 4, null, "%s", [$err->getMessage()]);
+            if ($err !== null) {
+                if (self::isDebugMode() || self::$logLevel == self::LOG_LEVEL_FATAL)
+                    self::printStackTrace($err);
+                else
+                    BayLog::log($lvl, 4, null, "%s", [$err->getMessage()]);
+            }
         }
     }
 
