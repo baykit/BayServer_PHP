@@ -3,5 +3,5 @@ namespace baykit\bayserver;
 
 class Version
 {
-    const VERSION='2.3.3';
+    const VERSION='3.0.0';
 }
