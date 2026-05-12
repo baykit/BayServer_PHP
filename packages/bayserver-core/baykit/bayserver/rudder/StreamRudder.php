@@ -84,11 +84,23 @@ class StreamRudder implements Rudder
     {
         if (!is_resource($this->stream)) {
             BayLog::error("Stream is already closed: %s", $this->stream);
+            return;
         }
-        else {
-            $ret = fclose($this->stream);
-            if($ret === false)
-                BayLog::error("Cannot close channel: %s(%s)", $this->stream, SysUtil::lastErrorMessage());
-        }
+        // Half-close the write side before fclose so the peer sees a
+        // proper TCP FIN. Without this, fclose() on a socket whose
+        // kernel receive buffer still holds unread bytes (e.g. h2spec
+        // sent an oversized DATA / HEADERS frame and we rejected it
+        // after only reading the 9-byte frame header) triggers an
+        // RFC-1122-mandated RST on Linux. The RST also discards any
+        // GOAWAY frame we wrote moments earlier, so the peer never sees
+        // our error frame. STREAM_SHUT_WR puts the socket in FIN_WAIT
+        // first and lets the kernel deliver our pending writes before
+        // close() runs -- mirrors Python SocketRudder.close (which does
+        // skt.shutdown(SHUT_WR) for the same reason). Errors are
+        // suppressed because the peer may have already closed.
+        @stream_socket_shutdown($this->stream, STREAM_SHUT_WR);
+        $ret = fclose($this->stream);
+        if ($ret === false)
+            BayLog::error("Cannot close channel: %s(%s)", $this->stream, SysUtil::lastErrorMessage());
     }
 }
