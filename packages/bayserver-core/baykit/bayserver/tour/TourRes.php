@@ -38,11 +38,11 @@ class TourRes implements Reusable {
     public $headerSent;
 
     /**
-     * Response content info
+     * Response content info. dropped per-tour bytesConsumed
+     * and `available` -- back-pressure now rides the multiplexer's
+     * RudderState.bufferAvailable() through the consume listener chain.
      */
-    public $available;
     public $bytesPosted;
-    public $bytesConsumed;
     public $bytesLimit;
     public $resConsumeListener;
 
@@ -83,13 +83,11 @@ class TourRes implements Reusable {
     {
         $this->headers->clear();
         $this->bytesPosted = 0;
-        $this->bytesConsumed = 0;
         $this->bytesLimit = 0;
 
         $this->charset = null;
         $this->headerSent = false;
         $this->yacht->reset();
-        $this->available = false;
         $this->resConsumeListener = null;
         $this->canCompress = false;
         $this->compressor = null;
@@ -319,14 +317,16 @@ sendFile
     public function transferContent(int $checkId, Rudder $fileRd, int $ofs, int $len) : void
     {
         BayLog::debug("%s transfer content: ofs=%d len=%d", $this, $ofs, $len);
-        $lis = function () use ($checkId, $len) {
+        // Callback receives the post-consumption bufferAvailable flag
+        // and forwards it to the tour consume listener.
+        $lis = function ($avail = true) use ($checkId, $len) {
             if ($this->resConsumeListener !== null)
-                ($this->resConsumeListener)($len, false);
+                ($this->resConsumeListener)($len, $avail);
         };
 
         if ($this->tour->isZombie()) {
             BayLog::debug("%s zombie tour. return", $this);
-            $lis();
+            $lis(true);
             return;
         }
         if (!$this->headerSent)
@@ -355,9 +355,7 @@ sendFile
     public function setConsumeListener(callable $listener) : void
     {
         $this->resConsumeListener =$listener;
-        $this->bytesConsumed = 0;
         $this->bytesPosted = 0;
-        $this->available = true;
     }
 
 
@@ -371,14 +369,16 @@ sendFile
             $this->tour->cargo->saveContent($buf, $ofs, $len);
         }
 
-        // Callback
-        $consumed_cb = function () use ($len, $checkId) {
-            $this->consumed($checkId, $len);
+        // Callback: receives the post-consumption bufferAvailable flag
+        // from the multiplexer and forwards it to the
+        // tour-level consume listener.
+        $consumed_cb = function ($avail = true) use ($len, $checkId) {
+            $this->consumed($checkId, $len, $avail);
         };
 
         if ($this->tour->isZombie()) {
             BayLog::debug("%s zombie return", $this);
-            $consumed_cb();
+            $consumed_cb(true);
             return true;
         }
 
@@ -386,13 +386,14 @@ sendFile
             throw new Sink("BUG!: Header not sent");
 
         $this->bytesPosted += $len;
-        BayLog::debug("%s post res content len=%d posted=%d limit=%d consumed=%d",
-            $this->tour, $len, $this->bytesPosted, $this->bytesLimit, $this->bytesConsumed);
+        $this->tour->ship->postResBytes($len);
+        BayLog::debug("%s post res content len=%d posted=%d limit=%d",
+            $this->tour, $len, $this->bytesPosted, $this->bytesLimit);
 
         if($this->tour->isZombie() || $this->tour->isAborted()) {
             // Don't send peer any data. Do nothing
             BayLog::debug("%s Aborted or zombie tour. do nothing: %s state=%s", $this, $this->tour, $this->tour->state);
-            $consumed_cb();
+            $consumed_cb(true);
         }
         else {
             if ($this->canCompress) {
@@ -403,7 +404,7 @@ sendFile
                     $this->tour->ship->sendResContent($this->tour->shipId, $this->tour, $buf, $ofs, $len, $consumed_cb);
                 }
                 catch(IOException $e) {
-                    $consumed_cb();
+                    $consumed_cb(true);
                     $this->tour->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ABORTED);
                     throw $e;
                 }
@@ -414,13 +415,12 @@ sendFile
             throw new ProtocolException("Post data exceed content-length: {$this->bytesPosted}/{$this->bytesLimit}");
         }
 
-        $oldAvailable = $this->available;
-        if(!$this->bufferAvailable())
-            $this->available = false;
-        if($oldAvailable && !$this->available)
-            BayLog::debug("%s response unavailable (_ _): posted=%d consumed=%d", $this, $this->bytesPosted, $this->bytesConsumed);
-
-        return $this->available;
+        // Use ship-level resBufferAvailable so suspended sibling tours
+        // on the same H2 connection share the wake-up signal: when this
+        // ship's queue drains below shipBufferSize, consumeResBytes fans
+        // out resume notifications to every paused tour, not just the
+        // one whose WriteUnit is popped.
+        return $this->tour->ship->resBufferAvailable();
     }
 
     public function endResContent(int $checkId) : void
@@ -447,9 +447,10 @@ sendFile
             $this->getCompressor()->finish();
         }
 
-        // Callback
+        // Callback (: receives bufferAvailable for parity
+        // but endTour doesn't gate on back-pressure).
         $tourReturned = false;
-        $callback = function () use ($checkId, &$tourReturned) {
+        $callback = function ($avail = true) use ($checkId, &$tourReturned) {
             //$this->tour->checkTourId($checkId);
             $this->tour->ship->returnTour($this->tour);
             $tourReturned = true;
@@ -459,7 +460,7 @@ sendFile
             if($this->tour->isZombie() || $this->tour->isAborted()) {
                 // Don't send peer any data. Only return tour
                 BayLog::debug("%s Aborted or zombie tour. do nothing: %s state=%s", $this, $this->tour, $this->tour->state);
-                $callback();
+                $callback(true);
             }
             else {
                 try {
@@ -467,7 +468,7 @@ sendFile
                 }
                 catch(IOException $e) {
                     BayLog::debug("%s Error on sending end tour", $this);
-                    $callback();
+                    $callback(true);
                     throw $e;
                 }
             }
@@ -532,34 +533,23 @@ sendFile
     // Other methods
     ////////////////////////////////////////////////////////////////////////////////
 
-    private function consumed(int $checkId, int $length) : void
+    /**
+     * Multiplexer's write-completion callback chain ends here.
+     * Delegates to InboundShip::consumeResBytes so that the ship-level
+     * F→T transition can resume every paused sibling tour. The
+     * $bufferAvailable parameter from the WriteUnit only describes the
+     * rudder state at the moment this specific unit was popped, which
+     * is not enough on its own when many H2 tours share one rudder.
+     */
+    private function consumed(int $checkId, int $length, bool $bufferAvailable) : void
     {
         //$this->tour->checkTourId($checkId);
         if ($this->resConsumeListener === null)
             throw new Sink("Consume listener is null");
 
-        $this->bytesConsumed += $length;
+        BayLog::debug("%s resConsumed: len=%d avail=%b", $this->tour, $length, $bufferAvailable);
 
-        BayLog::debug("%s resConsumed: len=%d posted=%d consumed=%d limit=%d",
-                $this->tour, $length, $this->bytesPosted, $this->bytesConsumed, $this->bytesLimit);
-
-        $resume = false;
-        $oldAvailable = $this->available;
-        if($this->bufferAvailable())
-            $this->available = true;
-        if(!$oldAvailable && $this->available) {
-            BayLog::debug("%s response available (^o^): posted=%d consumed=%d", $this,  $this->bytesPosted, $this->bytesConsumed);
-            $resume = true;
-        }
-
-        if($this->tour->isRunning()) {
-            ($this->resConsumeListener)($length, $resume);
-        }
-    }
-
-    private function bufferAvailable() : bool
-    {
-        return $this->bytesPosted - $this->bytesConsumed < BayServer::$harbor->shipBufferSize();
+        $this->tour->ship->consumeResBytes($length);
     }
 }
 

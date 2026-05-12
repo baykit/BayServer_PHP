@@ -9,9 +9,9 @@ class AcceptedLetter extends Letter
 {
     public Rudder $clientRudder;
 
-    public function __construct(int $stateId, Rudder $rd, Multiplexer $mpx, Rudder $clientRd)
+    public function __construct(Rudder $rd, Multiplexer $mpx, Rudder $clientRd)
     {
-        parent::__construct($stateId, $rd, $mpx);
+        parent::__construct($rd, $mpx);
         $this->clientRudder = $clientRd;
     }
 }

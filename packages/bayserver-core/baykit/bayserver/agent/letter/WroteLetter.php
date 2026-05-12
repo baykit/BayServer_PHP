@@ -9,9 +9,9 @@ class WroteLetter extends Letter
 {
     public int $nBytes;
 
-    public function __construct(int $stateId, Rudder $rd, Multiplexer $mpx, int $n)
+    public function __construct(Rudder $rd, Multiplexer $mpx, int $n)
     {
-        parent::__construct($stateId, $rd, $mpx);
+        parent::__construct($rd, $mpx);
         $this->nBytes = $n;
     }
 }

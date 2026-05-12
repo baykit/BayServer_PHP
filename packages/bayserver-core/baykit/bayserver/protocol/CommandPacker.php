@@ -30,20 +30,20 @@ class CommandPacker implements Reusable
     // Implements Reusable
     /////////////////////////////////////////////////////////////////////////////////
 
-    public function post(Ship $sip, Command $cmd, bool $flush, ?callable $lsnr=null)
+    public function post(Ship $sip, Command $cmd, bool $flush, ?callable $lsnr=null) : bool
     {
         $pkt = $this->pktStore->rent($cmd->type);
 
         try {
             $cmd->pack($pkt);
 
-            $this->pkt_packer->post($sip,
+            return $this->pkt_packer->post($sip,
                 $pkt,
                 $flush,
-                function () use ($lsnr, $pkt) {
+                function ($avail) use ($lsnr, $pkt) {
                     $this->pktStore->Return($pkt);
                     if ($lsnr !== null) {
-                        $lsnr();
+                        $lsnr($avail);
                     }
                 });
         } catch (IOException $e) {

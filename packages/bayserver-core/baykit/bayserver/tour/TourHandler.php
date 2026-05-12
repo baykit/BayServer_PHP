@@ -15,9 +15,12 @@ interface TourHandler extends Reusable
     function sendResHeaders(Tour $tur): void;
 
     /**
-     * Send Contents to client
+     * Send Contents to client. Returns whether the internal write buffer
+     * still has room. When false, the caller should
+     * suspend further writes until the consume listener fires with
+     * bufferAvailable=true.
      */
-    function sendResContent(Tour $tur, string $bytes, int $ofs, int $len, ?callable $callback): void;
+    function sendResContent(Tour $tur, string $bytes, int $ofs, int $len, ?callable $callback): bool;
 
     /**
      * Direct Boarding transfer (sendfile fast-path).

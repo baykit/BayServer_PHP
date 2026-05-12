@@ -9,9 +9,9 @@ class ErrorLetter extends Letter
 {
     public \Throwable $err;
 
-    public function __construct(int $stateId, Rudder $rd, Multiplexer $mpx, \Throwable $err)
+    public function __construct(Rudder $rd, Multiplexer $mpx, \Throwable $err)
     {
-        parent::__construct($stateId, $rd, $mpx);
+        parent::__construct($rd, $mpx);
         $this->err = $err;
     }
 }

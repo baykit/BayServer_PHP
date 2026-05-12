@@ -7,8 +7,8 @@ use baykit\bayserver\rudder\Rudder;
 
 class ConnectedLetter extends Letter
 {
-    public function __construct(int $stateId, Rudder $rd, Multiplexer $mpx)
+    public function __construct(Rudder $rd, Multiplexer $mpx)
     {
-        parent::__construct($stateId, $rd, $mpx);
+        parent::__construct($rd, $mpx);
     }
 }

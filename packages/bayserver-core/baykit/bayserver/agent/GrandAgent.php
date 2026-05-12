@@ -163,21 +163,16 @@ class GrandAgent
                 while(!empty($this->letterQueue)) {
                     $let = array_shift($this->letterQueue);
 
-                    // Fetch the live RudderState from the multiplexer.
-                    // If null, the rudder was already removed (e.g. by an
-                    // earlier letter in this batch) so the letter is
-                    // stale -- skip. Mirrors the upstream GrandAgent letter loop
-                    // (0580a2b).
+                    // Fetch the live RudderState from the rudder. After
+                    // dba6e99 the state lives directly on the rudder
+                    // (via $rd->state), so null here means the rudder
+                    // was already cleaned up by an earlier letter in
+                    // this batch -- the letter is stale and we skip it.
                     $st = $let->multiplexer->getRudderState($let->rudder);
                     if ($st === null) {
                         BayLog::debug("%s rudder is already returned: %s", $this, $let->rudder);
                         continue;
                     }
-                    // Detect a state that was returned to the pool and
-                    // then rented out for a different rudder: the letter
-                    // carries the old id, the state has a new one
-                    // (39cbed1).
-                    $st->checkStateId($let->stateId);
 
                     if($let instanceof AcceptedLetter) {
                         $this->onAccepted($let, $st);
@@ -324,28 +319,28 @@ class GrandAgent
         BayLog::info("CommandReceiver=%s", $this->commandReceiver);
     }
 
-    public function sendAcceptedLetter(int $stateId, Rudder $rd, Multiplexer $mpx, Rudder $clientRd, bool $wakeup) : void {
-        $this->sendLetter(new AcceptedLetter($stateId, $rd, $mpx, $clientRd), $wakeup);
+    public function sendAcceptedLetter(Rudder $rd, Multiplexer $mpx, Rudder $clientRd, bool $wakeup) : void {
+        $this->sendLetter(new AcceptedLetter($rd, $mpx, $clientRd), $wakeup);
     }
 
-    public function sendConnectedLetter(int $stateId, Rudder $rd, Multiplexer $mpx, bool $wakeup) : void {
-        $this->sendLetter(new ConnectedLetter($stateId, $rd, $mpx), $wakeup);
+    public function sendConnectedLetter(Rudder $rd, Multiplexer $mpx, bool $wakeup) : void {
+        $this->sendLetter(new ConnectedLetter($rd, $mpx), $wakeup);
     }
 
-    public function sendReadLetter(int $stateId, Rudder $rd, Multiplexer $mpx, int $n, ?string $adr, bool $wakeup) : void {
-        $this->sendLetter(new ReadLetter($stateId, $rd, $mpx, $n, $adr), $wakeup);
+    public function sendReadLetter(Rudder $rd, Multiplexer $mpx, int $n, ?string $adr, bool $wakeup) : void {
+        $this->sendLetter(new ReadLetter($rd, $mpx, $n, $adr), $wakeup);
     }
 
-    public function sendWroteLetter(int $stateId, Rudder $rd, Multiplexer $mpx, int $n, bool $wakeup) : void {
-        $this->sendLetter(new WroteLetter($stateId, $rd, $mpx, $n), $wakeup);
+    public function sendWroteLetter(Rudder $rd, Multiplexer $mpx, int $n, bool $wakeup) : void {
+        $this->sendLetter(new WroteLetter($rd, $mpx, $n), $wakeup);
     }
 
-    public function sendClosedLetter(int $stateId, Rudder $rd, Multiplexer $mpx, bool $wakeup) : void {
-        $this->sendLetter(new ClosedLetter($stateId, $rd, $mpx), $wakeup);
+    public function sendClosedLetter(Rudder $rd, Multiplexer $mpx, bool $wakeup) : void {
+        $this->sendLetter(new ClosedLetter($rd, $mpx), $wakeup);
     }
 
-    public function sendErrorLetter(int $stateId, Rudder $rd, Multiplexer $mpx, \Throwable $e, bool $wakeup) : void {
-        $this->sendLetter(new ErrorLetter($stateId, $rd, $mpx, $e), $wakeup);
+    public function sendErrorLetter(Rudder $rd, Multiplexer $mpx, \Throwable $e, bool $wakeup) : void {
+        $this->sendLetter(new ErrorLetter($rd, $mpx, $e), $wakeup);
     }
 
     public function addPostpone(Postpone $p) : void

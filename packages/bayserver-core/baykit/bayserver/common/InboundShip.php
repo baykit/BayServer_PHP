@@ -37,6 +37,14 @@ class InboundShip extends Ship
     public int $socketTimeoutSec = 0;
     public $activeTours = [];
 
+    /** Ship-level response buffer tracking (sum across all tours on this
+     *  ship). bufferAvailable F→T transition fires resume on every
+     *  paused tour, not just the one whose WriteUnit popped -- needed
+     *  for H2 where many tours share one TCP rudder/writeQueue. */
+    public int $resBytesPosted = 0;
+    public int $resBytesConsumed = 0;
+    public bool $resAvailable = true;
+
     public function __construct()
     {
         parent::__construct();
@@ -75,6 +83,39 @@ class InboundShip extends Ship
         $this->activeTours = [];
 
         $this->needEnd = false;
+        $this->resBytesPosted = 0;
+        $this->resBytesConsumed = 0;
+        $this->resAvailable = true;
+    }
+
+    public function postResBytes(int $len): void
+    {
+        $this->resBytesPosted += $len;
+        if (!$this->resBufferAvailable())
+            $this->resAvailable = false;
+    }
+
+    public function consumeResBytes(int $len): void
+    {
+        $this->resBytesConsumed += $len;
+        if (!$this->resAvailable && $this->resBufferAvailable()) {
+            $this->resAvailable = true;
+            // H2 multiplexes many tours on one TCP rudder/writeQueue.
+            // The per-WriteUnit done() callback only wakes the popped
+            // unit's listener; this loop wakes every other tour that
+            // suspended its SendFileShip when ship-level capacity
+            // was exhausted.
+            foreach ($this->activeTours as $tur) {
+                if ($tur->isRunning() && $tur->res->resConsumeListener !== null) {
+                    ($tur->res->resConsumeListener)(0, true);
+                }
+            }
+        }
+    }
+
+    public function resBufferAvailable(): bool
+    {
+        return ($this->resBytesPosted - $this->resBytesConsumed) < BayServer::$harbor->shipBufferSize();
     }
 
     //////////////////////////////////////////////////////
@@ -214,18 +255,18 @@ class InboundShip extends Ship
         $this->sendErrorContent($chkId, $tour, $body);
     }
 
-    public function sendResContent(int $chkId, Tour $tur, string $bytes, int $ofs, int $len, ?callable $callback) : void
+    public function sendResContent(int $chkId, Tour $tur, string $bytes, int $ofs, int $len, ?callable $callback) : bool
     {
         $this->checkShipId($chkId);
 
         $maxLen = $this->protocolHandler->maxResPacketDataSize();
         if($len > $maxLen) {
             $this->sendResContent(Ship::SHIP_ID_NOCHECK, $tur, $bytes, $ofs, $maxLen, null);
-            $this->sendResContent(Ship::SHIP_ID_NOCHECK, $tur, $bytes, $ofs + $maxLen, $len - $maxLen, $callback);
+            return $this->sendResContent(Ship::SHIP_ID_NOCHECK, $tur, $bytes, $ofs + $maxLen, $len - $maxLen, $callback);
         }
         else {
             try {
-                $this->tourHandler()->sendResContent($tur, $bytes, $ofs, $len, $callback);
+                return $this->tourHandler()->sendResContent($tur, $bytes, $ofs, $len, $callback);
             }
             catch(IOException $e) {
                 $tur->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ABORTED);

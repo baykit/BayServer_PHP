@@ -14,7 +14,15 @@ abstract class MultiplexerBase implements Multiplexer {
 
     private int $rudderCount = 0;
     protected ?GrandAgent $agent = null;
+    // Iteration-only list of Rudder objects (uses
+    // ArrayList<Rudder>). Lookup goes through $rudder->state, not this
+    // array; we keep it solely for closeTimeoutSockets / closeAll.
     protected array $rudders = [];
+    // Index: stream-resource id -> Rudder. Needed because the PHP
+    // Selector callback gives us back the raw stream resource ; this
+    // index lets us go from $key->channel back to its owning Rudder
+    // without a linear scan of $this->rudders.
+    protected array $rudderByKeyId = [];
 
     public function __construct(GrandAgent $agt)
     {
@@ -30,9 +38,13 @@ abstract class MultiplexerBase implements Multiplexer {
     {
         BayLog::trace("%s add rd=%s chState=%s", $this->agent, $rd, $st);
         $st->multiplexer = $this;
-        $key = $rd->key();
-
-        $this->rudders[$this->getKeyId($key)] = $st;
+        // Per-rudder state slot: the rudder itself carries
+        // its RudderState, eliminating the hashmap keyed by resource id.
+        $rd->state = $st;
+        $this->rudders[] = $rd;
+        // Side-index for the selector callback (see $rudderByKeyId
+        // comment in the field declaration).
+        $this->rudderByKeyId[$this->getKeyId($rd->key())] = $rd;
         $this->rudderCount++;
 
         $st->access();
@@ -40,13 +52,24 @@ abstract class MultiplexerBase implements Multiplexer {
 
     public function removeRudderState(Rudder $rd): void
     {
-        unset($this->rudders[$this->getKeyId($rd->key())]);
+        $rd->state = null;
+        // Drop from the iteration list (linear search, fine for the
+        // scale of rudders we hold). remove(rd) call path.
+        foreach ($this->rudders as $i => $r) {
+            if ($r === $rd) {
+                array_splice($this->rudders, $i, 1);
+                break;
+            }
+        }
+        unset($this->rudderByKeyId[$this->getKeyId($rd->key())]);
         $this->rudderCount--;
     }
 
 
     public final function getRudderState(Rudder $rd): ?RudderState {
-        return $this->findRudderStateByKey($rd->key());
+        // Direct field read replaces the resource-id-keyed hashmap lookup
+        //.
+        return $rd->state;
     }
 
     public final function getTransporter(Rudder $rd): Transporter {
@@ -66,7 +89,11 @@ abstract class MultiplexerBase implements Multiplexer {
             return false;
 
         $u = array_shift($st->writeQueue);
-        $u->done();
+        // Pass the post-consumption bufferAvailable flag.
+        // After we've popped the unit, the actual buffer state may have
+        // freed up; we report it here so the upstream consume listener
+        // can resume the producer.
+        $u->done($st->bufferAvailable());
         return true;
     }
 
@@ -98,13 +125,16 @@ abstract class MultiplexerBase implements Multiplexer {
             return get_resource_id($key);
     }
 
-    protected final function findRudderStateByKey($key) : ?RudderState
+    /**
+     * Reverse-lookup: given the raw stream resource the Selector hands
+     * back, find the owning Rudder so the caller can read $rd->state.
+     * Replaces the old findRudderStateByKey() which returned the state
+     * directly via a key-id hashmap.
+     */
+    protected final function findRudderByKey($key) : ?Rudder
     {
         $keyId = $this->getKeyId($key);
-        if(array_key_exists($keyId, $this->rudders))
-            return $this->rudders[$keyId];
-        else
-            return null;
+        return $this->rudderByKeyId[$keyId] ?? null;
     }
 
     protected final function closeTimeoutSockets() : void {
@@ -116,7 +146,10 @@ abstract class MultiplexerBase implements Multiplexer {
 
         $now = time();
 
-        foreach ($copied as $st) {
+        foreach ($copied as $rd) {
+            $st = $rd->state;
+            if ($st === null)
+                continue;
             if($st->transporter != null) {
                 if ($st->transporter->checkTimeout($st->rudder, $now - $st->lastAccessTime)) {
                     BayLog::debug("%s timeout: rd=%s", $this->agent, $st->rudder);
@@ -133,7 +166,10 @@ abstract class MultiplexerBase implements Multiplexer {
     protected final function closeAll(): void {
         // Use copied ArrayList to avoid ConcurrentModificationException
         $copied = $this->rudders;
-        foreach ($copied as $st) {
+        foreach ($copied as $rd) {
+            $st = $rd->state;
+            if ($st === null)
+                continue;
             if($st->rudder != $this->agent->commandReceiver->rudder)
                 $this->closeRudder($st->rudder);
         }

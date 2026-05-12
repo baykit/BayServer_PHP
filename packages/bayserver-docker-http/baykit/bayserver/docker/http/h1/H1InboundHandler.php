@@ -123,12 +123,12 @@ class H1InboundHandler implements H1Handler, InboundHandler {
         $this->protocolHandler->post($cmd, false);
     }
 
-    public function sendResContent(Tour $tur, string $bytes, int $ofs, int $len, ?callable $callback): void
+    public function sendResContent(Tour $tur, string $bytes, int $ofs, int $len, ?callable $callback): bool
     {
         $cmd = new CmdContent($bytes, $ofs, $len);
         // flush=false: more chunks (or endTour) will follow; the final
         // CmdEndContent forces the actual socket write.
-        $this->protocolHandler->post($cmd, false, $callback);
+        return $this->protocolHandler->post($cmd, false, $callback);
     }
 
     public function transferContent(Tour $tur, \baykit\bayserver\rudder\Rudder $fileRd, int $ofs, int $len, ?callable $callback): void

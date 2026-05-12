@@ -44,6 +44,13 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
     private array $operations = [];
     public $selectWakeupPipe = [];
 
+    /**
+     * Queue of RudderStates whose writeQueue should be drained right
+     * after the main select() dispatch, without going through an
+     * OP_WRITE selector registration cycle.
+     */
+    private array $tryWriteList = [];
+
     public function __construct(GrandAgent $agt, bool $anchorable)
     {
         parent::__construct($agt);
@@ -97,30 +104,38 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
         $st->access();
     }
 
-    public function reqWrite(Rudder $rd, string $buf, ?string $adr, $tag, bool $flush, ?callable $callback = null): void
+    public function reqWrite(Rudder $rd, string $buf, ?string $adr, $tag, bool $flush, ?callable $callback = null): bool
     {
         $st = $this->getRudderState($rd);
         BayLog::debug("%s reqWrite chState=%s tag=%s", $this->agent, $st, $tag);
         if($st == null || $st->closed) {
             BayLog::warn("%s Channel is closed: %s", $this->agent, $rd);
-            $callback();
-            return;
+            // Closed: consumed listener fires with bufferAvailable=true
+            // since there's no more queue to back up.
+            $callback(true);
+            return true;
         }
 
         $unt = new WriteUnit($buf, $adr, $tag, $callback);
         $st->writeQueue[] = $unt;
 
-        // When the caller indicates this is not the final write of the
-        // logical message, hold the OP_WRITE registration until enough
-        // bytes accumulate. Mirrors: lets the H1/H2/AJP/FCGI
-        // handlers post headers + body as separate commands but emit a
-        // single socket write per response, halving the addOperation /
-        // wakeup overhead under load.
-        if ($flush || $st->remaining() >= $st->bufSize) {
-            $this->addOperation($rd, Selector::OP_WRITE);
+        // Flush when the caller asked for it or the buffered data has
+        // crossed bufSize. Instead of registering OP_WRITE
+        // with the selector, push the state on tryWriteList and wake
+        // select; receive() drains the list right after the read loop
+        //. Saves both the per-write addOperation linear
+        // scan and the OP_WRITE bookkeeping when the socket is ready
+        // immediately, which it almost always is on loopback / a freshly
+        // drained TCP buffer.
+        if ($st->remaining() > 0 && ($flush || $st->remaining() >= $st->bufSize)) {
+            $this->tryWriteList[] = $st;
+            $this->wakeup();
         }
 
         $st->access();
+        // Return the buffer-available signal so the caller can decide
+        // whether to keep submitting writes.
+        return $st->bufferAvailable();
     }
 
     public function reqTransfer(Rudder $rd, Rudder $fileRd, int $ofs, int $len, ?callable $callback): void {
@@ -151,7 +166,7 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
         }
 
         $this->closeRudder($st);
-        $this->agent->sendClosedLetter($st->id, $st->rudder, $this, false);
+        $this->agent->sendClosedLetter($st->rudder, $this, false);
 
         $st->access();
     }
@@ -258,6 +273,36 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
             }
         }
 
+        // Direct-write shortcut: instead of registering
+        // OP_WRITE with the selector and waiting for the next select()
+        // cycle, drain the queue right here by calling onWritable() on
+        // each ready RudderState. Saves the addOperation + wakeup-pipe
+        // write that reqWrite would otherwise have to do. If onWritable
+        // can only partially flush, it will re-register OP_WRITE through
+        // its existing partial-write path.
+        while (!empty($this->tryWriteList)) {
+            $st = array_shift($this->tryWriteList);
+            // The state may have been Returned to the pool between the
+            // push (reqWrite) and now -- e.g. the peer closed the
+            // connection and onClosed has already run. reset() clears
+            // rudder/multiplexer/closed, so test for those before
+            // touching the state. Skipping a stale entry is harmless;
+            // any still-queued writes were already discarded by the
+            // close path.
+            if ($st->rudder === null || $st->multiplexer !== $this || $st->closed) {
+                continue;
+            }
+            try {
+                $this->onWritable($st);
+            }
+            catch (\Throwable $e) {
+                BayLog::error_e($e, "%s Unhandled error on deferred write: rd=%s", $this->agent, $st->rudder);
+                // Don't propagate -- a single bad rudder shouldn't
+                // bring down the agent. onWritable's own catch already
+                // sends an error letter for the well-formed cases.
+            }
+        }
+
         return !empty($selectedMap);
     }
 
@@ -343,7 +388,12 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
     public function handleChannel(Selector_Key $key)
     {
         $ch = $key->channel;
-        $st = $this->findRudderStateByKey($ch);
+        // Selector gives us back a raw stream resource; resolve it to
+        // the owning Rudder, then read $rd->state directly (post
+        // after the refactor the state lives on the rudder, not in a per-mpx
+        // hashmap).
+        $rd = $this->findRudderByKey($ch);
+        $st = $rd !== null ? $rd->state : null;
         if ($st === null) {
             BayLog::error("%s Channel state is not registered: ch=%s op=%s", $this, $ch, $key->operation);
             $this->selector->unregister($ch);
@@ -384,7 +434,7 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
         }
         catch(\Exception $e) {
             BayLog::info("%s Unhandled error error: %s (skt=%s)", $this, $e, $ch);
-            $this->agent->sendErrorLetter($st->id, $st->rudder, $this, $e, false);
+            $this->agent->sendErrorLetter($st->rudder, $this, $e, false);
         }
 
         $st->access();
@@ -417,7 +467,7 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
                 // time out is OK
                 return;
             }
-            $this->agent->sendErrorLetter($st->id, $st->rudder, $this, new IOException(SysUtil::lastErrorMessage()), false);
+            $this->agent->sendErrorLetter($st->rudder, $this, new IOException(SysUtil::lastErrorMessage()), false);
             return;
         }
         //error_reporting($level);
@@ -437,7 +487,7 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
         $clientRd = new StreamRudder($clientSkt);
         BayLog::debug("%s Accepted: rd=%s", $this->agent, $clientRd);
 
-        $this->agent->sendAcceptedLetter($st->id, $st->rudder, $this, $clientRd, false);
+        $this->agent->sendAcceptedLetter($st->rudder, $this, $clientRd, false);
     }
 
     public function onConnectable(RudderState $st) : void
@@ -449,10 +499,10 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
         BayLog::debug("%s write zero bytes success=%s", $this, $success);
         if ($success === false || $success == -1) {
             BayLog::error("Connect failed: %s", SysUtil::lastErrorMessage());
-            $this->agent->sendErrorLetter($st->id, $st->rudder, $this, new IOException("Connect failed: ". SysUtil::lastErrorMessage()), false);
+            $this->agent->sendErrorLetter($st->rudder, $this, new IOException("Connect failed: ". SysUtil::lastErrorMessage()), false);
             return;
         }
-        $this->agent->sendConnectedLetter($st->id, $st->rudder, $this, false);
+        $this->agent->sendConnectedLetter($st->rudder, $this, false);
     }
 
     public function onReadable(RudderState $st) : void
@@ -462,11 +512,11 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
         try {
             $st->readBuf = $st->rudder->read($st->bufSize);
 
-            $this->agent->sendReadLetter($st->id, $st->rudder, $this, strlen($st->readBuf), null, false);
+            $this->agent->sendReadLetter($st->rudder, $this, strlen($st->readBuf), null, false);
         }
         catch(\Exception $e) {
             BayLog::debug_e($e, "%s Unhandled error", $this);
-            $this->agent->sendErrorLetter($st->id, $st->rudder, $this, $e, false);
+            $this->agent->sendErrorLetter($st->rudder, $this, $e, false);
         }
     }
 
@@ -512,7 +562,7 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
                         $wunit->buf = substr($wunit->buf, $len);
                     }
                 }
-                $this->agent->sendWroteLetter($st->id, $st->rudder, $this, $len, false);
+                $this->agent->sendWroteLetter($st->rudder, $this, $len, false);
 
                 if($len < $bufsize) {
                     BayLog::debug("%s Data remains", $this);
@@ -522,7 +572,7 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
         }
         catch(IOException $e) {
             BayLog::debug_e($e, "%s IO error", $this);
-            $this->agent->sendErrorLetter($st->id, $st->rudder, $this, $e, false);
+            $this->agent->sendErrorLetter($st->rudder, $this, $e, false);
         }
     }
 

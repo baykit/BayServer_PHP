@@ -121,10 +121,10 @@ class H2InboundHandler implements H2Handler, InboundHandler
         $this->protocolHandler->post($cmd, false);
     }
 
-    public function sendResContent(Tour $tur, string $bytes, int $ofs, int $len, ?callable $callback): void
+    public function sendResContent(Tour $tur, string $bytes, int $ofs, int $len, ?callable $callback): bool
     {
         $cmd = new CmdData($tur->req->key, null, $bytes, $ofs, $len);
-        $this->protocolHandler->post($cmd, false, $callback);
+        return $this->protocolHandler->post($cmd, false, $callback);
     }
 
     public function transferContent(Tour $tur, \baykit\bayserver\rudder\Rudder $fileRd, int $ofs, int $len, ?callable $callback): void

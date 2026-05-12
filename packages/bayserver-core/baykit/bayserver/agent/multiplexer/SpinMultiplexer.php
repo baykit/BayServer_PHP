@@ -132,7 +132,7 @@ class SpinMultiplexer extends MultiplexerBase implements TimerHandler
         $st->access();
     }
 
-    public function reqWrite(Rudder $rd, string $buf, ?string $adr, $tag, bool $flush, ?callable $callback): void
+    public function reqWrite(Rudder $rd, string $buf, ?string $adr, $tag, bool $flush, ?callable $callback): bool
     {
         $st = $this->getRudderState($rd);
 
@@ -150,6 +150,8 @@ class SpinMultiplexer extends MultiplexerBase implements TimerHandler
         if($needWrite) {
             $this->nextWrite($st);
         }
+
+        return $st->bufferAvailable();
     }
 
     public function reqTransfer(Rudder $rd, Rudder $fileRd, int $ofs, int $len, ?callable $callback): void {
@@ -171,7 +173,7 @@ class SpinMultiplexer extends MultiplexerBase implements TimerHandler
         $st->closing = true;
 
         $this->closeRudder($st);
-        $this->agent->sendClosedLetter($st->id, $st->rudder, $this, false);
+        $this->agent->sendClosedLetter($st->rudder, $this, false);
 
         $st->access();
     }

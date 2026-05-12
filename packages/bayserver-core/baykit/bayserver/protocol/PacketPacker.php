@@ -3,7 +3,6 @@
 namespace baykit\bayserver\protocol;
 
 use baykit\bayserver\ship\Ship;
-use baykit\bayserver\util\Postman;
 use baykit\bayserver\util\Reusable;
 
 class PacketPacker implements Reusable
@@ -17,9 +16,9 @@ class PacketPacker implements Reusable
     {
     }
 
-    public function post(Ship $ship, Packet $pkt, bool $flush, ?callable $lsnr) : void
+    public function post(Ship $ship, Packet $pkt, bool $flush, ?callable $lsnr) : bool
     {
-        $ship->transporter->reqWrite($ship->rudder,
+        return $ship->transporter->reqWrite($ship->rudder,
             substr($pkt->buf, 0, $pkt->bufLen),
             null,
             $pkt,

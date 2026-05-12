@@ -14,6 +14,16 @@ class StreamRudder implements Rudder
 {
     public $stream;
 
+    /**
+     * Per-multiplexer state slot. Set by MultiplexerBase.addRudderState
+     * and consulted by getRudderState. state
+     *: keeping the state on the rudder itself removes the
+     * per-multiplexer hashmap keyed by resource id, and removes the
+     * stateId / checkStateId dedup that earlier guarded against stale
+     * letters whose state had been Returned to the pool.
+     */
+    public $state = null;
+
     public function __construct($stream)
     {
         if(!is_resource($stream))

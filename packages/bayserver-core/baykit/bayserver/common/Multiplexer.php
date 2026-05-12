@@ -26,6 +26,11 @@ interface Multiplexer
     public function reqRead(Rudder $rd): void;
 
     /**
+     * Queue a write. Returns whether the rudder's write buffer still
+     * has room (= remaining() <= shipBufferSize). When false the caller
+     * should stop submitting and resume only when the consume listener
+     * fires with bufferAvailable=true.
+     *
      * @param bool $flush  When false the multiplexer may keep the data
      *                    in its writeQueue without registering OP_WRITE
      *                    until enough pending bytes accumulate. Callers
@@ -33,7 +38,7 @@ interface Multiplexer
      *                    logical message so the peer actually sees it.
      *                    Mirrors
      */
-    public function reqWrite(Rudder $rd, string $buf, ?string $adr, $tag, bool $flush, ?callable $callback): void;
+    public function reqWrite(Rudder $rd, string $buf, ?string $adr, $tag, bool $flush, ?callable $callback): bool;
 
     /**
      * Direct Boarding: queue a file-rudder transfer onto the write queue.

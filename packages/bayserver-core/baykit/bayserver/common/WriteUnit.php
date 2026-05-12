@@ -42,10 +42,13 @@ class WriteUnit {
         return new self(null, null, null, $callback, $file, $offset, $length);
     }
 
-    public function done() : void
+    public function done(bool $bufferAvailable = true) : void
     {
+        // Forward the multiplexer's post-consumption bufferAvailable
+        // signal. Callbacks queued before that refactor
+        // ignore the arg.
         if($this->callback !== null)
-            ($this->callback)();
+            ($this->callback)($bufferAvailable);
     }
 
     public function skipFormalities() : bool

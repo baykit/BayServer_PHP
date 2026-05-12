@@ -10,9 +10,9 @@ class ReadLetter extends Letter
     public int $nBytes;
     public ?string $address;
 
-    public function __construct(int $stateId, Rudder $rd, Multiplexer $mpx, int $n, ?string $adr)
+    public function __construct(Rudder $rd, Multiplexer $mpx, int $n, ?string $adr)
     {
-        parent::__construct($stateId, $rd, $mpx);
+        parent::__construct($rd, $mpx);
         $this->nBytes = $n;
         $this->address = $adr;
     }
