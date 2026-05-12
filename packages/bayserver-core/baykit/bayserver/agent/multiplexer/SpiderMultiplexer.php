@@ -8,6 +8,7 @@ use baykit\bayserver\common\WriteUnit;
 use baykit\bayserver\BayLog;
 use baykit\bayserver\Sink;
 use baykit\bayserver\rudder\StreamRudder;
+use baykit\bayserver\rudder\UdpSocketRudder;
 use baykit\bayserver\BayServer;
 use baykit\bayserver\agent\TimerHandler;
 use \baykit\bayserver\common\RudderState;
@@ -567,6 +568,23 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
         BayLog::debug("%s onReadable: %s", $this, $st);
 
         try {
+            if ($st->rudder instanceof UdpSocketRudder) {
+                // UDP: each datagram has its own source address.
+                // stream_socket_recvfrom returns the bytes and fills
+                // $peer with "host:port" (or "host" for unix-domain).
+                // Pass the address along on the ReadLetter so the
+                // QicTransporter can route it. onRead's UdpSocketRudder
+                // branch.
+                $peer = "";
+                $buf = stream_socket_recvfrom($st->rudder->key(), 65536, 0, $peer);
+                if ($buf === false) {
+                    throw new IOException("recvfrom failed: ". SysUtil::lastErrorMessage());
+                }
+                $st->readBuf = $buf;
+                $this->agent->sendReadLetter($st->rudder, $this, strlen($buf), $peer, false);
+                return;
+            }
+
             $st->readBuf = $st->rudder->read($st->bufSize);
 
             $this->agent->sendReadLetter($st->rudder, $this, strlen($st->readBuf), null, false);
@@ -586,6 +604,8 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
                 return;
             }
 
+            $isUdp = $st->rudder instanceof UdpSocketRudder;
+
             for($i = 0; $i < count($st->writeQueue); $i++) {
                 $wunit = $st->writeQueue[$i];
 
@@ -595,6 +615,17 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
                 $bufsize = strlen($wunit->buf);
                 if (strlen($wunit->buf) == 0) {
                     $len = 0;
+                }
+                else if ($isUdp) {
+                    // UDP: each WriteUnit carries its own destination
+                    // address. sendto is atomic per datagram -- never
+                    // returns a short write; either the whole datagram
+                    // goes out or it errors. send path.
+                    $len = @stream_socket_sendto($st->rudder->key(), $wunit->buf, 0, $wunit->adr);
+                    if ($len === false || $len < 0) {
+                        throw new IOException("sendto failed: ". SysUtil::lastErrorMessage());
+                    }
+                    BayLog::debug("%s wrote %d bytes (udp to %s)", $this, $len, $wunit->adr);
                 }
                 else {
                     $len = $st->rudder->write($wunit->buf);

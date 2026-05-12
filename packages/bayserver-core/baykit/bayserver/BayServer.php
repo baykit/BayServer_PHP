@@ -32,6 +32,7 @@ use baykit\bayserver\protocol\PacketStore;
 use baykit\bayserver\protocol\ProtocolHandlerStore;
 use baykit\bayserver\rudder\SocketRudder;
 use baykit\bayserver\rudder\StreamRudder;
+use baykit\bayserver\rudder\UdpSocketRudder;
 use baykit\bayserver\tour\TourStore;
 use baykit\bayserver\util\HttpStatus;
 use baykit\bayserver\util\IOException;
@@ -337,8 +338,22 @@ class BayServer
                 BayLog::debug("Server socket=%s", $skt);
                 self::$anchorablePortMap[] = new PortMap(new StreamRudder($skt), $dkr);
             } else {
-                # Open UDP port
-                BayLog::error("Unanchord port note supported");
+                // Open UDP port. stream_socket_server("udp://...") binds
+                // a DGRAM socket; SpiderMultiplexer's read/write paths
+                // pull / push individual datagrams with
+                // stream_socket_recvfrom / sendto when they see a
+                // UdpSocketRudder. Mirrors Python bayserver.openPorts
+                // (UDP branch) which used socket.SOCK_DGRAM.
+                BayLog::info(BayMessage::get(Symbol::MSG_OPENING_UDP_PORT, $dkr->host(), $dkr->port(), $dkr->protocol()));
+                $skt = stream_socket_server("udp://{$adr[0]}:{$adr[1]}",
+                    $errno,
+                    $errstr,
+                    STREAM_SERVER_BIND);
+                if ($skt === false)
+                    throw new \Exception("Cannot open UDP port: $errstr ($errno)");
+                stream_set_blocking($skt, false);
+                BayLog::debug("UDP server socket=%s", $skt);
+                self::$unanchorablePortMap[] = new PortMap(new UdpSocketRudder($skt), $dkr);
             }
         }
     }
