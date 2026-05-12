@@ -37,7 +37,13 @@ class GrandAgentMonitor
         $this->agentId = $agtId;
         $this->anchorable = $anchorable;
         $this->comChannel = $comChannel;
-        stream_set_blocking($this->comChannel, false);
+        // In single-core mode the GrandAgentMonitor is bookkeeping-only
+        // (no child process to read from) and the caller passes null
+        // for comChannel. Only set non-blocking when we actually have
+        // a pipe / socket to talk to.
+        if (is_resource($this->comChannel)) {
+            stream_set_blocking($this->comChannel, false);
+        }
         $this->agentProcess = $agentProcess;
     }
 
@@ -139,6 +145,12 @@ class GrandAgentMonitor
             $newArgv = $args;
             //ArrayUtil::insert("php", $newArgv, 0);
             $newArgv[] = "-agentid=". $agtId;
+            // Tell the spawned child which side (TCP / UDP) it serves
+            // so its GrandAgent::init can match the agent's role.
+            // Without this, the child cannot tell from -sockets= alone
+            // whether its indices refer to the anchorable or
+            // unanchorable port map.
+            $newArgv[] = "-anchorable=". ($anchorable ? "true" : "false");
 
 
             $portNos = [];

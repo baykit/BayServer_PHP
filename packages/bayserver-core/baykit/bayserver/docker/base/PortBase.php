@@ -104,6 +104,10 @@ abstract class PortBase extends DockerBase implements Port {
             }
         }
 
+        // Persist the locally-computed anchored flag so openPorts can
+        // route this docker to the UDP branch when :udp: is used.
+        $this->anchored = $anchored;
+
         // TCP/UDP support check
         if($anchored) {
             if (!$this->supportAnchored())
@@ -228,7 +232,7 @@ abstract class PortBase extends DockerBase implements Port {
         return $this->cities->findCity($name);
     }
 
-    public final function onConnected(int $agtId, Rudder $rd) : void
+    public function onConnected(int $agtId, Rudder $rd) : void
     {
         $this->checkAdmitted($rd);
 

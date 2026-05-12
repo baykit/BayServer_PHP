@@ -3,6 +3,7 @@ port                baykit.bayserver.docker.http.HtpPortDocker
 port:http           baykit.bayserver.docker.http.HtpPortDocker
 port:ajp            baykit.bayserver.docker.ajp.AjpPortDocker
 port:fcgi           baykit.bayserver.docker.fcgi.FcgPortDocker
+port:h3             baykit.bayserver.docker.h3.H3PortDocker
 city                baykit.bayserver.docker.built_in.BuiltInCityDocker
 town                baykit.bayserver.docker.built_in.BuiltInTownDocker
 club                baykit.bayserver.docker.file.FileDocker

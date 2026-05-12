@@ -90,6 +90,12 @@ class BayServer
 
     static $monitorPort;
 
+    /** Set by -anchorable= flag on child processes; null in parent.
+     * null means "use the historical GrandAgent::init multiCore branch
+     * heuristic"; true/false routes the child to GrandAgent::add
+     * with the right anchorable mode. */
+    public static ?bool $childAnchorable = null;
+
     public static $anchorablePortMap = [];
     public static $unanchorablePortMap = [];
 
@@ -150,6 +156,9 @@ class BayServer
             }
             elseif (StringUtil::startsWith($arg, "-agentid=")) {
                 $agtId = intval(substr($arg, 9));
+            }
+            elseif (StringUtil::startsWith($arg, "-anchorable=")) {
+                self::$childAnchorable = (substr($arg, 12) === "true");
             }
             elseif (StringUtil::startsWith($arg, "-monitorport=")) {
                 self::$monitorPort = intval(substr($arg, 13));
@@ -336,7 +345,9 @@ class BayServer
                 //   throw new \Exception("Cannot set non blocking: ". socket_strerror(socket_last_error()));
 
                 BayLog::debug("Server socket=%s", $skt);
-                self::$anchorablePortMap[] = new PortMap(new StreamRudder($skt), $dkr);
+                $portMap = new PortMap(new StreamRudder($skt), $dkr);
+                self::$anchorablePortMap[] = $portMap;
+                $anchorablePortMap[] = $portMap;
             } else {
                 // Open UDP port. stream_socket_server("udp://...") binds
                 // a DGRAM socket; SpiderMultiplexer's read/write paths
@@ -345,15 +356,20 @@ class BayServer
                 // UdpSocketRudder. Mirrors Python bayserver.openPorts
                 // (UDP branch) which used socket.SOCK_DGRAM.
                 BayLog::info(BayMessage::get(Symbol::MSG_OPENING_UDP_PORT, $dkr->host(), $dkr->port(), $dkr->protocol()));
-                $skt = stream_socket_server("udp://{$adr[0]}:{$adr[1]}",
+                $udpUrl = "udp://{$adr[0]}:{$adr[1]}";
+                $skt = stream_socket_server($udpUrl,
                     $errno,
                     $errstr,
                     STREAM_SERVER_BIND);
-                if ($skt === false)
-                    throw new \Exception("Cannot open UDP port: $errstr ($errno)");
+                BayLog::info("stream_socket_server(%s) -> %s errno=%d err=%s",
+                    $udpUrl, is_resource($skt) ? "ok" : var_export($skt, true), $errno, $errstr);
+                if ($skt === false || !is_resource($skt))
+                    throw new \Exception("Cannot open UDP port {$udpUrl}: $errstr ($errno)");
                 stream_set_blocking($skt, false);
                 BayLog::debug("UDP server socket=%s", $skt);
-                self::$unanchorablePortMap[] = new PortMap(new UdpSocketRudder($skt), $dkr);
+                $portMap = new PortMap(new UdpSocketRudder($skt), $dkr);
+                self::$unanchorablePortMap[] = $portMap;
+                $unanchorablePortMap[] = $portMap;
             }
         }
     }
@@ -400,7 +416,16 @@ class BayServer
             $rd = new StreamRudder($comCh);
         }
 
-        GrandAgent::init([$agtId], self::$harbor->maxShips());
+        // The parent told us via -anchorable= which role this child
+        // plays. Bypass GrandAgent::init's heuristic and create the
+        // agent directly. If the flag is missing (e.g. spawned by an
+        // older harness), fall back to the historical init() behavior.
+        if (self::$childAnchorable !== null) {
+            GrandAgent::add($agtId, self::$childAnchorable);
+            self::$harbor; // no-op, keep PHP from inlining nothing
+        } else {
+            GrandAgent::init([$agtId], self::$harbor->maxShips());
+        }
         $agt = GrandAgent::get($agtId);
 
         $agt->addCommandReceiver($rd);

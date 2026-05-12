@@ -124,6 +124,17 @@ class GrandAgent
                 $this->netMultiplexer->addRudderState($portMap->rudder, $st);
             }
         }
+        else {
+            // Adds server socket up of unanchorable (UDP / H3) ports.
+            // Mirrors the upstream GrandAgent.run's unanchorable branch:
+            // delegate to portDocker->onConnected so the H3 port docker
+            // gets to install its QicTransporter on the rudder before
+            // the multiplexer starts reading datagrams.
+            foreach(BayServer::$unanchorablePortMap as $portMap) {
+                $rd = $portMap->rudder;
+                $portMap->docker->onConnected($this->agentId, $rd);
+            }
+        }
 
         // Mirror Java / Ruby: busy/free transitions live in
         // onAccepted (= rudder added) and onClosed (= rudder removed),

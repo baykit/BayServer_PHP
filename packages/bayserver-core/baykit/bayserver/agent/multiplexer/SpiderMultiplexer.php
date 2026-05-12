@@ -252,6 +252,14 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
             return;
         }
 
+        // Only the TCP-side multiplexer (= anchorable agent) issues
+        // accept() on the listening TCP sockets. UDP-only agents see
+        // datagrams via SpiderMultiplexer::onReadable on the UDP rudder
+        // and never accept anything.
+        if (!$this->anchorable) {
+            return;
+        }
+
         foreach(BayServer::$anchorablePortMap as $portMap) {
             BayLog::debug("%s reqAccept rd=%s", $this->agent, $portMap->rudder);
             $this->reqAccept($portMap->rudder);
