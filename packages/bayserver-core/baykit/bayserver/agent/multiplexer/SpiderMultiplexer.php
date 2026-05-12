@@ -51,6 +51,13 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
      */
     private array $tryWriteList = [];
 
+    /**
+     * Selected keys carried over from a previous receive() because the
+     * harbor.maxEventsPerReceive cap was hit. They are drained on the
+     * next receive() before any new select() syscall.
+     */
+    private array $pendingSelKeys = [];
+
     public function __construct(GrandAgent $agt, bool $anchorable)
     {
         parent::__construct($agt);
@@ -264,7 +271,25 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
 
     public final function receive(bool $wait) : bool {
 
-        if (!$wait) {
+        // Per-receive event cap. When
+        // harbor.maxEventsPerReceive is a positive value, drain at most
+        // that many keys per call; leftover ready keys stay in
+        // pendingSelKeys and are drained on subsequent receive() calls
+        // without re-entering select(). Keeps the agent's hot working set
+        // inside per-core L2 cache under high -c workloads. Default -1
+        // disables the cap and restores the pre-tuning behaviour.
+        $maxEvents = BayServer::$harbor->maxEventsPerReceive();
+        $capped = $maxEvents > 0;
+        $hasLeftover = $capped && !empty($this->pendingSelKeys);
+
+        if ($hasLeftover) {
+            // Still draining keys from a previous select(); skip the
+            // syscall and keep the agent on the same connection subset
+            // one more pass.
+            $selectedMap = $this->pendingSelKeys;
+            $this->pendingSelKeys = [];
+        }
+        else if (!$wait) {
             $selectedMap = $this->selector->select();
         }
         else {
@@ -273,13 +298,34 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
 
         $this->registerChannelOps();
 
-        foreach($selectedMap as $selKey) {
-            if ($selKey->channel == $this->selectWakeupPipe[0]) {
-                # Waked up by req_*
-                $this->onWakedUp();
+        if ($capped) {
+            $processed = 0;
+            foreach ($selectedMap as $i => $selKey) {
+                if ($processed >= $maxEvents) {
+                    // Stash the rest for the next receive() call. Keys
+                    // remain valid because we never told the selector we
+                    // were done with them.
+                    $this->pendingSelKeys = array_slice($selectedMap, $i);
+                    break;
+                }
+                if ($selKey->channel == $this->selectWakeupPipe[0]) {
+                    $this->onWakedUp();
+                }
+                else {
+                    $this->handleChannel($selKey);
+                }
+                $processed++;
             }
-            else {
-                $this->handleChannel($selKey);
+        }
+        else {
+            foreach($selectedMap as $selKey) {
+                if ($selKey->channel == $this->selectWakeupPipe[0]) {
+                    # Waked up by req_*
+                    $this->onWakedUp();
+                }
+                else {
+                    $this->handleChannel($selKey);
+                }
             }
         }
 

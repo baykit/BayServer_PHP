@@ -202,17 +202,31 @@ class BuiltInCityDocker extends DockerBase implements  City  {
                     $agt->spiderMultiplexer->reqRead($waitRd);
                     return;
                 }
-                else if ($cgo !== null && $cgo->onBarge()) {
-                    // Cargo is loaded -- serve from memory without
-                    // bouncing through the club's arrive().
+                else if ($cgo !== null && $cgo->onBarge()
+                        && $cgo->length() <= ($tur->isSecure
+                                ? BayServer::$harbor->maxCargoSizeSecure()
+                                : BayServer::$harbor->maxCargoSize())) {
+                    // Cargo is loaded AND fits this tour's threshold
+                    // serve from memory without bouncing through the
+                    // club's arrive(). A plain tour whose threshold is
+                    // lower than the cache limit skips this branch so a
+                    // cache-resident-but-over-threshold file can be
+                    // served via sendfile (tur.cargo branch below).
+                    // Mirrors
                     $tur->req->setContentHandler(new CargoFastPathHandler($cgo));
                     return;
                 }
                 else if ($cgo !== null) {
-                    // First requester loads the file; record the cargo on
-                    // the tour so TourRes.sendResHeaders / sendResContent
-                    // / endResContent populate it as we serve.
-                    $tur->cargo = $cgo;
+                    // Cargo is either new/loading, EXCEEDED (not cached),
+                    // or LOADED but over this tour's threshold (routed
+                    // to sendfile). Only set tur->cargo when the tour
+                    // itself will populate the cargo (new/empty case);
+                    // on LOADED cargo, endResContent would otherwise
+                    // re-invoke cgo->endSave() and trigger "already
+                    // saved".
+                    if (!$cgo->onBarge()) {
+                        $tur->cargo = $cgo;
+                    }
                 }
             }
 

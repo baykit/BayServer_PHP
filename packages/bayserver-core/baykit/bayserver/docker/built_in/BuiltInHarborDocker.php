@@ -49,6 +49,8 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
     const DEFAULT_CARGO_LIFESPAN_SEC = 60;
     const DEFAULT_MAX_DIRECT_BOARDINGS = 128;
     const DEFAULT_MAX_CARGO_SIZE = 1 * 1024 * 1024;
+    /** -1 disables the per-receive event cap (= pre-tuning behaviour). */
+    const DEFAULT_MAX_EVENTS_PER_RECEIVE = -1;
 
     # Default charset
     private string $charset = self::DEFAULT_CHARSET;
@@ -78,6 +80,14 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
 
     # Internal buffer size of Tour
     private int $shipBufferSize = self::DEFAULT_SHIP_BUFFER_SIZE;
+
+    /** Cap on selected keys SpiderMultiplexer.receive() drains per call.
+     * -1 disables the cap. */
+    private int $maxEventsPerReceive = self::DEFAULT_MAX_EVENTS_PER_RECEIVE;
+
+    /** Per-protocol cargo cache threshold for secure tours; -1 follows
+     * maxCargoSize() for backward compatibility. */
+    private int $maxCargoSizeSecure = -1;
 
     # Trace req/res header flag
     private bool $traceHeader = self::DEFAULT_TRACE_HEADER;
@@ -273,6 +283,14 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
             case "tourbuffersize":  // backward-compat alias
                 $this->shipBufferSize = StringUtil::parseSize($kv->value);
                 break;
+            case "maxeventsperreceive":
+                $v = intval($kv->value);
+                if ($v === 0) {
+                    throw new ConfigException($kv->fileName, $kv->lineNo,
+                        "maxEventsPerReceive must be -1 (disabled) or positive: ". $kv->value);
+                }
+                $this->maxEventsPerReceive = $v;
+                break;
             case "traceheader":
                 $this->traceHeader = StringUtil::parseBool($kv->value);
                 break;
@@ -342,6 +360,10 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
 
             case "maxcargosize":
                 $this->maxCargoSize = intval($kv->value);
+                break;
+
+            case "maxcargosizesecure":
+                $this->maxCargoSizeSecure = intval($kv->value);
                 break;
 
             default:
@@ -427,6 +449,11 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
         return $this->shipBufferSize;
     }
 
+    public function maxEventsPerReceive(): int
+    {
+        return $this->maxEventsPerReceive;
+    }
+
     /** File name to redirect stdout/stderr */
     public function redirectFile(): ?string
     {
@@ -509,6 +536,11 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
     public function maxCargoSize(): int
     {
         return $this->maxCargoSize;
+    }
+
+    public function maxCargoSizeSecure(): int
+    {
+        return $this->maxCargoSizeSecure >= 0 ? $this->maxCargoSizeSecure : $this->maxCargoSize;
     }
 
     /** Find barge whose name matches the given path */

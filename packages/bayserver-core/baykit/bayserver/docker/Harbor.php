@@ -52,6 +52,20 @@ interface Harbor extends Docker
     /** Internal buffer size of Tour */
     public function shipBufferSize(): int;
 
+    /**
+     * Maximum number of selected keys a single SpiderMultiplexer.receive()
+     * call hands off to handleChannel() before returning. Leftover ready
+     * keys are stashed on the multiplexer and drained on subsequent
+     * receive() calls without re-entering select(). Keeps the agent's
+     * hot working set (RudderState / readBuf / Tour) inside per-core L2
+     * cache under high -c workloads.
+     *
+     * -1 (the default) disables the cap and drains the whole selected-key
+     * set in one pass. A positive value (e.g. 32 on Xeon Skylake-class
+     * L2=1MB) activates the cap.
+     */
+    public function maxEventsPerReceive(): int;
+
     /** File name to redirect stdout/stderr */
     public function redirectFile(): ?string;
 
@@ -98,6 +112,15 @@ interface Harbor extends Docker
 
     /** Maximum size in bytes of a single cargo */
     public function maxCargoSize(): int;
+
+    /**
+     * Per-protocol cargo cache threshold for secure (TLS) tours. Plain
+     * tours can hand off to sendfile above maxCargoSize(); secure tours
+     * cannot (TLS forbids sendfile) and benefit from a larger in-memory
+     * cache. -1 follows maxCargoSize() for backward compatibility.
+     * Mirrors
+     */
+    public function maxCargoSizeSecure(): int;
 
     /** Find a Barge whose name matches the given path */
     public function findBarge(string $path) : ?Barge;

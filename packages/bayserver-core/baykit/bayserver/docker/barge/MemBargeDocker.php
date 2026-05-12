@@ -126,13 +126,22 @@ class MemBargeDocker extends DockerBase implements Barge
                 $cgo->addWaiter($waitRd);
             }
             else {
-                // Cargo present. EXCEEDED cargo (too big for cache) should
-                // still flow through Direct Boarding (sendfile) if the
-                // harbor enables it -- mirrors Cargo that
-                // fits in cache disables directBoarding so the in-memory
-                // content path is taken.
+                // Decide the per-tour cache threshold. Secure tours may
+                // cache larger files (they cannot use sendfile) than
+                // plain tours, which prefer directBoarding above their
+                // threshold for zero-copy transfer.
+                $tourLimit = $tour->isSecure
+                    ? BayServer::$harbor->maxCargoSizeSecure()
+                    : BayServer::$harbor->maxCargoSize();
+                $exceedsForTour = $cgo->exceeded() || $cgo->length() > $tourLimit;
+
+                // Only plain tours can use sendfile -- TLS forbids it.
+                // Secure tours with exceedsForTour fall through to the
+                // per-request file open path.
                 $tour->res->directBoarding =
-                    $cgo->exceeded() && BayServer::$harbor->directBoarding();
+                    $exceedsForTour
+                    && BayServer::$harbor->directBoarding()
+                    && !$tour->isSecure;
             }
         }
         $cgo->access();
@@ -264,8 +273,14 @@ class MemCargo implements Barge_Cargo
         BayLog::debug("%s save content len=%d", $this, $len);
         $this->length += $len;
 
-        if ($this->length > BayServer::$harbor->maxCargoSize()) {
-            BayLog::debug("%s cargo exceeded: len=%d max=%d", $this, $this->length, BayServer::$harbor->maxCargoSize());
+        // Cache up to the larger of the two thresholds so that secure
+        // tours can still hit the cache for files that plain tours
+        // would route to sendfile. Per-tour threshold is enforced in
+        // BuiltInCityDocker / MemBargeDocker::getCargo.
+        $effectiveMax = max(BayServer::$harbor->maxCargoSize(),
+            BayServer::$harbor->maxCargoSizeSecure());
+        if ($this->length > $effectiveMax) {
+            BayLog::debug("%s cargo exceeded: len=%d effectiveMax=%d", $this, $this->length, $effectiveMax);
             $this->status = self::EXCEEDED;
             $this->buf = "";
             return;

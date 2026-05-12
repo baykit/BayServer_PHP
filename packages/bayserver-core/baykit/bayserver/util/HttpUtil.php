@@ -115,6 +115,22 @@ class HttpUtil
 
     public static function checkMethod(string $method) : void
     {
+        // Fast path: common HTTP methods bypass the preg_match (and its
+        // pattern compilation cost) entirely. HTTP spec allows arbitrary
+        // tokens but >99% of production traffic uses one of these. Mirrors
+        //
+        switch ($method) {
+            case "GET":
+            case "POST":
+            case "HEAD":
+            case "PUT":
+            case "DELETE":
+            case "PATCH":
+            case "OPTIONS":
+            case "CONNECT":
+            case "TRACE":
+                return;
+        }
         if (!preg_match("/^[A-Za-z0-9!#\$%&'*+\\-.^_`|~]+\$/", $method))
             throw new ProtocolException("Invalid method: ". $method);
     }
