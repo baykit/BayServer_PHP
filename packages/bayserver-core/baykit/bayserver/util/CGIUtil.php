@@ -122,8 +122,12 @@ class CGIUtil
             }
         }
 
-        self::addEnv($lis, self::REMOTE_ADDR, $tour->req->remoteAddress);
-        self::addEnv($lis, self::REMOTE_PORT, (string)$tour->req->remotePort);
+        if ($tour->req->remoteAddress !== null) {
+            self::addEnv($lis, self::REMOTE_ADDR, $tour->req->remoteAddress);
+        }
+        if ($tour->req->remotePort >= 0) {
+            self::addEnv($lis, self::REMOTE_PORT, (string)$tour->req->remotePort);
+        }
         //self::addEnv(map, REMOTE_USER, "unknown");
 
         self::addEnv($lis, self::REQUEST_SCHEME, $tour->isSecure ? "https": "http");

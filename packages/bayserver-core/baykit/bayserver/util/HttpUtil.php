@@ -94,8 +94,12 @@ class HttpUtil
         return $name;
     }
 
-    public static function checkUri(string $uri) : void
+    public static function checkUri(?string $uri) : void
     {
+        if ($uri === null) {
+            throw new ProtocolException("path is null");
+        }
+
         if (strpos($uri, "\0") !== false) {
             throw new ProtocolException("path contains null byte");
         }

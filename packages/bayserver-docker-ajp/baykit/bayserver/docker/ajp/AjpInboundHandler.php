@@ -107,27 +107,27 @@ class AjpInboundHandler implements InboundHandler, AjpHandler
         $this->protocolHandler->post($cmd, $callback);
     }
 
-    public function sendEndTour(Tour $tur, bool $keepAlive, ?callable $callback): void
+    public function sendEndTour(Tour $tur, ?callable $callback): void
     {
         $sip = $this->ship();
-        BayLog::debug("%s endTour: tur=%s keep=%s", $sip, $tur, $keepAlive);
+        BayLog::debug("%s endTour: tur=%s", $sip, $tur);
         $cmd = new CmdEndResponse();
-        $cmd->reuse = $keepAlive;
+        $cmd->reuse = true;  // Always reuse connection
 
-        $ensureFunc = function () use ($keepAlive) {
-            if (!$keepAlive)
+        $ensureFunc = function () use ($cmd) {
+            if (!$cmd->reuse)
                 $this->ship()->postClose();
         };
 
         try {
-            $this->protocolHandler->post($cmd, function () use ($callback, $ensureFunc, $keepAlive, $tur, $sip) {
-                BayLog::debug("%s call back in sendEndTour: tur=%s keep=%s", $sip, $tur, $keepAlive);
+            $this->protocolHandler->post($cmd, function () use ($callback, $ensureFunc, $tur, $sip) {
+                BayLog::debug("%s call back in sendEndTour: tur=%s", $sip, $tur);
                 $ensureFunc();
                 $callback();
             });
         }
         catch(IOException $e) {
-            BayLog::debug("%s post failed in sendEndTour: tur=%s keep=%s", $sip, $tur, $keepAlive);
+            BayLog::debug("%s post failed in sendEndTour: tur=%s", $sip, $tur);
             $ensureFunc();
             throw $e;
         }

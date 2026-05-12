@@ -94,7 +94,7 @@ class TourRes implements Reusable {
 
     public function sendResHeaders(int $checkId) : void
     {
-        $this->tour->checkTourId($checkId);
+        //$this->tour->checkTourId($checkId);
 
         if($this->tour->isZombie() || $this->tour->isAborted())
             return;
@@ -181,7 +181,7 @@ class TourRes implements Reusable {
 
     public function sendRedirect($chkId, $status, $location) : void
     {
-        $this->tour->checkTourId($chkId);
+        //$this->tour->checkTourId($chkId);
 
         if($this->headerSent) {
             BayLog.error("Try to redirect after response header is sent (Ignore)");
@@ -213,7 +213,7 @@ class TourRes implements Reusable {
 
     public function sendResContent(int $checkId, string $buf, int $ofs, int $len) : bool
     {
-        $this->tour->checkTourId($checkId);
+        //$this->tour->checkTourId($checkId);
         BayLog::debug("%s sendContent len=%d", $this->tour, $len);
 
         // Callback
@@ -270,7 +270,7 @@ class TourRes implements Reusable {
 
     public function endResContent(int $checkId) : void
     {
-        $this->tour->checkTourId($checkId);
+        //$this->tour->checkTourId($checkId);
 
         BayLog::debug("%s end ResContent", $this);
 
@@ -290,7 +290,7 @@ class TourRes implements Reusable {
         // Callback
         $tourReturned = false;
         $callback = function () use ($checkId, &$tourReturned) {
-            $this->tour->checkTourId($checkId);
+            //$this->tour->checkTourId($checkId);
             $this->tour->ship->returnTour($this->tour);
             $tourReturned = true;
         };
@@ -336,7 +336,7 @@ class TourRes implements Reusable {
 
     public function sendError(int $checkId, int $status, string $message, \Throwable $e=null) : void
     {
-        $this->tour->checkTourId($checkId);
+        //$this->tour->checkTourId($checkId);
 
         if ($this->tour->isZombie())
             return;
@@ -374,7 +374,7 @@ class TourRes implements Reusable {
 
     private function consumed(int $checkId, int $length) : void
     {
-        $this->tour->checkTourId($checkId);
+        //$this->tour->checkTourId($checkId);
         if ($this->resConsumeListener === null)
             throw new Sink("Consume listener is null");
 

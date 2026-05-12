@@ -127,7 +127,7 @@ class H2InboundHandler implements H2Handler, InboundHandler
         $this->protocolHandler->post($cmd, $callback);
     }
 
-    public function sendEndTour(Tour $tur, bool $keepAlive, ?callable $callback): void
+    public function sendEndTour(Tour $tur, ?callable $callback): void
     {
         $data = "";
         $cmd = new CmdData($tur->req->key, null, $data, 0, 0);
@@ -408,6 +408,7 @@ class H2InboundHandler implements H2Handler, InboundHandler
         BayLog::debug("%s H2 read header method=%s protocol=%s uri=%s contlen=%d",
             $sip, $tur->req->method, $tur->req->protocol, $tur->req->uri, $tur->req->headers->contentLength());
 
+        HttpUtil::checkUri($tur->req->uri);
         $reqContLen = $tur->req->headers->contentLength();
 
         if($reqContLen > 0) {
@@ -415,6 +416,10 @@ class H2InboundHandler implements H2Handler, InboundHandler
         }
 
         try {
+            if($tur->req->uri == null) {
+                throw new HttpException(HttpStatus::BAD_REQUEST, "Missing uri");
+            }
+
             $this->startTour($tur);
             if ($tur->req->headers->contentLength() <= 0) {
                 $this->endReqContent($tur->id(), $tur);

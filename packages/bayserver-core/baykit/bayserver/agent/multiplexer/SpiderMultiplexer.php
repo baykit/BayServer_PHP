@@ -452,7 +452,7 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
         try {
             if (empty($st->writeQueue)) {
                 BayLog::debug("%s No data to write: rd=%s", $this, $st->rudder);
-                $this->agent->sendWroteLetter($st, 0, false);
+                $this->cancelWrite($st);
                 return;
             }
 

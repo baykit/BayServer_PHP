@@ -243,20 +243,8 @@ class InboundShip extends Ship
         if(!$tur->isValid()) {
             throw new Sink("Tour is not valid");
         }
-        $keepAlive = false;
-        if ($tur->req->headers->getConnection() == Headers::CONNECTION_KEEP_ALIVE)
-            $keepAlive = true;
-        if($keepAlive) {
-            $resConn = $tur->res->headers->getConnection();
-            $keepAlive = ($resConn == Headers::CONNECTION_KEEP_ALIVE)
-                || ($resConn == Headers::CONNECTION_UNKOWN);
-            if ($keepAlive) {
-                if ($tur->res->headers->contentLength() < 0)
-                    $keepAlive = false;
-            }
-        }
 
-        $this->tourHandler()->sendEndTour($tur, $keepAlive, $callback);;
+        $this->tourHandler()->sendEndTour($tur, $callback);
     }
 
     public function sendError(int $chkId, Tour $tour, int $status, String $message, ?\Throwable $e) : void

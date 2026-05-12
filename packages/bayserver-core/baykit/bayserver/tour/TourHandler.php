@@ -21,7 +21,7 @@ interface TourHandler extends Reusable
     /**
      * Send end of contents to client.
      */
-    function sendEndTour(Tour $tur, bool $keepAlive, ?callable $callback): void;
+    function sendEndTour(Tour $tur, ?callable $callback): void;
 
     /**
      * Send protocol error to client

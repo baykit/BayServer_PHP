@@ -84,21 +84,24 @@ class H1InboundHandler implements H1Handler, InboundHandler {
     public function sendResHeaders(Tour $tur): void
     {
         // determine Connection header value
-        if ($tur->req->headers->getConnection() != Headers::CONNECTION_KEEP_ALIVE)
-            # If client doesn't support "Keep-Alive", set "Close"
+        if ($tur->req->headers->getConnection() != Headers::CONNECTION_KEEP_ALIVE
+            && $tur->req->headers->getConnection() != Headers::CONNECTION_UNKOWN)
+            # If client explicitly doesn't support "Keep-Alive", set "Close"
             $res_con = "Close";
+        else if ($tur->res->headers->status != HttpStatus::OK) {
+            $res_con = "Close";
+        }
         else {
+            # Client supports "Keep-Alive" (or did not say): default to
+            # Keep-Alive, only downgrade to Close when content-length is
+            # missing and the body is text.
             $res_con = "Keep-Alive";
-            # Client supports "Keep-Alive"
-            if ($tur->res->headers->getConnection() != Headers::CONNECTION_KEEP_ALIVE) {
-                # If tours doesn't need "Keep-Alive"
-                if ($tur->res->headers->contentLength() == -1) {
-                    # If content-length not specified
-                    if ($tur->res->headers->contentType() !== null &&
-                        StringUtil::startsWith("text/", $tur->res->headers->contentType())) {
-                        # If content is text, connection must be closed
-                        $res_con = "Close";
-                    }
+            if ($tur->res->headers->contentLength() == -1) {
+                # If content-length not specified
+                if ($tur->res->headers->contentType() !== null &&
+                    StringUtil::startsWith("text/", $tur->res->headers->contentType())) {
+                    # If content is text, connection must be closed
+                    $res_con = "Close";
                 }
             }
         }
@@ -124,9 +127,10 @@ class H1InboundHandler implements H1Handler, InboundHandler {
         $this->protocolHandler->post($cmd, $callback);
     }
 
-    public function sendEndTour(Tour $tur, bool $keepAlive, ?callable $callback): void
+    public function sendEndTour(Tour $tur, ?callable $callback): void
     {
         $sip = $this->ship();
+        $keepAlive = $tur->res->headers->getConnection() == Headers::CONNECTION_KEEP_ALIVE;
         BayLog::trace("%s sendEndTour: tur=%s keep=%s", $sip, $tur, $keepAlive);
 
         # Send dummy end request command
@@ -264,7 +268,8 @@ class H1InboundHandler implements H1Handler, InboundHandler {
 
             if ($reqContLen <= 0) {
                 $this->endReqContent($this->curTourId, $tur);
-                return NextSocketAction::SUSPEND; // end reading
+                //return NextSocketAction::SUSPEND; // end reading
+                return NextSocketAction::CONTINUE; // continue reading
             } else {
                 $this->changeState(self::STATE_READ_CONTENT);
                 return NextSocketAction::CONTINUE;

@@ -141,7 +141,7 @@ class TourReq implements Reusable {
 
     public function postReqContent(int $checkId, string $data, int $start, int $len, ?callable $callback) : bool
     {
-        $this->tour->checkTourId($checkId);
+        //$this->tour->checkTourId($checkId);
 
         $dataPassed = false;
         if(!$this->tour->isReading()) {
@@ -185,7 +185,7 @@ class TourReq implements Reusable {
     public function endReqContent(int $checkId) : void
     {
         BayLog::debug("%s endReqContent", $this->tour);
-        $this->tour->checkTourId($checkId);
+        //$this->tour->checkTourId($checkId);
         if ($this->ended)
             throw new Sink("%s Request content is already ended", $this->tour);
 
@@ -201,7 +201,7 @@ class TourReq implements Reusable {
 
     public function consumed(int $checkId, int $length, ?callable $callback) : void
     {
-        $this->tour->checkTourId($checkId);
+        //$this->tour->checkTourId($checkId);
 
         $this->bytesConsumed += $length;
         BayLog::debug("%s reqConsumed: len=%d posted=%d limit=%d consumed=%d available=%b",

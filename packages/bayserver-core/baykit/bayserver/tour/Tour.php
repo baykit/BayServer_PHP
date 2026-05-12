@@ -177,7 +177,7 @@ class Tour implements Reusable {
     public function changeState(int $chkId, int $new_state) : void
     {
         BayLog::trace("%s change state: %s", $this, $new_state);
-        $this->checkTourId($chkId);
+        //$this->checkTourId($chkId);
         $this->state = $new_state;
     }
 
@@ -186,8 +186,10 @@ class Tour implements Reusable {
         if ($chkId == Tour::TOUR_ID_NOCHECK)
             return;
 
+        /*
         if (!$this->isInitialized())
             throw new Sink("%s Tour not initialized", $this);
+        */
 
         if ($chkId != $this->tourId)
             throw new Sink("%s Invalid tours id: %d", $this, $chkId);

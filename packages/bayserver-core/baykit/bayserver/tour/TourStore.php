@@ -26,7 +26,7 @@ class TourStore {
     public static $stores = [];
     public static $maxCount;
 
-    const MAX_TOURS = 128;
+    const MAX_TOURS = 12800;
 
     public $freeTours = [];
     public $activeTourMap = [];

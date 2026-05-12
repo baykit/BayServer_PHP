@@ -232,6 +232,23 @@ abstract class PortBase extends DockerBase implements Port {
     {
         $this->checkAdmitted($rd);
 
+        // TCP_NODELAY: disable Nagle's algorithm to reduce latency for small
+        // writes. Best-effort: skip silently when the
+        // rudder is not a plain socket stream (e.g. SSL streams, where
+        // socket_import_stream returns false).
+        $sock = $rd->key();
+        if (is_resource($sock)) {
+            try {
+                $imp = @socket_import_stream($sock);
+                if ($imp !== false && $imp !== null) {
+                    @socket_set_option($imp, SOL_TCP, TCP_NODELAY, 1);
+                }
+            }
+            catch (\Throwable $e) {
+                // Not a socket-backed stream; ignore.
+            }
+        }
+
         $sip = self::getShipStore($agtId)->rent();
         $agt = GrandAgent::get($agtId);
 

@@ -112,10 +112,10 @@ class FcgInboundHandler implements InboundHandler, FcgHandler
         $this->protocolHandler->post($cmd, $callback);
     }
 
-    public function sendEndTour(Tour $tur, bool $keepAlive, ?callable $callback): void
+    public function sendEndTour(Tour $tur, ?callable $callback): void
     {
         $sip = $this->ship();
-        BayLog::debug("%s PH:endTour: tur=%s keep=%s", $sip, $tur, $keepAlive);
+        BayLog::debug("%s PH:endTour: tur=%s", $sip, $tur);
 
         // Send empty stdout command
         $cmd = new CmdStdOut($tur->req->key);
@@ -123,21 +123,20 @@ class FcgInboundHandler implements InboundHandler, FcgHandler
 
         // Send end request command
         $cmd = new CmdEndRequest($tur->req->key);
-        $ensureFunc = function () use ($keepAlive, $sip) {
+        $ensureFunc = function () use ($sip) {
             // DO NOT close socket by FCGI server
-            //if(!$keepAlive)
-            //   $sip->postClose();
+            //$sip->postClose();
         };
 
         try {
-            $this->protocolHandler->post($cmd, function () use ($callback, $ensureFunc, $keepAlive, $tur, $sip) {
-                BayLog::debug("%s call back in sendEndTour: tur=%s keep=%b", $sip, $tur, $keepAlive);
+            $this->protocolHandler->post($cmd, function () use ($callback, $ensureFunc, $tur, $sip) {
+                BayLog::debug("%s call back in sendEndTour: tur=%s", $sip, $tur);
                 $ensureFunc();
                 $callback();
             });
         }
         catch(IOException $e) {
-            BayLog::debug("%s post faile in sendEndTour: tur=%s keep=%b", $sip, $tur, $keepAlive);
+            BayLog::debug("%s post faile in sendEndTour: tur=%s", $sip, $tur);
             $ensureFunc();
             throw $e;
         }
