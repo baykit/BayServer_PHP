@@ -192,7 +192,7 @@ class H1InboundHandler implements H1Handler, InboundHandler {
             $this->changeState(self::STATE_READ_HEADER);
 
         if ($this->state != self::STATE_READ_HEADER || $this->curTour !== null) {
-            $msg = "Header command not expected: state=" . $this->state . " curTour=" . $this->curTour;
+            $msg = "Header command not expected: state=". $this->state. " curTour=". $this->curTour;
             BayLog::error($msg);
             $this->resetState();
             throw new ProtocolException($msg);
@@ -208,8 +208,7 @@ class H1InboundHandler implements H1Handler, InboundHandler {
                 $sip->setProtocolHandler($newHnd);
                 throw new UpgradeException();
             } else {
-                throw new ProtocolException(
-                    BayMessage::get(Symbol::HTP_UNSUPPORTED_PROTOCOL, $protocol));
+                throw new ProtocolException(BayMessage::get(Symbol::HTP_UNSUPPORTED_PROTOCOL, $protocol));
             }
         }
 
@@ -237,8 +236,7 @@ class H1InboundHandler implements H1Handler, InboundHandler {
             || $tur->req->protocol == "HTTP/1.0"
             || $tur->req->protocol == "HTTP/0.9")) {
 
-            throw new ProtocolException(
-                BayMessage::get(Symbol::HTP_UNSUPPORTED_PROTOCOL, $tur->req->protocol));
+            throw new ProtocolException(BayMessage::get(Symbol::HTP_UNSUPPORTED_PROTOCOL, $tur->req->protocol));
         }
 
         foreach ($cmd->headers as $nv) {
@@ -251,7 +249,7 @@ class H1InboundHandler implements H1Handler, InboundHandler {
 
         if (BayServer::$harbor->traceHeader()) {
             foreach ($cmd->headers as $item) {
-                BayLog::info($tur . " h1: reqHeader: " . $item[0] . "=" . $item[1]);
+                BayLog::info($tur. " h1: reqHeader: ". $item[0]. "=". $item[1]);
             }
         }
 
@@ -272,7 +270,7 @@ class H1InboundHandler implements H1Handler, InboundHandler {
             }
 
         } catch (HttpException $e) {
-            BayLog::trace($this . " Http error occurred: " . $e);
+            BayLog::trace($this. " Http error occurred: ". $e);
             if ($reqContLen <= 0) {
                 // no post data
                 $tur->res->sendHttpException(Tour::TOUR_ID_NOCHECK, $e);
@@ -281,7 +279,7 @@ class H1InboundHandler implements H1Handler, InboundHandler {
                 return NextSocketAction::CONTINUE;
             } else {
                 // Delay send
-                BayLog::trace($this . " error sending is delayed");
+                BayLog::trace($this. " error sending is delayed");
                 $this->changeState(self::STATE_READ_CONTENT);
                 $tur->error = $e;
                 $tur->req->setContentHandler(ReqContentHandlerUtil::$devNull);
@@ -297,7 +295,7 @@ class H1InboundHandler implements H1Handler, InboundHandler {
         if ($this->state != self::STATE_READ_CONTENT) {
             $s = $this->state;
             $this->resetState();
-            throw new ProtocolException("Content command not expected: state=" . $s);
+            throw new ProtocolException("Content command not expected: state=". $s);
         }
 
         $tur = $this->curTour;
@@ -305,8 +303,7 @@ class H1InboundHandler implements H1Handler, InboundHandler {
 
         try {
             $sid = $this->ship()->shipId;
-            $success = $tur->req->postReqContent(
-                $tourId,
+            $success = $tur->req->postReqContent($tourId,
                 $cmd->buf,
                 $cmd->start,
                 $cmd->len,

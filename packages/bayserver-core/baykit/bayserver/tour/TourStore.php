@@ -44,7 +44,7 @@ class TourStore {
     {
         $tur = $this->get($key);
         if($tur !== null)
-            throw new Sink("Tour is active: " . $tur);
+            throw new Sink("Tour is active: ". $tur);
 
         if (count($this->freeTours) > 0) {
             //BayLog.debug("rent: key=%d from free tours", key);
@@ -66,7 +66,7 @@ class TourStore {
     public function Return(int $key) : void
     {
         if(!array_key_exists($key, $this->activeTourMap)) {
-            throw new Sink("Tour is not active key=: " . key);
+            throw new Sink("Tour is not active key=: ". key);
         }
         $tur = $this->activeTourMap[$key];
         unset($this->activeTourMap[$key]);

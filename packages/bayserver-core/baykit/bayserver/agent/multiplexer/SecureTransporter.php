@@ -17,7 +17,7 @@ class SecureTransporter extends PlainTransporter {
     }
 
     public function __toString(): string {
-        return "stp[" . $this->ship . "]";
+        return "stp[". $this->ship. "]";
     }
 
 

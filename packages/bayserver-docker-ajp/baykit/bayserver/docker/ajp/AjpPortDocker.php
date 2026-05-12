@@ -39,14 +39,12 @@ class AjpPortDocker extends PortBase implements AjpDocker
 //////////////////////////////////////////////////////
 // Class initializer
 //////////////////////////////////////////////////////
-PacketStore::registerProtocol(
-    AjpDocker::PROTO_NAME,
+PacketStore::registerProtocol(AjpDocker::PROTO_NAME,
     new AjpPacketFactory()
 );
 
 
 
-ProtocolHandlerStore::registerProtocol(
-    AjpDocker::PROTO_NAME,
+ProtocolHandlerStore::registerProtocol(AjpDocker::PROTO_NAME,
     true,
     new AjpInboundProtocolHandlerFactory());

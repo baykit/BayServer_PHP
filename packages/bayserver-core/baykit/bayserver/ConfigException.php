@@ -7,7 +7,7 @@ class ConfigException extends BayException
     public $fileName;
     public $lineNo;
 
-    public function __construct($fileName, $lineNo, $fmt, ...$args) {
+    public function __construct($fileName, $lineNo, $fmt,...$args) {
         if ($fmt === null)
             $msg = NULL;
         elseif (count($args) == 0)

@@ -181,7 +181,7 @@ class H1WarpHandler implements WarpHandler, H1Handler {
             BayLog::info("%s warp_http: resStatus: %d", $wdat, $cmd->status);
         }
 
-        foreach( $cmd->headers as $nv) {
+        foreach($cmd->headers as $nv) {
             $tur->res->headers->add($nv[0], $nv[1]);
             if(BayServer::$harbor->traceHeader()) {
                 BayLog::info("%s warp_http: resHeader: %s=%s", $wdat, $nv[0], $nv[1]);
@@ -262,13 +262,12 @@ class H1WarpHandler implements WarpHandler, H1Handler {
         //BayServer.debug(this + " construct header");
         $townPath = $town->name;
         if (!StringUtil::endsWith($townPath, "/"))
-            $townPath .= "/";
+            $townPath.= "/";
 
         $sip = $this->ship();
-        $newUri = $sip->docker->warpBase . substr($tur->req->uri, strlen($townPath));
+        $newUri = $sip->docker->warpBase. substr($tur->req->uri, strlen($townPath));
 
-        $cmd = CmdHeader::newReqHeader(
-            $tur->req->method,
+        $cmd = CmdHeader::newReqHeader($tur->req->method,
             $newUri,
             "HTTP/1.1");
 
@@ -298,7 +297,7 @@ class H1WarpHandler implements WarpHandler, H1Handler {
         else
             $cmd->setHeader(Headers::X_FORWARDED_HOST, $tur->req->headers->get(Headers::HOST));
 
-        $cmd->setHeader(Headers::HOST, $sip->docker->host . ":" . $sip->docker->port);
+        $cmd->setHeader(Headers::HOST, $sip->docker->host. ":". $sip->docker->port);
         $cmd->setHeader(Headers::CONNECTION, "Keep-Alive");
 
         if(BayServer::$harbor->traceHeader()) {

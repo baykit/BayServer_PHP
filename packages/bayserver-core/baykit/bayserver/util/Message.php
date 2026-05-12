@@ -18,12 +18,12 @@ class Message {
     public function init($filePrefix, $locale)
     {
         $lang = $locale->language;
-        $file = $filePrefix . ".bcf";
+        $file = $filePrefix. ".bcf";
         if (StringUtil::isSet($lang) && $lang != "en")
-            $file = $filePrefix . "_" . $lang . ".bcf";
+            $file = $filePrefix. "_". $lang. ".bcf";
 
         if (!is_file($file)) {
-            BayLog::warn("Cannot find message file: " . $file);
+            BayLog::warn("Cannot find message file: ". $file);
             return false;
         }
 
@@ -37,11 +37,11 @@ class Message {
         }
     }
 
-    public function get($key, ...$args)
+    public function get($key,...$args)
     {
         $msg = $this->messages[$key];
         if ($msg === false)
             $msg = $key;
-        return sprintf($msg, ...$args);
+        return sprintf($msg,...$args);
     }
 }

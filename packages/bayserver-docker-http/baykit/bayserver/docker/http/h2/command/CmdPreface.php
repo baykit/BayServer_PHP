@@ -13,7 +13,7 @@ use baykit\bayserver\util\StringUtil;
 /**
  * Preface is dummy command and packet
  *
- *   packet is not in frame format but raw data: "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
+ *  packet is not in frame format but raw data: "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
  */
 class CmdPreface extends H2Command
 {

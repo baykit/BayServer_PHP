@@ -37,8 +37,7 @@ class CommandPacker implements Reusable
         try {
             $cmd->pack($pkt);
 
-            $this->pkt_packer->post(
-                $sip,
+            $this->pkt_packer->post($sip,
                 $pkt,
                 function () use ($lsnr, $pkt) {
                     $this->pktStore->Return($pkt);

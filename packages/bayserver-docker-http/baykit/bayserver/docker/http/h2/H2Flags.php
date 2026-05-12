@@ -13,7 +13,7 @@ class H2Flags {
 
     public $flags = self::FLAGS_NONE;
 
-    public function __construct(int $flags = self::FLAGS_NONE) 
+    public function __construct(int $flags = self::FLAGS_NONE)
     {
         $this->flags = $flags;
     }
@@ -41,7 +41,7 @@ class H2Flags {
         return $this->getFlag(self::FLAGS_ACK);
     }
 
-    public function setAck(bool $isAck) : void 
+    public function setAck(bool $isAck) : void
     {
         $this->setFlag(self::FLAGS_ACK, $isAck);
     }

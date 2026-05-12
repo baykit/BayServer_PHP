@@ -258,7 +258,7 @@ class H2InboundHandler implements H2Handler, InboundHandler
         BayLog::debug("%s handle_data: stm=%d len=%d", $this->ship(), $cmd->streamId, $cmd->length);
         $tur = $this->getTour($cmd->streamId);
         if($tur == null) {
-            throw new \InvalidArgumentException("Invalid stream id: " . $cmd->streamId);
+            throw new \InvalidArgumentException("Invalid stream id: ". $cmd->streamId);
         }
         if($tur->req->headers->contentLength() <= 0) {
             throw new ProtocolException("Post content not allowed");
@@ -268,8 +268,7 @@ class H2InboundHandler implements H2Handler, InboundHandler
             $success = true;
             if($cmd->length > 0) {
                 $tid = $tur->tourId;
-                $success = $tur->req->postReqContent(
-                                    Tour::TOUR_ID_NOCHECK,
+                $success = $tur->req->postReqContent(Tour::TOUR_ID_NOCHECK,
                                             $cmd->data,
                                             $cmd->start,
                                             $cmd->length,

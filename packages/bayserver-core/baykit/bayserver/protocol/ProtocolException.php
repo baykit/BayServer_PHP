@@ -6,15 +6,15 @@ use baykit\bayserver\BayException;
 
 class ProtocolException extends BayException
 {
-    public function __construct(?string $fmt, ...$args)
+    public function __construct(?string $fmt,...$args)
     {
         if ($fmt === null)
             $msg = "";
         elseif (count($args) == 0)
             $msg = sprintf("%s", $fmt);
         else
-            $msg = sprintf($fmt, ...$args);
+            $msg = sprintf($fmt,...$args);
 
-        parent::__construct($msg . "(>_<)");
+        parent::__construct($msg. "(>_<)");
     }
 }

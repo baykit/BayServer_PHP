@@ -13,10 +13,10 @@ class CGIMessage
     public static function init() : void
     {
         self::$msg = new Message();
-        self::$msg->init(BayServer::$bservHome . "/lib/conf/cgi_messages", Locale::getDefault());
+        self::$msg->init(BayServer::$bservHome. "/lib/conf/cgi_messages", Locale::getDefault());
     }
 
-    public static function get(string $key, object ...$args) : string
+    public static function get(string $key, object...$args) : string
     {
         return self::$msg->get($key, $args);
     }

@@ -18,8 +18,7 @@ class H2InboundProtocolHandlerFactory implements ProtocolHandlerFactory
         $packetPacker = new PacketPacker();
         $commandPacker = new CommandPacker($packetPacker, $pktStore);
         $protocolHandler =
-            new H2ProtocolHandler(
-                $inboundHandler,
+            new H2ProtocolHandler($inboundHandler,
                 $packetUnpacker,
                 $packetPacker,
                 $commandUnpacker,

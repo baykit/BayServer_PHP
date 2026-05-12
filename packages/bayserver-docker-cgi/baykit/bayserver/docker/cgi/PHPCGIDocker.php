@@ -28,7 +28,7 @@ class PHPCGIDocker extends CGIDocker
         if ($this->interpreter == null)
             $this->interpreter = "php-cgi";
 
-        BayLog::info("PHP interpreter: " . $this->interpreter);
+        BayLog::info("PHP interpreter: ". $this->interpreter);
     }
 
 

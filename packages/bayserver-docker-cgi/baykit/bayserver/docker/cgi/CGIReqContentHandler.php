@@ -9,6 +9,7 @@ use baykit\bayserver\BayServer;
 use baykit\bayserver\common\Multiplexer;
 use baykit\bayserver\common\Postpone;
 use baykit\bayserver\common\RudderState;
+use baykit\bayserver\common\RudderStateStore;
 use baykit\bayserver\docker\Harbor;
 use baykit\bayserver\HttpException;
 use baykit\bayserver\rudder\Rudder;
@@ -24,7 +25,7 @@ use baykit\bayserver\util\SysUtil;
 class CGIReqContentHandler implements ReqContentHandler, Postpone
 {
     const READ_CHUNK_SIZE = 8192;
-    
+
     public CGIDocker $cgiDocker;
     public ?Tour $tour;
     public int $tourId;
@@ -130,8 +131,7 @@ class CGIReqContentHandler implements ReqContentHandler, Postpone
     {
         $this->available = false;
 
-        $fds = array(
-            0 => array("pipe", "r"),
+        $fds = array(0 => array("pipe", "r"),
             1 => array("pipe", "w"),
             2 => SysUtil::runOnWindows() ? STDERR : array("pipe", "w")
         );
@@ -169,7 +169,7 @@ class CGIReqContentHandler implements ReqContentHandler, Postpone
 
         $bufsize = $this->tour->ship->protocolHandler->maxResPacketDataSize();
 
-        $fname = "cgi#" . $this->pid;
+        $fname = "cgi#". $this->pid;
 
         $agt = GrandAgent::get($this->tour->ship->agentId);
 
@@ -196,7 +196,9 @@ class CGIReqContentHandler implements ReqContentHandler, Postpone
         $outTp->init();
         $outShip->initOutShip($this->stdOutRd, $this->tour->ship->agentId, $this->tour, $outTp, $this);
 
-        $mpx->addRudderState($this->stdOutRd, new RudderState($this->stdOutRd, $outTp));
+        $stOut = RudderStateStore::getStore($this->tour->ship->agentId)->rent();
+        $stOut->init($this->stdOutRd, $outTp);
+        $mpx->addRudderState($this->stdOutRd, $stOut);
 
         $sid = $outShip->shipId;
         $this->tour->res->setConsumeListener(function ($len, $resume) use ($outShip, $sid){
@@ -212,7 +214,9 @@ class CGIReqContentHandler implements ReqContentHandler, Postpone
             $errTp->init();
             $errShip->initErrShip($this->stdErrRd, $this->tour->ship->agentId, $this);
 
-            $mpx->addRudderState($this->stdErrRd, new RudderState($this->stdErrRd, $errTp));
+            $stErr = RudderStateStore::getStore($this->tour->ship->agentId)->rent();
+            $stErr->init($this->stdErrRd, $errTp);
+            $mpx->addRudderState($this->stdErrRd, $stErr);
             $mpx->reqRead($this->stdErrRd);
         }
 

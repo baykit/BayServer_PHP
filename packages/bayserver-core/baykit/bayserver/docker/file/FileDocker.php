@@ -3,6 +3,7 @@ namespace baykit\bayserver\docker\file;
 
 
 
+use baykit\bayserver\BayServer;
 use baykit\bayserver\bcf\BcfElement;
 use baykit\bayserver\bcf\BcfKeyVal;
 use baykit\bayserver\docker\base\ClubBase;
@@ -17,6 +18,8 @@ use baykit\bayserver\util\URLDecoder;
 class FileDocker extends ClubBase
 {
     public $listFiles = false;
+    /** Lazily-allocated per-docker file content cache */
+    private ?FileStore $fileStore = null;
 
     ///////////////////////////////////////////////////////////////////////
     // Implements Docker
@@ -67,7 +70,11 @@ class FileDocker extends ClubBase
             throw new HttpException(HttpStatus::NOT_FOUND, $relPath);
         }
         else {
-            $handler = new FileContentHandler($real);
+            if (BayServer::$harbor->enableCache() && $this->fileStore === null) {
+                $this->fileStore = new FileStore(BayServer::$harbor->cacheLifespanSec(),
+                    BayServer::$harbor->cacheSizeMb() * 1024 * 1024);
+            }
+            $handler = new FileContentHandler($real, $this->fileStore);
             $tur->req->setContentHandler($handler);
         }
     }

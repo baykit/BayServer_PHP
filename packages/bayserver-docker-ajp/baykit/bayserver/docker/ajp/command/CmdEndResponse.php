@@ -12,8 +12,8 @@ use baykit\bayserver\protocol\Packet;
  * End response body format
  *
  * AJP13_END_RESPONSE :=
- *   prefix_code       5
- *   reuse             (boolean)
+ *  prefix_code       5
+ *  reuse             (boolean)
  */
 class CmdEndResponse extends AjpCommand
 {

@@ -2,7 +2,7 @@
 
 namespace baykit\bayserver\docker\http\h2;
 
-class H2Settings 
+class H2Settings
 {
     const DEFAULT_HEADER_TABLE_SIZE = 4096;
     const DEFAULT_ENABLE_PUSH = true;

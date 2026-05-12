@@ -17,7 +17,7 @@ class ArrayUtil
 
     public static function insert($needle, array &$arr, int $idx) : void
     {
-        array_splice( $arr, $idx, 0, [$needle]);
+        array_splice($arr, $idx, 0, [$needle]);
     }
 
     public static function get($key, array $arr)
@@ -33,11 +33,11 @@ class ArrayUtil
         $ret = null;
         foreach($arr as $key => $val) {
             if($ret)
-                $ret .= ", ";
+                $ret.= ", ";
             else
                 $ret = "";
-            $ret .= "{$key}={$val}";
+            $ret.= "{$key}={$val}";
         }
-        return "[" . $ret . "]";
+        return "[". $ret. "]";
     }
 }

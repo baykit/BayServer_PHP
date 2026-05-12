@@ -29,7 +29,7 @@ class HeaderBlockAnalyzer
             case HeaderBlock::INDEX: {
                 $kv = $tbl->get($blk->index);
                 if($kv == null)
-                    throw new ProtocolException("Invalid header index: " . $blk->index);
+                    throw new ProtocolException("Invalid header index: ". $blk->index);
                 $this->name = $kv->name;
                 $this->value = $kv->value;
                 break;
@@ -39,7 +39,7 @@ class HeaderBlockAnalyzer
             case HeaderBlock::OVERLOAD_KNOWN_HEADER: {
                 $kv = $tbl->get($blk->index);
                 if($kv == null)
-                    throw new ProtocolException("Invalid header index: " . $blk->index);
+                    throw new ProtocolException("Invalid header index: ". $blk->index);
                 $this->name = $kv->name;
                 $this->value = $blk->value;
                 if($blk->op == HeaderBlock::OVERLOAD_KNOWN_HEADER)

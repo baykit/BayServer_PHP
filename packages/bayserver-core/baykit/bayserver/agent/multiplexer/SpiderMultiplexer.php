@@ -58,7 +58,7 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
     }
 
     public function __toString(): string {
-        return "SpiderMpx[" . $this->agent . "]";
+        return "SpiderMpx[". $this->agent. "]";
     }
 
     ////////////////////////////////////////////
@@ -426,7 +426,7 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
         BayLog::debug("%s write zero bytes success=%s", $this, $success);
         if ($success === false || $success == -1) {
             BayLog::error("Connect failed: %s", SysUtil::lastErrorMessage());
-            $this->agent->sendErrorLetter($st, new IOException("Connect failed: " . SysUtil::lastErrorMessage()), false);
+            $this->agent->sendErrorLetter($st, new IOException("Connect failed: ". SysUtil::lastErrorMessage()), false);
             return;
         }
         $this->agent->sendConnectedLetter($st, false);
@@ -477,7 +477,7 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
 
                         $st->writeTryCount++;
                         if ($st->writeTryCount > 100) {
-                            throw new IOException($this . " Too many retry count to write");
+                            throw new IOException($this. " Too many retry count to write");
                         }
                         # Data remains
                         break;
@@ -521,9 +521,9 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
             $op_str = "OP_READ";
         if (($op & Selector::OP_WRITE) != 0) {
             if ($op_str != "") {
-                $op_str .= "|";
+                $op_str.= "|";
             }
-            $op_str .= "OP_WRITE";
+            $op_str.= "OP_WRITE";
         }
         return $op_str;
     }

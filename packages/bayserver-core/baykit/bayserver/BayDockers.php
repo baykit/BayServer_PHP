@@ -41,7 +41,7 @@ class BayDockers
         if (StringUtil::isEmpty($alias_name))
             $key = $category;
         else
-            $key = $category . ":" . $alias_name;
+            $key = $category. ":". $alias_name;
 
         if (!array_key_exists($key, $this->docker_map))
             throw new BayException(BayMessage::get(Symbol::CFG_DOCKER_NOT_FOUND, $key));

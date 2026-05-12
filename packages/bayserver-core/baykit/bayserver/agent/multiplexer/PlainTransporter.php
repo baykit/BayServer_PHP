@@ -36,7 +36,7 @@ class PlainTransporter implements Transporter {
     }
 
     public function __toString(): string {
-        return "tp[" . $this->ship . "]";
+        return "tp[". $this->ship. "]";
     }
 
     ////////////////////////////////////////////

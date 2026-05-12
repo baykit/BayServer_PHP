@@ -5,8 +5,8 @@ namespace baykit\bayserver;
 /*
 spl_autoload_register(function ($class_name) {
 
-    $fileName = str_replace('\\', '/', $class_name) . ".php";
-    //$fileName = strtolower(preg_replace('/([a-z])([A-Z])/', '\1_\2', $fileName)) . ".php";
+    $fileName = str_replace('\\', '/', $class_name). ".php";
+    //$fileName = strtolower(preg_replace('/([a-z])([A-Z])/', '\1_\2', $fileName)). ".php";
 
     $success = include($fileName);
     if (!$success) {
@@ -156,7 +156,7 @@ class BayServer
         }
 
         if ($mkpass !== null) {
-            echo(MD5Password::encode($mkpass) . PHP_EOL);
+            echo(MD5Password::encode($mkpass). PHP_EOL);
             exit(0);
         }
 
@@ -198,11 +198,11 @@ class BayServer
             self::$bservPlan = "plan/bayserver.plan";
 
         if (!SysUtil::isAbsolutePath(self::$bservPlan))
-            self::$bservPlan = self::$bservHome . "/" . self::$bservPlan;
+            self::$bservPlan = self::$bservHome. "/". self::$bservPlan;
 
-        BayLog::info("BayServer Plan: " . self::$bservPlan);
+        BayLog::info("BayServer Plan: ". self::$bservPlan);
         if (!file_exists(self::$bservPlan))
-            throw new BayException("Plan file is not a file: " . self::$bservPlan);
+            throw new BayException("Plan file is not a file: ". self::$bservPlan);
     }
 
     static function getLib()
@@ -214,7 +214,7 @@ class BayServer
 
     public static function init()
     {
-        $initDir = self::$bservLib . "/init";
+        $initDir = self::$bservLib. "/init";
         BayLog::debug("init directory: %s", $initDir);
 
         $dirs = scandir($initDir);
@@ -227,14 +227,14 @@ class BayServer
     {
         try {
             if ($agtId == -1 || SysUtil::runOnWindows()) {
-                BayMessage::init(self::$bservLib . "/conf/messages", new Locale('ja', 'JP'));
+                BayMessage::init(self::$bservLib. "/conf/messages", new Locale('ja', 'JP'));
 
                 self::$dockers = new BayDockers();
 
-                self::$dockers->init(self::$bservLib . "/conf/dockers.bcf");
+                self::$dockers->init(self::$bservLib. "/conf/dockers.bcf");
 
-                Mimes::init(self::$bservLib . "/conf/mimes.bcf");
-                HttpStatus::init(self::$bservLib . "/conf/httpstatus.bcf");
+                Mimes::init(self::$bservLib. "/conf/mimes.bcf");
+                HttpStatus::init(self::$bservLib. "/conf/httpstatus.bcf");
 
                 if (self::$bservPlan !== null)
                     self::loadPlan(self::$bservPlan);
@@ -256,12 +256,13 @@ class BayServer
                 #sys.stderr = $f;
 
                 PacketStore::init();
+                \baykit\bayserver\common\RudderStateStore::init();
                 InboundShipStore::init();
                 ProtocolHandlerStore::init();
                 TourStore::init(TourStore::MAX_TOURS);
                 MemUsage::init();
                 self::$myHostName = gethostname();
-                BayLog::debug("Host name    : " . self::$myHostName);
+                BayLog::debug("Host name    : ". self::$myHostName);
 
                 if (SysUtil::runOnPhpStorm()) {
                     $handler = function ($signo, $siginfo) {
@@ -306,25 +307,22 @@ class BayServer
 
                 if ($dkr->secure()) {
                     BayLog::debug("Open secure port");
-                    $skt = stream_socket_server(
-                        "ssl://{$adr[0]}:{$adr[1]}",
+                    $skt = stream_socket_server("ssl://{$adr[0]}:{$adr[1]}",
                         $errno,
                         $errstr,
                         STREAM_SERVER_BIND | STREAM_SERVER_LISTEN,
                         $dkr->sslCtx());
                 } elseif ($adr[1]) {
-                    $skt = stream_socket_server(
-                        "tcp://{$adr[0]}:{$adr[1]}",
+                    $skt = stream_socket_server("tcp://{$adr[0]}:{$adr[1]}",
                         $errno,
                         $errstr);
                 } else {
                     if (file_exists($adr[0])) {
                         if (!unlink($adr[0])) {
-                            throw new IOException("Cannot remove file: " . SysUtil::lastErrorMessage());
+                            throw new IOException("Cannot remove file: ". SysUtil::lastErrorMessage());
                         }
                     }
-                    $skt = stream_socket_server(
-                        "unix://{$adr[0]}",
+                    $skt = stream_socket_server("unix://{$adr[0]}",
                         $errno,
                         $errstr);
                 }
@@ -334,7 +332,7 @@ class BayServer
 
                 // Non blocking mode does not work for accepting
                 //if (stream_set_blocking($skt, false) == false)
-                //    throw new \Exception("Cannot set non blocking: " . socket_strerror(socket_last_error()));
+                //   throw new \Exception("Cannot set non blocking: ". socket_strerror(socket_last_error()));
 
                 BayLog::debug("Server socket=%s", $skt);
                 self::$anchorablePortMap[] = new PortMap(new StreamRudder($skt), $dkr);
@@ -355,13 +353,11 @@ class BayServer
 
         if (!self::$harbor->multiCore()) {
             # Single core mode
-            GrandAgent::init(
-                range(1, self::$harbor->grandAgents()),
+            GrandAgent::init(range(1, self::$harbor->grandAgents()),
                 self::$harbor->maxShips());
         }
 
-        GrandAgentMonitor::init(
-            self::$harbor->grandAgents(),
+        GrandAgentMonitor::init(self::$harbor->grandAgents(),
             $anrhorablePortMap,
             $unanchorablePortMap
         );
@@ -376,13 +372,12 @@ class BayServer
         BayLog::debug("agt#%d child_start", $agtId);
 
         if(SysUtil::runOnWindows()) {
-            self::openPorts(
-                GrandAgentMonitor::$anchoredPortMap,
+            self::openPorts(GrandAgentMonitor::$anchoredPortMap,
                 GrandAgentMonitor::$unanchoredPortMap);
 
             $code = null;
             $msg = null;
-            $comCh = stream_socket_client("127.0.0.1:" . self::$monitorPort, $code, $msg);
+            $comCh = stream_socket_client("127.0.0.1:". self::$monitorPort, $code, $msg);
             $rd = new SocketRudder($comCh);
         }
         else {
@@ -410,7 +405,7 @@ class BayServer
     */
     public static function  getSoftwareName() : string{
         if (self::$softwareName === null)
-            self::$softwareName = "BayServer/" . self::getVersion();
+            self::$softwareName = "BayServer/". self::getVersion();
         return self::$softwareName;
     }
 
@@ -442,9 +437,9 @@ class BayServer
 
     public static function printVersion(): void
     {
-        $version = "Version " . self::getVersion();
+        $version = "Version ". self::getVersion();
         while (strlen($version) < 28)
-            $version = ' ' . $version;
+            $version = ' '. $version;
 
         echo("        ----------------------\n");
         echo("       /     BayServer        \\\n");
@@ -453,7 +448,7 @@ class BayServer
         for ($i = 0; $i < 47 - strlen($version); $i++)
             echo(" ");
 
-        echo($version . "  /\n");
+        echo($version. "  /\n");
         echo("  \\           Copyright (C) 2021 Yokohama Baykit  /\n");
         echo("   \\                     http://baykit.yokohama  /\n");
         echo("    ---------------------------------------------\n");
@@ -472,7 +467,7 @@ class BayServer
     public static function getLocation(string $val): string
     {
         if (!SysUtil::isAbsolutePath($val))
-            $val = self::$bservHome . "/" . $val;
+            $val = self::$bservHome. "/". $val;
 
         return $val;
     }

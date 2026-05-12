@@ -45,8 +45,7 @@ class IpMatcher
     {
         $items = explode("/", $ipDesc);
         if (count($items) != 2)
-            throw new \InvalidArgumentException(
-                BayMessage::get(Symbol::CFG_INVALID_IP_DESC, $ipDesc));
+            throw new \InvalidArgumentException(BayMessage::get(Symbol::CFG_INVALID_IP_DESC, $ipDesc));
 
         $this->netAdr = $items[0];
         $this->mask = (int)$items[1];
@@ -56,21 +55,18 @@ class IpMatcher
             // IPv4
             $this->isV6 = false;
             if($this->mask < 0 || $this->mask > 32) {
-                throw new \InvalidArgumentException(
-                    BayMessage::get(Symbol::CFG_INVALID_IP_DESC, $ipDesc));
+                throw new \InvalidArgumentException(BayMessage::get(Symbol::CFG_INVALID_IP_DESC, $ipDesc));
             }
         }
         else if(filter_var($this->netAdr, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
             // IPv6
             $this->isV6 = true;
             if($this->mask < 0 || $this->mask > 128) {
-                throw new \InvalidArgumentException(
-                    BayMessage::get(Symbol::CFG_INVALID_IP_DESC, $ipDesc));
+                throw new \InvalidArgumentException(BayMessage::get(Symbol::CFG_INVALID_IP_DESC, $ipDesc));
             }
         }
         else {
-            throw new \InvalidArgumentException(
-                BayMessage::get(Symbol::CFG_INVALID_IP_DESC, $ipDesc));
+            throw new \InvalidArgumentException(BayMessage::get(Symbol::CFG_INVALID_IP_DESC, $ipDesc));
         }
     }
 
@@ -89,7 +85,7 @@ class IpMatcher
 
         $maskBin = str_repeat("\xff", (int)($this->mask / 8));
         if ($this->mask % 8) {
-            $maskBin .= chr(0xff << (8 - ($this->mask % 8)));
+            $maskBin.= chr(0xff << (8 - ($this->mask % 8)));
         }
         $maskBin = str_pad($maskBin, strlen($ipBin), "\0");
 

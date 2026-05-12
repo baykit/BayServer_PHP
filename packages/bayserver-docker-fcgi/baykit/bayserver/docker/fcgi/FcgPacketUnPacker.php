@@ -79,7 +79,7 @@ class FcgPacketUnPacker extends PacketUnPacker {
         $nextWrite = false;
         $pos = 0;
 
-        while ( $pos < strlen($buf)) {
+        while ($pos < strlen($buf)) {
             while ($this->state != self::STATE_END and $pos < strlen($buf)) {
                 switch ($this->state) {
                     case self::STATE_READ_PREAMBLE: {

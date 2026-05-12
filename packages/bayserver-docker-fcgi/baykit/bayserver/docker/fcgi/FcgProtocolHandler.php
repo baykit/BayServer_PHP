@@ -9,8 +9,7 @@ use baykit\bayserver\protocol\ProtocolHandler;
 class FcgProtocolHandler extends ProtocolHandler
 {
 
-    public function __construct(
-                        FcgHandler $h1Handler,
+    public function __construct(FcgHandler $h1Handler,
                         FcgPacketUnpacker $packetUnpacker,
                         PacketPacker $packetPacker,
                         FcgCommandUnpacker $commandUnpacker,

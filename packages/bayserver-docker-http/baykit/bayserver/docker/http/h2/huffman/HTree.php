@@ -24,7 +24,7 @@ class HTree
 
                 if ($cur->value >= 0) {
                     // leaf node
-                    $w .= chr($cur->value);
+                    $w.= chr($cur->value);
                     $cur = self::$root;
                 }
             }

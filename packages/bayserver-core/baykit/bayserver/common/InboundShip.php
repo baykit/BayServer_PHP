@@ -121,7 +121,7 @@ class InboundShip extends Ship
 
         if(!empty($this->activeTours)) {
             // cannot close because there are some running tours
-            BayLog::debug($this . " cannot end ship because there are some running tours (ignore)");
+            BayLog::debug($this. " cannot end ship because there are some running tours (ignore)");
             $this->needEnd = true;
         }
         else {
@@ -208,8 +208,8 @@ class InboundShip extends Ship
         $hdr->status = $status;
         $hdr->set(Headers::LOCATION, $location);
 
-        $body = "<H2>Document Moved.</H2><BR>" . "<A HREF=\""
-                . $location . "\">" . $location . "</A>";
+        $body = "<H2>Document Moved.</H2><BR>". "<A HREF=\""
+. $location. "\">". $location. "</A>";
 
         $this->sendErrorContent($chkId, $tour, $body);
     }
@@ -284,7 +284,7 @@ class InboundShip extends Ship
 
         // Set content type
         if (StringUtil::isSet($charset)) {
-            $tur->res->headers->setContentType("text/html; charset=" . $charset);
+            $tur->res->headers->setContentType("text/html; charset=". $charset);
         }
         else {
             $tur->res->headers->setContentType("text/html");
@@ -356,7 +356,7 @@ class InboundShip extends Ship
             $this->endShip();
         }
     }
-    
+
     public static function initClass() {
         InboundShip::$errCounter = new Counter();
     }

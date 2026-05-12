@@ -17,8 +17,7 @@ class FcgInboundProtocolHandlerFactory implements ProtocolHandlerFactory
         $packetPacker = new PacketPacker();
         $commandPacker = new CommandPacker($packetPacker, $pktStore);
         $protocolHandler =
-            new FcgProtocolHandler(
-                $inboundHandler,
+            new FcgProtocolHandler($inboundHandler,
                 $packetUnpacker,
                 $packetPacker,
                 $commandUnpacker,

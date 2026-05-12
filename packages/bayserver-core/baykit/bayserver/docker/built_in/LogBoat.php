@@ -12,7 +12,7 @@ class LogBoat extends Boat implements Reusable {
 
     public function __toString()
     {
-        return "lboat#" . $this->boartId . "/" . $this->objectId . " file=" . $this->fileName;
+        return "lboat#". $this->boartId. "/". $this->objectId. " file=". $this->fileName;
     }
 
 
@@ -47,7 +47,7 @@ class LogBoat extends Boat implements Reusable {
     {
         if($data === null)
             $data = "";
-        $data .= PHP_EOL;
+        $data.= PHP_EOL;
         $this->postman->post($data, null, $this->fileName, null);
     }
 }

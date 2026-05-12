@@ -75,7 +75,7 @@ class StringUtil {
         try {
             $s = \mb_convert_encoding("", "utf-8", $charset);
             if ($s === false)
-                throw new \ValueError("invalid charset: " . $charset);
+                throw new \ValueError("invalid charset: ". $charset);
         } catch (\Error $e) {
             BayLog::warn("Cannot check encoding: %s", $e->getMessage());
             return $charset;

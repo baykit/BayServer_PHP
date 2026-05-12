@@ -11,8 +11,7 @@ use baykit\bayserver\protocol\ProtocolHandler;
 class AjpProtocolHandler extends ProtocolHandler
 {
 
-    public function __construct(
-                        AjpHandler $ajpHandler,
+    public function __construct(AjpHandler $ajpHandler,
                         AjpPacketUnpacker $packetUnpacker,
                         PacketPacker $packetPacker,
                         AjpCommandUnpacker $commandUnpacker,

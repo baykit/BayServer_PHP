@@ -52,7 +52,7 @@ class FcgCommandUnPacker extends CommandUnPacker
 
 
             default:
-                throw new \Exception("Invalid packet" . $pkt);
+                throw new \Exception("Invalid packet". $pkt);
         }
 
         $cmd->unpack($pkt);

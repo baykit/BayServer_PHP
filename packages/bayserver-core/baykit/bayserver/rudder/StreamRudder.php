@@ -23,7 +23,7 @@ class StreamRudder implements Rudder
 
     public function __toString(): string
     {
-        return "StreamRudder(" . $this->stream . ")";
+        return "StreamRudder(". $this->stream. ")";
     }
 
     public function key()
@@ -34,7 +34,7 @@ class StreamRudder implements Rudder
     public function setNonBlocking(): void
     {
         if (stream_set_blocking($this->stream, false) === false) {
-            throw new IOException("Cannot set nonblock: " . SysUtil::lastErrorMessage());
+            throw new IOException("Cannot set nonblock: ". SysUtil::lastErrorMessage());
         }
     }
 
@@ -50,7 +50,7 @@ class StreamRudder implements Rudder
             }
             else {
                 $error = error_get_last();
-                throw new IOException($this . " Read failed: " .  $error['message']);
+                throw new IOException($this. " Read failed: ".  $error['message']);
             }
         }
 
@@ -64,7 +64,7 @@ class StreamRudder implements Rudder
 
         if($ret === false) {
             $error = error_get_last();
-            throw new IOException($this . " Write failed: " .  $error['message']);
+            throw new IOException($this. " Write failed: ".  $error['message']);
         }
 
         return $ret;

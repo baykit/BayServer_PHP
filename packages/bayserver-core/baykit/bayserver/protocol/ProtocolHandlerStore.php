@@ -111,8 +111,8 @@ class ProtocolHandlerStore extends ObjectStore
     public static function constructProtocol(string $protocol, bool $svrMode) : string
     {
         if($svrMode)
-            return $protocol . "-s";
+            return $protocol. "-s";
         else
-            return $protocol . "-c";
+            return $protocol. "-c";
     }
 }

@@ -44,7 +44,7 @@ class SecureTransporter extends Transporter
                 BayLog::error("%s SSL Error: %s", $this, $msg);
             BayLog::error("%s Socket Error: %s", $this, SysUtil::lastSocketErrorMessage());
             BayLog::error("%s System Error: %s", $this, SysUtil::lastErrorMessage());
-            throw new IOException("Cannot read data: " . SysUtil::lastErrorMessage());
+            throw new IOException("Cannot read data: ". SysUtil::lastErrorMessage());
         }
         return [$ret, null];
     }
@@ -64,7 +64,7 @@ class SecureTransporter extends Transporter
                     BayLog::error("%s SSL Error: %s", $this, $msg);
                 BayLog::error("%s Socket Error: %s", $this, SysUtil::lastSocketErrorMessage());
                 BayLog::error("%s System Error: %s", $this, SysUtil::lastErrorMessage());
-                throw new IOException("Cannot write data: " . SysUtil::lastErrorMessage());
+                throw new IOException("Cannot write data: ". SysUtil::lastErrorMessage());
             }
         }
         return $ret;

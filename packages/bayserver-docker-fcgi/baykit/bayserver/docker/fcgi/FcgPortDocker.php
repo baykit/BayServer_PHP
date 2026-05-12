@@ -37,14 +37,12 @@ class FcgPortDocker extends PortBase implements FcgDocker
 //////////////////////////////////////////////////////
 // Class initializer
 //////////////////////////////////////////////////////
-PacketStore::registerProtocol(
-    FcgDocker::PROTO_NAME,
+PacketStore::registerProtocol(FcgDocker::PROTO_NAME,
     new FcgPacketFactory()
 );
 
 
 
-ProtocolHandlerStore::registerProtocol(
-    FcgDocker::PROTO_NAME,
+ProtocolHandlerStore::registerProtocol(FcgDocker::PROTO_NAME,
     true,
     new FcgInboundProtocolHandlerFactory());

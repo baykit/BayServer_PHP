@@ -18,8 +18,7 @@ class H1WarpProtocolHandlerFactory implements ProtocolHandlerFactory
         $packetPacker = new PacketPacker();
         $commandPacker = new CommandPacker($packetPacker, $pktStore);
         $protocolHandler =
-            new H1ProtocolHandler(
-                $warpHandler,
+            new H1ProtocolHandler($warpHandler,
                 $packetUnpacker,
                 $packetPacker,
                 $commandUnpacker,

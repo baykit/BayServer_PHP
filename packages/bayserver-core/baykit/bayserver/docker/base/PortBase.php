@@ -12,6 +12,7 @@ use baykit\bayserver\common\Cities;
 use baykit\bayserver\common\InboundShip;
 use baykit\bayserver\common\InboundShipStore;
 use baykit\bayserver\common\RudderState;
+use baykit\bayserver\common\RudderStateStore;
 use baykit\bayserver\ConfigException;
 use baykit\bayserver\docker\City;
 use baykit\bayserver\docker\Docker;
@@ -40,6 +41,7 @@ abstract class PortBase extends DockerBase implements Port {
     public $additionalHeaders = [];
     public Cities $cities;
     public int $nonBlockingTimeoutMillis = PortBase::DEFAULT_NON_BLOCKING_TIMEOUT_MILLISEC;
+    private int $socketBufferSize = -1;
 
     public function __construct()
     {
@@ -66,7 +68,7 @@ abstract class PortBase extends DockerBase implements Port {
             $anchored = true;
             $this->port = -1;
             $this->socketPath = substr($elm->arg, 6);
-            $this->host = ":unix:" . $this->socketPath;
+            $this->host = ":unix:". $this->socketPath;
         }
         else {
             // TCP or UDP port
@@ -190,7 +192,7 @@ abstract class PortBase extends DockerBase implements Port {
     public function address(): array
     {
         if ($this->socketPath) {
-            #  Unix domain socket
+            # Unix domain socket
             return [$this->socketPath, null];
         }
         elseif ($this->host == null) {
@@ -233,22 +235,30 @@ abstract class PortBase extends DockerBase implements Port {
         $sip = self::getShipStore($agtId)->rent();
         $agt = GrandAgent::get($agtId);
 
+        // Cache the SO_RCVBUF size on first connection so subsequent
+        // accepts skip the getsockopt() syscall.
+        if ($this->socketBufferSize < 0) {
+            $this->socketBufferSize = IOUtil::getSockRecvBufSize($rd->key());
+            if ($this->socketBufferSize <= 0)
+                $this->socketBufferSize = 8192;
+        }
+
         if ($this->secure()) {
-            $tp = $this->secureDocker->newTransporter($agtId, $sip, IOUtil::getSockRecvBufSize($rd->key()));
+            $tp = $this->secureDocker->newTransporter($agtId, $sip, $this->socketBufferSize);
         }
         else {
-            $tp = new PlainTransporter(
-                        $agt->netMultiplexer,
+            $tp = new PlainTransporter($agt->netMultiplexer,
                         $sip,
                         false,
-                        IOUtil::getSockRecvBufSize($rd->key()),
+                        $this->socketBufferSize,
                 false);
         }
 
         $protoHnd = PortBase::getProtocolHandlerStore($this->protocol(), $agtId)->rent();
         $sip->initInbound($rd, $agtId, $tp, $this, $protoHnd);
 
-        $st = new RudderState($rd, $tp);
+        $st = RudderStateStore::getStore($agtId)->rent();
+        $st->init($rd, $tp);
         $agt->netMultiplexer->addRudderState($rd, $st);
         $agt->netMultiplexer->reqRead($rd);
     }

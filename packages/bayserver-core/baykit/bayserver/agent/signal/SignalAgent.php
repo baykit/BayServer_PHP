@@ -30,8 +30,7 @@ class SignalAgent
     {
         $this->closed = false;
         $this->port = $port;
-        $this->serverSkt = stream_socket_server(
-            "tcp://127.0.0.1:" . $this->port,
+        $this->serverSkt = stream_socket_server("tcp://127.0.0.1:". $this->port,
             $errno,
             $errstr);
 
@@ -39,7 +38,7 @@ class SignalAgent
             throw new \Exception("Cannot open port: $errstr ($errno)");
 
         if (stream_set_blocking($this->serverSkt, true) == false)
-            throw new \Exception("Cannot set non blocking: " . socket_strerror(socket_last_error()));
+            throw new \Exception("Cannot set non blocking: ". socket_strerror(socket_last_error()));
 
         BayLog::info(BayMessage::get(Symbol::MSG_OPEN_CTL_PORT, $this->port));
     }
@@ -58,7 +57,7 @@ class SignalAgent
                 $c = fread($clientSkt, 1);
                 if ($c == "\n" || $c == "")
                     break;
-                $line .= $c;
+                $line.= $c;
             }
             BayLog::info(BayMessage::get(Symbol::MSG_COMMAND_RECEIVED, $line));
             SignalAgent::handleCommand($line);
@@ -158,12 +157,12 @@ class SignalAgent
 
         if (SysUtil::runOnWindows()) {
             # Available signals on Windows
-            #    SIGABRT
-            #    SIGFPE
-            #    SIGILL
-            #    SIGINT
-            #    SIGSEGV
-            #    SIGTERM
+            #   SIGABRT
+            #   SIGFPE
+            #   SIGILL
+            #   SIGINT
+            #   SIGSEGV
+            #   SIGTERM
             #self::$signalMap[SIGSEGV] = self::COMMAND_RELOAD_CERT;
             #self::$signalMap[SIGILL] = self::COMMAND_MEM_USAGE;
             #self::$signalMap[SIGINT] = self::COMMAND_SHUTDOWN;

@@ -35,9 +35,9 @@ class ChannelState
             $s = "ChannelState";
 
         if ($this->closing)
-            $s .= " closing=true";
+            $s.= " closing=true";
 
-        return $this->channel . " " . $s;
+        return $this->channel. " ". $s;
     }
 
     public function access(): void
@@ -400,13 +400,13 @@ class NonBlockingHandler implements TimerHandler
         if ($chState->accepted)
             $this->agent->acceptHandler->onClosed();
 
-//        $meta = stream_get_meta_data($ch);
-//        $type = strtolower($meta["stream_type"]);
+//       $meta = stream_get_meta_data($ch);
+//       $type = strtolower($meta["stream_type"]);
 
-//        if(StringUtil::startsWith($type, "tcp_socket"))
-//            $ret = stream_socket_shutdown($ch,  STREAM_SHUT_RDWR);
+//       if(StringUtil::startsWith($type, "tcp_socket"))
+//           $ret = stream_socket_shutdown($ch,  STREAM_SHUT_RDWR);
 
-/*        switch($type) {
+/*       switch($type) {
             case "stdio":
                 $ret = fclose($ch);
                 break;
@@ -465,8 +465,8 @@ class NonBlockingHandler implements TimerHandler
             $op_str = "OP_READ";
         if (($op & Selector::OP_WRITE) != 0) {
             if ($op_str != "") {
-                $op_str .= "|";
-                $op_str .= "OP_WRITE";
+                $op_str.= "|";
+                $op_str.= "OP_WRITE";
             }
         }
         return $op_str;

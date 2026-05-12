@@ -81,23 +81,19 @@ class HtpPortDocker extends PortBase implements HtpDocker
 //////////////////////////////////////////////////////
 // Class initializer
 //////////////////////////////////////////////////////
-PacketStore::registerProtocol(
-    HtpDocker::H1_PROTO_NAME,
+PacketStore::registerProtocol(HtpDocker::H1_PROTO_NAME,
     new H1PacketFactory()
 );
 
-PacketStore::registerProtocol(
-    HtpDocker::H2_PROTO_NAME,
+PacketStore::registerProtocol(HtpDocker::H2_PROTO_NAME,
     new H2PacketFactory()
 );
 
 
-ProtocolHandlerStore::registerProtocol(
-    HtpDocker::H1_PROTO_NAME,
+ProtocolHandlerStore::registerProtocol(HtpDocker::H1_PROTO_NAME,
     true,
     new H1InboundProtocolHandlerFactory());
 
-ProtocolHandlerStore::registerProtocol(
-    HtpDocker::H2_PROTO_NAME,
+ProtocolHandlerStore::registerProtocol(HtpDocker::H2_PROTO_NAME,
     true,
     new H2InboundProtocolHandlerFactory());

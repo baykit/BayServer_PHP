@@ -57,7 +57,7 @@ class BuiltInCityDocker extends DockerBase implements  City  {
 
     public function __toString()
     {
-        return "City[" . $this->name . "]";
+        return "City[". $this->name. "]";
     }
 
     //////////////////////////////////////////////////////
@@ -205,8 +205,8 @@ class BuiltInCityDocker extends DockerBase implements  City  {
 
         foreach (explode("/", $relUri) as $fname) {
             if($relScriptName != "")
-                $relScriptName .= '/';
-            $relScriptName .= $fname;
+                $relScriptName.= '/';
+            $relScriptName.= $fname;
             $breadLoop = false;
             foreach ($clubList as $d) {
                 if($d == $anyd) {
@@ -237,7 +237,7 @@ class BuiltInCityDocker extends DockerBase implements  City  {
             $mi->pathInfo = null;
         }
         else {
-            $mi->scriptName = $townName . $relScriptName;
+            $mi->scriptName = $townName. $relScriptName;
             if (strlen($relScriptName) == strlen($relUri))
                 $mi->pathInfo = null;
             else
@@ -270,9 +270,9 @@ class BuiltInCityDocker extends DockerBase implements  City  {
             // town matched
             $mi->town = $t;
             if ($m == Town::MATCH_TYPE_CLOSE) {
-                $mi->redirectURI = $uri . "/";
+                $mi->redirectURI = $uri. "/";
                 if($mi->queryString !== null)
-                    $mi->redirectURI .= $mi->queryString;
+                    $mi->redirectURI.= $mi->queryString;
                 return $mi;
             }
 
@@ -292,12 +292,12 @@ class BuiltInCityDocker extends DockerBase implements  City  {
             if ($mi->clubMatch === null) {
                 // check index file
                 if(StringUtil::endsWith($uri, "/") && !StringUtil::isEmpty($t->welcome)) {
-                    $indexUri = $uri . $t->welcome;
-                    $relUri = $rel . $t->welcome;
-                    $indexLocation = $t->location . DIRECTORY_SEPARATOR . $relUri;
+                    $indexUri = $uri. $t->welcome;
+                    $relUri = $rel. $t->welcome;
+                    $indexLocation = $t->location. DIRECTORY_SEPARATOR. $relUri;
                     if(is_file($indexLocation)) {
                         if ($mi->queryString !== null)
-                            $indexUri .= "?" . $mi->queryString;
+                            $indexUri.= "?". $mi->queryString;
                         $m2 = $this->getTownAndClub($indexUri);
                         if ($m2 !== null) {
                             // matched

@@ -15,6 +15,7 @@ use baykit\bayserver\BayServer;
 use baykit\bayserver\bcf\BcfElement;
 use baykit\bayserver\bcf\BcfKeyVal;
 use baykit\bayserver\common\RudderState;
+use baykit\bayserver\common\RudderStateStore;
 use baykit\bayserver\ConfigException;
 use baykit\bayserver\docker\base\DockerBase;
 use baykit\bayserver\docker\Docker;
@@ -40,7 +41,7 @@ class BuiltInLogDocker_AgentListener implements LifecycleListener {
     {
         $agt = GrandAgent::get($agentId);
 
-        $fileName = $this->logDocker->filePrefix . "_" . $agentId . "." . $this->logDocker->fileExt;
+        $fileName = $this->logDocker->filePrefix. "_". $agentId. ".". $this->logDocker->fileExt;
         if(file_exists($fileName))
             $size = filesize($fileName);
         else
@@ -56,7 +57,8 @@ class BuiltInLogDocker_AgentListener implements LifecycleListener {
             throw new \Exception("Multiplexer not supported");
         }
 
-        $st = new RudderState($rd);
+        $st = RudderStateStore::getStore($agentId)->rent();
+        $st->init($rd);
         $st->bytesWrote = $size;
         $mpx->addRudderState($rd, $st);
 
@@ -84,8 +86,8 @@ class BuiltInLogDocker extends DockerBase implements Log
     public string $fileExt;
 
     /**
-     *  Logger for each agent.
-     *  Map of Agent ID => LogBoat
+     * Logger for each agent.
+     * Map of Agent ID => LogBoat
      */
     public $loggers = [];
 
@@ -152,11 +154,9 @@ class BuiltInLogDocker extends DockerBase implements Log
         }
 
         if($this->format == null) {
-            throw new ConfigException(
-                $elm->fileName,
+            throw new ConfigException($elm->fileName,
                 $elm->lineNo,
-                BayMessage::get(
-                    Symbol::CFG_INVALID_LOG_FORMAT,
+                BayMessage::get(Symbol::CFG_INVALID_LOG_FORMAT,
                     ""));
         }
 
@@ -186,7 +186,7 @@ class BuiltInLogDocker extends DockerBase implements Log
     }
 
     ///////////////////////////////////////////////////////////////////////////////
-    //  Implements Log                                                           //
+    // Implements Log                                                           //
     ///////////////////////////////////////////////////////////////////////////////
     public function log(Tour $tour) : void
     {
@@ -194,15 +194,14 @@ class BuiltInLogDocker extends DockerBase implements Log
         foreach ($this->logItems as $logItem) {
             $item = $logItem->getItem($tour);
             if ($item === null)
-                $sb .= "-";
+                $sb.= "-";
             else
-                $sb .= $item;
+                $sb.= $item;
         }
 
         // If threre are message to write, write it
         if (strlen($sb) > 0) {
-            $this->multiplexers[$tour->ship->agentId]->reqWrite(
-                $this->rudders[$tour->ship->agentId],
+            $this->multiplexers[$tour->ship->agentId]->reqWrite($this->rudders[$tour->ship->agentId],
                 $sb,
                 null,
                 "Log"
@@ -211,11 +210,11 @@ class BuiltInLogDocker extends DockerBase implements Log
     }
 
     ///////////////////////////////////////////////////////////////////////////////
-    //  Custom methods                                                           //
+    // Custom methods                                                           //
     ///////////////////////////////////////////////////////////////////////////////
 
     ///////////////////////////////////////////////////////////////////////////////
-    //  Private methods                                                          //
+    // Private methods                                                          //
     ///////////////////////////////////////////////////////////////////////////////
 
     /**
@@ -282,10 +281,9 @@ class BuiltInLogDocker extends DockerBase implements Log
         }
 
         if ($error) {
-            throw new ConfigException(
-                $fileName,
+            throw new ConfigException($fileName,
                 $lineNo,
-                BayMessage::get(Symbol::CFG_INVALID_LOG_FORMAT, $this->format . " (unknown control code: '%" . $ctlChar . "')"));
+                BayMessage::get(Symbol::CFG_INVALID_LOG_FORMAT, $this->format. " (unknown control code: '%". $ctlChar. "')"));
         }
 
         $item = $fct();

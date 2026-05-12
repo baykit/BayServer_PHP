@@ -16,8 +16,7 @@ abstract class ProtocolHandler implements Reusable
     public bool $server_mode;
     public ?Ship $ship = null;
 
-    public function __construct(
-        PacketUnPacker $packetUnpacker,
+    public function __construct(PacketUnPacker $packetUnpacker,
         PacketPacker $packetPacker,
         CommandUnPacker $commandUnpacker,
         CommandPacker $commandPacker,

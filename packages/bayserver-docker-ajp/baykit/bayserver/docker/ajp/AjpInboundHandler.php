@@ -152,7 +152,7 @@ class AjpInboundHandler implements InboundHandler, AjpHandler
         BayLog::debug("%s handleForwardRequest method=%s uri=%s state=%d", $sip, $cmd->method, $cmd->reqUri, $this->state);
 
         if($this->state != self::STATE_READ_FORWARD_REQUEST)
-            throw new ProtocolException("Invalid AJP command: " . $cmd->type);
+            throw new ProtocolException("Invalid AJP command: ". $cmd->type);
 
         $this->keeping = false;
         $this->reqCommand = $cmd;
@@ -173,9 +173,9 @@ class AjpInboundHandler implements InboundHandler, AjpHandler
 
         $queryString = ArrayUtil::get("?query_string", $cmd->attributes);
         if (StringUtil::isSet($queryString))
-            $tur->req->uri .= "?" . $queryString;
+            $tur->req->uri.= "?". $queryString;
 
-        BayLog::debug( "%s read header method=%s protocol=%s uri=%s contlen=%d",
+        BayLog::debug("%s read header method=%s protocol=%s uri=%s contlen=%d",
             $tur, $tur->req->method, $tur->req->protocol, $tur->req->uri, $tur->req->headers->contentLength());
         if (BayServer::$harbor->traceHeader()) {
             foreach ($cmd->headers->names() as $name) {
@@ -225,13 +225,12 @@ class AjpInboundHandler implements InboundHandler, AjpHandler
         BayLog::debug("%s handleData len=%s", $sip, $cmd->length);
 
         if($this->state != self::STATE_READ_DATA)
-            throw new ProtocolException("Invalid AJP command: " . $cmd->type . " state=" . $this->state);
+            throw new ProtocolException("Invalid AJP command: ". $cmd->type. " state=". $this->state);
 
         $tur = $sip->getTour(self::DUMMY_KEY);
         try {
             $sid = $sip->shipId;
-            $success = $tur->req->postReqContent(
-                                    Tour::TOUR_ID_NOCHECK,
+            $success = $tur->req->postReqContent(Tour::TOUR_ID_NOCHECK,
                                     $cmd->data,
                                     $cmd->start,
                                     $cmd->length,
@@ -277,32 +276,32 @@ class AjpInboundHandler implements InboundHandler, AjpHandler
 
     public function handleEndResponse(CmdEndResponse $cmd): int
     {
-        throw new ProtocolException("Invalid AJP command: " . $cmd->type);
+        throw new ProtocolException("Invalid AJP command: ". $cmd->type);
     }
 
 
 
     public function handleSendBodyChunk(CmdSendBodyChunk $cmd): int
     {
-        throw new ProtocolException("Invalid AJP command: " . $cmd->type);
+        throw new ProtocolException("Invalid AJP command: ". $cmd->type);
     }
 
     public function handleSendHeaders(CmdSendHeaders $cmd): int
     {
-        throw new ProtocolException("Invalid AJP command: " . $cmd->type);
+        throw new ProtocolException("Invalid AJP command: ". $cmd->type);
     }
 
     public function handleShutdown(CmdShutdown $cmd): int
     {
         $sip = $this->ship();
-        BayLog::debug($sip . " handleShutdown");
+        BayLog::debug($sip. " handleShutdown");
         GrandAgent::shutdownAll();
         return NextSocketAction::CLOSE;
     }
 
     public function handleGetBodyChunk(CmdGetBodyChunk $cmd): int
     {
-        throw new ProtocolException("Invalid AJP command: " . $cmd->type);
+        throw new ProtocolException("Invalid AJP command: ". $cmd->type);
     }
 
     public function needData(): bool

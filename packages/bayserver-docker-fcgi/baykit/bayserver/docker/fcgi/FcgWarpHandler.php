@@ -123,7 +123,7 @@ class FcgWarpHandler implements WarpHandler, FcgHandler
 
     public function handleParams(CmdParams $cmd): int
     {
-        throw new ProtocolException("Invalid FCGI command: " . $cmd->type);
+        throw new ProtocolException("Invalid FCGI command: ". $cmd->type);
     }
 
     public function handleStdErr(CmdStdErr $cmd): int
@@ -224,20 +224,20 @@ class FcgWarpHandler implements WarpHandler, FcgHandler
 
                 $colonPos = strpos($line, ':');
                 if ($colonPos === false)
-                    throw new ProtocolException("fcgi: Header line of server is invalid: " . $line);
+                    throw new ProtocolException("fcgi: Header line of server is invalid: ". $line);
                 else {
                     $name = trim(substr($line, 0, $colonPos));
                     $value = trim(substr($line, $colonPos+1));
 
                     if (StringUtil::isEmpty($name) || StringUtil::isEmpty($value))
-                        throw new ProtocolException("fcgi: Header line of server is invalid: " . $line);
+                        throw new ProtocolException("fcgi: Header line of server is invalid: ". $line);
                     $headers->add($name, $value);
                     if (BayServer::$harbor->traceHeader())
                         BayLog::info("%s fcgi_warp: resHeader: %s=%s", $this->ship, $name, $value);
                 }
                 $this->lineBuf = "";
             } else {
-                $this->lineBuf .= $c;
+                $this->lineBuf.= $c;
             }
         }
         return false;
@@ -281,7 +281,7 @@ class FcgWarpHandler implements WarpHandler, FcgHandler
             $scriptBase = $tur->town->location;
 
         if(StringUtil::isEmpty($scriptBase)) {
-            throw new IOException($tur->town . " scriptBase of fcgi docker or location of town is not specified.");
+            throw new IOException($tur->town. " scriptBase of fcgi docker or location of town is not specified.");
         }
 
         $docRoot = $this->ship()->docker->docRoot;
@@ -289,7 +289,7 @@ class FcgWarpHandler implements WarpHandler, FcgHandler
             $docRoot = $tur->town->location;
 
         if(StringUtil::isEmpty($docRoot)) {
-            throw new IOException($tur->town . " docRoot of fcgi docker or location of town is not specified.");
+            throw new IOException($tur->town. " docRoot of fcgi docker or location of town is not specified.");
         }
 
         $warpId = WarpData::get($tur)->warpId;
@@ -303,7 +303,7 @@ class FcgWarpHandler implements WarpHandler, FcgHandler
                 $cmd->addParam($name, $value);
         });
 
-        $scriptFname = "proxy:fcgi://" . $this->ship()->docker->host . ":" .  $this->ship()->docker->port . $scriptFname;
+        $scriptFname = "proxy:fcgi://". $this->ship()->docker->host. ":".  $this->ship()->docker->port. $scriptFname;
         $cmd->addParam(CGIUtil::SCRIPT_FILENAME, $scriptFname);
 
         $cmd->addParam(FcgParams::CONTEXT_PREFIX, "");

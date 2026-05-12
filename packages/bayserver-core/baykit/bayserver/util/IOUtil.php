@@ -48,8 +48,7 @@ class IOUtil
 
     public static function openLocalPipe()
     {
-        return stream_socket_pair(
-            SysUtil::runOnWindows() ? STREAM_PF_INET : STREAM_PF_UNIX,
+        return stream_socket_pair(SysUtil::runOnWindows() ? STREAM_PF_INET : STREAM_PF_UNIX,
             STREAM_SOCK_STREAM,
             STREAM_IPPROTO_IP);
     }
@@ -59,7 +58,7 @@ class IOUtil
         if(self::$sock_buf_size == -1) {
             $dmy = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
             if ($dmy === false)
-                throw new \Exception("Cannot create socket: " . socket_strerror(socket_last_error()));
+                throw new \Exception("Cannot create socket: ". socket_strerror(socket_last_error()));
             self::$sock_buf_size = socket_get_option($dmy, SOL_SOCKET, SO_RCVBUF);
             socket_close($dmy);
         }

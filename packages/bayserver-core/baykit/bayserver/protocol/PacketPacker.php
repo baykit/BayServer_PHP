@@ -19,8 +19,7 @@ class PacketPacker implements Reusable
 
     public function post(Ship $ship, Packet $pkt, ?callable $lsnr) : void
     {
-        $ship->transporter->reqWrite(
-            $ship->rudder,
+        $ship->transporter->reqWrite($ship->rudder,
             substr($pkt->buf, 0, $pkt->bufLen),
             null,
             $pkt,

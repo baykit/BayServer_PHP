@@ -66,7 +66,7 @@ class CGIStdOutShip extends ReadOnlyShip
         BayLog::debug("%s read file %d bytes: total=%d", $this, strlen($buf), $this->fileWroteLen);
 
         if ($this->headerReading) {
-            $this->tmpBuf .= $buf;
+            $this->tmpBuf.= $buf;
 
             while(true) {
                 $pos = strpos($this->tmpBuf, "\n", $this->curPos);
@@ -79,8 +79,8 @@ class CGIStdOutShip extends ReadOnlyShip
 
                 $line = trim($line);
 
-                #  if line is empty ("\r\n")
-                #  finish header reading.
+                # if line is empty ("\r\n")
+                # finish header reading.
                 if (StringUtil::isEmpty($line)) {
                     $this->headerReading = false;
                     $this->tour->res->sendResHeaders($this->tourId);

@@ -7,7 +7,7 @@ use baykit\bayserver\util\DataConsumeListener;
 
 /**
  * Managements I/O Multiplexing
- *  (Possible implementations include the select system call, event APIs, or threading)
+ * (Possible implementations include the select system call, event APIs, or threading)
  */
 interface Multiplexer
 {

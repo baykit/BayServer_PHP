@@ -13,14 +13,13 @@ use baykit\bayserver\util\SimpleBuffer;
 /**
  * Read HTTP header
  *
- *   HTTP/1.x has no packet format. So we make HTTP header and content pretend to be packet
+ *  HTTP/1.x has no packet format. So we make HTTP header and content pretend to be packet
  *
- *   From RFC2616
- *   generic-message : start-line
- *                     (message-header CRLF)*
- *                     CRLF
- *                     [message-body]
- *
+ *  From RFC2616
+ *  generic-message : start-line
+ *                    (message-header CRLF)*
+ *                    CRLF
+ *                    [message-body]
  *
  */
 class H1PacketUnPacker extends PacketUnPacker {

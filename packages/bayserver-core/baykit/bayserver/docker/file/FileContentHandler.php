@@ -7,6 +7,7 @@ use baykit\bayserver\agent\multiplexer\PlainTransporter;
 use baykit\bayserver\BayLog;
 use baykit\bayserver\BayServer;
 use baykit\bayserver\common\RudderState;
+use baykit\bayserver\common\RudderStateStore;
 use baykit\bayserver\docker\Harbor;
 use baykit\bayserver\HttpException;
 use baykit\bayserver\rudder\StreamRudder;
@@ -23,11 +24,13 @@ class FileContentHandler implements ReqContentHandler
 {
     public $path;
     public $abortable;
+    private ?FileStore $fileStore;
 
-    public function __construct(string $path)
+    public function __construct(string $path, ?FileStore $fileStore = null)
     {
         $this->path = $path;
         $this->abortable = true;
+        $this->fileStore = $fileStore;
     }
 
     /////////////////////////////////////
@@ -79,10 +82,33 @@ class FileContentHandler implements ReqContentHandler
             $mimeType = "application/octet-stream";
 
         if (StringUtil::startsWith($mimeType, "text/") && $charset !== null)
-            $mimeType = $mimeType . "; charset=" . $charset;
+            $mimeType = $mimeType. "; charset=". $charset;
 
         //resHeaders.setStatus(HttpStatus.OK);
         $tur->res->headers->setContentType($mimeType);
+
+        // Cache fast-path: serve the file's bytes straight from memory.
+        // This entirely bypasses the per-request async-read pipeline,
+        // which is the single biggest overhead for static-file serving
+        // in PHP.
+        if ($this->fileStore !== null) {
+            $fc = $this->fileStore->get($fname);
+            if ($fc !== null) {
+                $tur->res->headers->setContentLength($fc->length());
+                $tur->res->setConsumeListener(function ($len, $resume) { /* no flow control */ });
+                try {
+                    $tur->res->sendResHeaders(Tour::TOUR_ID_NOCHECK);
+                    $tur->res->sendResContent(Tour::TOUR_ID_NOCHECK, $fc->content, 0, $fc->length());
+                    $tur->res->endResContent(Tour::TOUR_ID_NOCHECK);
+                }
+                catch (\Exception $e) {
+                    BayLog::error_e($e);
+                    throw new HttpException(HttpStatus::INTERNAL_SERVER_ERROR, $fname);
+                }
+                return;
+            }
+        }
+
         $tur->res->headers->setContentLength(filesize($fname));
         try {
             $tur->res->sendResHeaders(Tour::TOUR_ID_NOCHECK);
@@ -111,8 +137,7 @@ class FileContentHandler implements ReqContentHandler
             }
 
             $sendFileShip = new SendFileShip();
-            $tp = new PlainTransporter(
-                        $mpx,
+            $tp = new PlainTransporter($mpx,
                         $sendFileShip,
                         true,
                         8192,
@@ -126,7 +151,9 @@ class FileContentHandler implements ReqContentHandler
                 }
             });
 
-            $mpx->addRudderState($rd, new RudderState($rd, $tp));
+            $st = RudderStateStore::getStore($tur->ship->agentId)->rent();
+            $st->init($rd, $tp);
+            $mpx->addRudderState($rd, $st);
             $mpx->reqRead($rd);
         }
         catch (IOException $e) {

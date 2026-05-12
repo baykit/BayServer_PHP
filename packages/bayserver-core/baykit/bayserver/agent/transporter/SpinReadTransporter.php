@@ -33,7 +33,7 @@ class SpinReadTransporter implements SpinHandler_SpinListener, Valve
         $this->inFD = $inFD;
         #$ret = stream_set_blocking($this->inFD, false);
         #if($ret === false)
-        #    throw new IOException(SysUtil::lastErrorMessage());
+        #   throw new IOException(SysUtil::lastErrorMessage());
         $this->fileLen = $limit;
         $this->totalRead = 0;
         $this->timeoutSec = $timeoutSec;

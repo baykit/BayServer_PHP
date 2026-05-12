@@ -77,7 +77,7 @@ class MemUsage
 
     function printCityUsage(?Port $port, City $city, int $indent): void
     {
-        $pname = ($port == null) ? "" : "@" . $port;
+        $pname = ($port == null) ? "" : "@". $port;
         foreach($city->clubs() as $club) {
             if ($club instanceof WarpBase) {
                 BayLog::info("%sClub(%s%s) Usage:", StringUtil::indent($indent), $club, $pname);

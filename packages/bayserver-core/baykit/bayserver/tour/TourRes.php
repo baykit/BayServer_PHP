@@ -230,9 +230,6 @@ class TourRes implements Reusable {
         if (!$this->headerSent)
             throw new Sink("BUG!: Header not sent");
 
-        if ($this->resConsumeListener === null)
-            throw new Sink("Response consume listener is null");
-
         $this->bytesPosted += $len;
         BayLog::debug("%s post res content len=%d posted=%d limit=%d consumed=%d",
             $this->tour, $len, $this->bytesPosted, $this->bytesLimit, $this->bytesConsumed);
@@ -379,7 +376,7 @@ class TourRes implements Reusable {
     {
         $this->tour->checkTourId($checkId);
         if ($this->resConsumeListener === null)
-            throw new Sink("Response consume listener is null");
+            throw new Sink("Consume listener is null");
 
         $this->bytesConsumed += $length;
 

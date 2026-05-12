@@ -99,7 +99,7 @@ class CGIDocker extends ClubBase
             $base = $tur->town->location;
 
         if(StringUtil::isEmpty($base)) {
-            throw new HttpException(HttpStatus::INTERNAL_SERVER_ERROR, $tur->town . " scriptBase of cgi docker or location of town is not specified.");
+            throw new HttpException(HttpStatus::INTERNAL_SERVER_ERROR, $tur->town. " scriptBase of cgi docker or location of town is not specified.");
         }
 
         $root = $this->docRoot;
@@ -107,7 +107,7 @@ class CGIDocker extends ClubBase
             $root = $tur->town->location;
 
         if(StringUtil::isEmpty($root)) {
-            throw new HttpException(HttpStatus::INTERNAL_SERVER_ERROR, $tur->town . " docRoot of cgi docker or location of town is not specified.");
+            throw new HttpException(HttpStatus::INTERNAL_SERVER_ERROR, $tur->town. " docRoot of cgi docker or location of town is not specified.");
         }
 
         $env = CGIUtil::getEnvHash($tur->town->name, $root, $base, $tur);
@@ -166,7 +166,7 @@ class CGIDocker extends ClubBase
             $command = $script;
         }
         else
-            $command = $this->interpreter . " " . $script;
+            $command = $this->interpreter. " ". $script;
 
         return $command;
     }

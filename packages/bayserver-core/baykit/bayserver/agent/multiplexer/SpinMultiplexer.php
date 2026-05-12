@@ -98,7 +98,7 @@ class SpinMultiplexer extends MultiplexerBase implements TimerHandler
     }
 
     public function __toString(): string {
-        return "SpinMpx[" . $this->agent . "]";
+        return "SpinMpx[". $this->agent. "]";
     }
 
     ////////////////////////////////////////////

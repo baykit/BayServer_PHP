@@ -138,7 +138,7 @@ class GrandAgentMonitor
             $args = BayServer::$commandlineArgs;
             $newArgv = $args;
             //ArrayUtil::insert("php", $newArgv, 0);
-            $newArgv[] = "-agentid=" . $agtId;
+            $newArgv[] = "-agentid=". $agtId;
 
 
             $portNos = [];
@@ -160,7 +160,7 @@ class GrandAgentMonitor
 
                 $descriptorSpec = [];
                 $pipes = [];
-                $newArgv[] = "-monitorPort=" . $port;
+                $newArgv[] = "-monitorPort=". $port;
                 array_unshift($newArgv, "php");
                 $proc = proc_open($newArgv, $descriptorSpec, $pipes);
 
@@ -177,7 +177,7 @@ class GrandAgentMonitor
                 }
                 elseif ($pid == 0) {
                     # Child process
-                    $newArgv[] = "-sockets=" . join(",", $portNos);
+                    $newArgv[] = "-sockets=". join(",", $portNos);
                     BayServer::initChild($comCh[1]);
                     BayServer::main($newArgv);
 
@@ -261,8 +261,7 @@ class GrandAgentMonitor
             pcntl_waitpid($this->agentProcess, $status);
         }
         # remove from array
-        self::$monitors = array_filter(
-            self::$monitors,
+        self::$monitors = array_filter(self::$monitors,
             function ($item) {
                 return $item->agentId != $this->agentId;
             });

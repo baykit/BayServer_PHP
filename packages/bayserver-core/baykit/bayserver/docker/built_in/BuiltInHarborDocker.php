@@ -42,6 +42,9 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
     const DEFAULT_CGI_MULTIPLEXER = Harbor::MULTIPLEXER_TYPE_SPIDER;
     const DEFAULT_RECIPIENT = Harbor::RECIPIENT_TYPE_SPIDER;
     const DEFAULT_PID_FILE = "bayserver.pid";
+    const DEFAULT_ENABLE_CACHE = false;
+    const DEFAULT_CACHE_LIFESPAN_SEC = 60;
+    const DEFAULT_CACHE_SIZE_MB = 32;
 
     # Default charset
     private string $charset = self::DEFAULT_CHARSET;
@@ -110,6 +113,11 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
     # PID file name
     private $pidFile = self::DEFAULT_PID_FILE;
 
+    # File cache settings
+    private bool $enableCache = self::DEFAULT_ENABLE_CACHE;
+    private int $cacheLifespanSec = self::DEFAULT_CACHE_LIFESPAN_SEC;
+    private int $cacheSizeMb = self::DEFAULT_CACHE_SIZE_MB;
+
     public function __construct()
     {
         $this->groups = new Groups();
@@ -137,9 +145,7 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
         }
 
         if ($this->netMultiplexer != Harbor::MULTIPLEXER_TYPE_SPIDER) {
-            BayLog::warn(
-                BayMessage::get(
-                    Symbol::CFG_NET_MULTIPLEXER_NOT_SUPPORTED,
+            BayLog::warn(BayMessage::get(Symbol::CFG_NET_MULTIPLEXER_NOT_SUPPORTED,
                     getMultiplexerTypeName($this->netMultiplexer),
                     getMultiplexerTypeName(self::DEFAULT_NET_MULTIPLEXER)));
             $this->netMultiplexer = self::DEFAULT_NET_MULTIPLEXER;
@@ -155,27 +161,14 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
         if (($this->fileMultiplexer == Harbor::MULTIPLEXER_TYPE_SPIN && !SysUtil::supportNonblockFileRead()) ||
             ($this->fileMultiplexer != Harbor::MULTIPLEXER_TYPE_SPIDER &&
              $this->fileMultiplexer != Harbor::MULTIPLEXER_TYPE_SPIN)) {
-            BayLog::warn(
-                BayMessage::get(
-                    Symbol::CFG_FILE_MULTIPLEXER_NOT_SUPPORTED,
+            BayLog::warn(BayMessage::get(Symbol::CFG_FILE_MULTIPLEXER_NOT_SUPPORTED,
                     getMultiplexerTypeName($this->fileMultiplexer),
                     getMultiplexerTypeName(self::DEFAULT_FILE_MULTIPLEXER)));
             $this->fileMultiplexer = self::DEFAULT_FILE_MULTIPLEXER;
         }
 
         if ($this->logMultiplexer != Harbor::MULTIPLEXER_TYPE_SPIDER) {
-            BayLog::warn(
-                BayMessage::get(
-                    Symbol::CFG_LOG_MULTIPLEXER_NOT_SUPPORTED,
-                    getMultiplexerTypeName($this->logMultiplexer),
-                    getMultiplexerTypeName(self::DEFAULT_LOG_MULTIPLEXER)));
-            $this->logMultiplexer = self::DEFAULT_LOG_MULTIPLEXER;
-        }
-
-        if ($this->logMultiplexer != Harbor::MULTIPLEXER_TYPE_SPIDER) {
-            BayLog::warn(
-                BayMessage::get(
-                    Symbol::CFG_LOG_MULTIPLEXER_NOT_SUPPORTED,
+            BayLog::warn(BayMessage::get(Symbol::CFG_LOG_MULTIPLEXER_NOT_SUPPORTED,
                     getMultiplexerTypeName($this->logMultiplexer),
                     getMultiplexerTypeName(self::DEFAULT_LOG_MULTIPLEXER)));
             $this->logMultiplexer = self::DEFAULT_LOG_MULTIPLEXER;
@@ -183,9 +176,7 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
 
         if (($this->cgiMultiplexer == Harbor::MULTIPLEXER_TYPE_SPIN and !SysUtil::supportNonblockFileRead()) ||
             $this->cgiMultiplexer != Harbor::MULTIPLEXER_TYPE_SPIDER) {
-            BayLog::warn(
-                BayMessage::get(
-                    Symbol::CFG_CGI_MULTIPLEXER_NOT_SUPPORTED,
+            BayLog::warn(BayMessage::get(Symbol::CFG_CGI_MULTIPLEXER_NOT_SUPPORTED,
                     getMultiplexerTypeName($this->cgiMultiplexer),
                     getMultiplexerTypeName(self::DEFAULT_CGI_MULTIPLEXER)));
             $this->cgiMultiplexer = self::DEFAULT_CGI_MULTIPLEXER;
@@ -193,9 +184,7 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
 
         if ($this->netMultiplexer == Harbor::MULTIPLEXER_TYPE_SPIDER &&
             $this->recipient != Harbor::RECIPIENT_TYPE_SPIDER) {
-            BayLog::warn(
-                BayMessage::get(
-                    Symbol::CFG_NET_MULTIPLEXER_DOES_NOT_SUPPORT_THIS_RECIPIENT,
+            BayLog::warn(BayMessage::get(Symbol::CFG_NET_MULTIPLEXER_DOES_NOT_SUPPORT_THIS_RECIPIENT,
                     getMultiplexerTypeName($this->netMultiplexer),
                     getRecipientTypeName($this->recipient),
                     getRecipientTypeName(Harbor::RECIPIENT_TYPE_SPIDER)));
@@ -316,6 +305,19 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
             case "pidfile":
                 $this->pidFile = $kv->value;
                 break;
+
+            case "enablecache":
+                $this->enableCache = StringUtil::parseBool($kv->value);
+                break;
+
+            case "cachelifespan":
+                $this->cacheLifespanSec = intval($kv->value);
+                break;
+
+            case "cachesize":
+                $this->cacheSizeMb = intval($kv->value);
+                break;
+
             default:
                 return false;
         }
@@ -451,6 +453,24 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
     public function multiCore(): bool
     {
         return $this->multiCore;
+    }
+
+    /** True if cache is enabled */
+    public function enableCache(): bool
+    {
+        return $this->enableCache;
+    }
+
+    /** Lifespan seconds of cache */
+    public function cacheLifespanSec(): int
+    {
+        return $this->cacheLifespanSec;
+    }
+
+    /** Cache size in MB */
+    public function cacheSizeMb(): int
+    {
+        return $this->cacheSizeMb;
     }
 
 }

@@ -17,8 +17,7 @@ class AjpInboundProtocolHandlerFactory implements ProtocolHandlerFactory
         $packetPacker = new PacketPacker();
         $commandPacker = new CommandPacker($packetPacker, $pktStore);
         $protocolHandler =
-            new AjpProtocolHandler(
-                $inboundHandler,
+            new AjpProtocolHandler($inboundHandler,
                 $packetUnpacker,
                 $packetPacker,
                 $commandUnpacker,

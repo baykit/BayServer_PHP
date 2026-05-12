@@ -9,6 +9,7 @@ use baykit\bayserver\BayLog;
 use baykit\bayserver\bcf\BcfElement;
 use baykit\bayserver\bcf\BcfKeyVal;
 use baykit\bayserver\common\RudderState;
+use baykit\bayserver\common\RudderStateStore;
 use baykit\bayserver\common\Transporter;
 use baykit\bayserver\common\WarpShipStore;
 use baykit\bayserver\docker\Docker;
@@ -103,7 +104,7 @@ abstract class WarpBase extends ClubBase implements Warp
             case "desttown":
                 $this->warpBase = $kv->value;
                 if (!StringUtil::endsWith($this->warpBase, "/"))
-                    $this->warpBase .= "/";
+                    $this->warpBase.= "/";
                 break;
 
             case "maxships":
@@ -169,7 +170,9 @@ abstract class WarpBase extends ClubBase implements Warp
             $wsip->startWarpTour($tur);
 
             if($needConnect) {
-                $agt->netMultiplexer->addRudderState($wsip->rudder, new RudderState($wsip->rudder, $tp));
+                $st = RudderStateStore::getStore($agt->agentId)->rent();
+                $st->init($wsip->rudder, $tp);
+                $agt->netMultiplexer->addRudderState($wsip->rudder, $st);
                 $agt->netMultiplexer->getTransporter($wsip->rudder)->reqConnect($wsip->rudder, $address);
             }
          }

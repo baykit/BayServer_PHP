@@ -24,6 +24,7 @@ class HttpStatus {
 
     public static $status = [];
     public static $initialized = false;
+    public static ?string $descOk = null;
 
     public static function init($bcf_file)
     {
@@ -37,12 +38,18 @@ class HttpStatus {
                 self::$status[intval($kv->key)] = $kv->value;
         }
 
+        self::$descOk = self::$status[self::OK] ?? null;
         self::$initialized = true;
     }
 
     public static function description($statusCode)
     {
-        $desc = self::$status[$statusCode];
+        // Fast path for 200: avoid the array lookup, which dominates
+        // since most responses are 200 OK.
+        if ($statusCode === self::OK)
+            return self::$descOk;
+
+        $desc = self::$status[$statusCode] ?? false;
         if ($desc === false)
             return strval($statusCode);
         else

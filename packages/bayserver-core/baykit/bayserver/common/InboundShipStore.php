@@ -31,7 +31,7 @@ class InboundShipStore extends ObjectStore
     }
 
     /**
-     *  print memory usage
+     * print memory usage
      */
     public function printUsage($indent) : void
     {

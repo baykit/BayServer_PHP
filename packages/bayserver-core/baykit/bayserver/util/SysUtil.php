@@ -114,8 +114,7 @@ class SysUtil
 
     public static function supportSelectPipe() : bool
     {
-        $fds = array(
-            0 => array("pipe", "r"),
+        $fds = array(0 => array("pipe", "r"),
             1 => array("pipe", "w"),
             2 => array("pipe", "w")
         );
@@ -150,8 +149,7 @@ class SysUtil
 
     public static function supportNonblockPipeRead() : bool
     {
-        $fds = array(
-            0 => array("pipe", "r"),
+        $fds = array(0 => array("pipe", "r"),
             1 => array("pipe", "w"),
             2 => array("pipe", "w")
         );
@@ -191,16 +189,16 @@ class SysUtil
         return 4;
     }
 
-    public static function joinPath(string $dir, string ... $files) : string
+    public static function joinPath(string $dir, string... $files) : string
     {
         $path = $dir;
         if(!StringUtil::endsWith($dir, "/"))
-            $path .= DIRECTORY_SEPARATOR;
+            $path.= DIRECTORY_SEPARATOR;
 
         foreach ($files as $i => $file) {
             if($i != 0)
-                $path .= DIRECTORY_SEPARATOR;
-            $path .= $file;
+                $path.= DIRECTORY_SEPARATOR;
+            $path.= $file;
         }
 
         return $path;
@@ -236,8 +234,8 @@ class SysUtil
 
             foreach ($files as $file) {
                 if ($file != '.' && $file != '..') {
-                    $srcFile = $srcDir . '/' . $file;
-                    $dstFile = $dstDir . '/' . $file;
+                    $srcFile = $srcDir. '/'. $file;
+                    $dstFile = $dstDir. '/'. $file;
 
                     if (is_dir($srcFile)) {
                         self::copyDir($srcFile, $dstFile);

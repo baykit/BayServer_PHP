@@ -10,8 +10,7 @@ class H2ProtocolHandler extends ProtocolHandler
 {
     const CTL_STREAM_ID = 0;
 
-    public function __construct(
-                        H2Handler $h2Handler,
+    public function __construct(H2Handler $h2Handler,
                         H2PacketUnPacker $packetUnPacker,
                         PacketPacker $packetPacker,
                         H2CommandUnPacker $commandUnPacker,

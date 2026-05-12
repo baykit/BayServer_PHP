@@ -72,7 +72,7 @@ class AjpCommandUnPacker extends CommandUnPacker {
                 break;
 
             default:
-                throw new \Exception("Invalid packet" . $pkt);
+                throw new \Exception("Invalid packet". $pkt);
         }
 
         $cmd->unpack($pkt);

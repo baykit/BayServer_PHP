@@ -33,9 +33,9 @@ class SignalSender
             $pid = $this->readPidFile();
             $sig = SignalAgent::getSignalFromCommand($cmd);
             if ($sig == null)
-                throw new StandardError("Invalid command: " . $cmd);
+                throw new StandardError("Invalid command: ". $cmd);
             elseif ($pid <= 0)
-                throw new StandardError("Invalid process ID: " . $pid);
+                throw new StandardError("Invalid process ID: ". $pid);
             else {
                 BayLog::info("Send signal pid=#{pid} sig={$sig}");
                 $this->kill($pid, $sig);
@@ -74,18 +74,18 @@ class SignalSender
     {
         try {
             if (($skt = socket_create(AF_INET, SOCK_STREAM, SOL_TCP)) === false) {
-                throw new IOException("Cannot create socket: " . socket_strerror(socket_last_error()));
+                throw new IOException("Cannot create socket: ". socket_strerror(socket_last_error()));
             }
 
             if (socket_connect($skt, $host, $port) === false) {
-                throw new IOException("Cannot connect to host: " . socket_strerror(socket_last_error()));
+                throw new IOException("Cannot connect to host: ". socket_strerror(socket_last_error()));
             }
 
             $timeout = array('sec'=>30, 'usec'=>0); // 10秒
             socket_set_option($skt, SOL_SOCKET, SO_RCVTIMEO, $timeout);
             socket_set_option($skt, SOL_SOCKET, SO_SNDTIMEO, $timeout);
 
-            $cmd = $cmd . "\n";
+            $cmd = $cmd. "\n";
             socket_send($skt, $cmd, strlen($cmd), 0);
 
             socket_recv($skt, $line, 128, MSG_WAITALL);
@@ -111,7 +111,7 @@ class SignalSender
     {
         $f = fopen($this->pidFile, "r");
         if ($f === false)
-            throw new IOException("Cannot open pid file: " . $this->pidFile);
+            throw new IOException("Cannot open pid file: ". $this->pidFile);
         $line = stream_get_line($f, 256);
         fclose($f);
         return intval($line);

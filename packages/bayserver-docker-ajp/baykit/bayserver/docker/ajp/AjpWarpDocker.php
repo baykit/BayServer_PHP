@@ -35,8 +35,7 @@ class AjpWarpDocker extends WarpBase implements AjpDocker
 
     protected function newTransporter(GrandAgent $agent, Rudder $rd, Ship $sip): Transporter
     {
-        $tp = new PlainTransporter(
-            $agent->netMultiplexer,
+        $tp = new PlainTransporter($agent->netMultiplexer,
             $sip,
             false,
             IOUtil::getSockRecvBufSize($rd->key()),
@@ -50,13 +49,11 @@ class AjpWarpDocker extends WarpBase implements AjpDocker
 //////////////////////////////////////////////////////
 // Class initializer
 //////////////////////////////////////////////////////
-PacketStore::registerProtocol(
-    AjpDocker::PROTO_NAME,
+PacketStore::registerProtocol(AjpDocker::PROTO_NAME,
     new AjpPacketFactory()
 );
 
-ProtocolHandlerStore::registerProtocol(
-    AjpDocker::PROTO_NAME,
+ProtocolHandlerStore::registerProtocol(AjpDocker::PROTO_NAME,
     false,
     new AjpWarpProtocolHandlerFactory());
 

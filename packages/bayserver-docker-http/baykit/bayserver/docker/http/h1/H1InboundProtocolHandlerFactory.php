@@ -18,8 +18,7 @@ class H1InboundProtocolHandlerFactory implements ProtocolHandlerFactory
         $packetPacker = new PacketPacker();
         $commandPacker = new CommandPacker($packetPacker, $pktStore);
         $protocolHandler =
-            new H1ProtocolHandler(
-                $inboundHandler,
+            new H1ProtocolHandler($inboundHandler,
                 $packetUnpacker,
                 $packetPacker,
                 $commandUnpacker,

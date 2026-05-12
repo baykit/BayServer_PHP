@@ -29,12 +29,11 @@ class WarpShip extends Ship
 
     public function __toString() : string
     {
-        return "agt#" . $this->agentId . " wsip#" . $this->shipId . "/" . $this->objectId .
-            ($this->protocolHandler != null ? ("[" . $this->protocolHandler->protocol() . "]") : "");
+        return "agt#". $this->agentId. " wsip#". $this->shipId. "/". $this->objectId.
+            ($this->protocolHandler != null ? ("[". $this->protocolHandler->protocol(). "]") : "");
     }
 
-    public function initWarp (
-        Rudder          $rd,
+    public function initWarp (Rudder          $rd,
         int             $agtId,
         Transporter     $tp,
         Warp            $dkr,
@@ -136,15 +135,15 @@ class WarpShip extends Ship
 
     public function notifyClose(): void
     {
-        BayLog::debug($this . " notifyClose");
-        $this->notifyErrorToOwnerTour(HttpStatus::SERVICE_UNAVAILABLE, $this . " server closed");
+        BayLog::debug($this. " notifyClose");
+        $this->notifyErrorToOwnerTour(HttpStatus::SERVICE_UNAVAILABLE, $this. " server closed");
         $this->endShip();
     }
 
     public function checkTimeout(int $durationSec): bool
     {
         if($this->isTimeout($durationSec)) {
-            $this->notifyErrorToOwnerTour(HttpStatus::GATEWAY_TIMEOUT, $this . " server timeout");
+            $this->notifyErrorToOwnerTour(HttpStatus::GATEWAY_TIMEOUT, $this. " server timeout");
             return true;
         }
         else

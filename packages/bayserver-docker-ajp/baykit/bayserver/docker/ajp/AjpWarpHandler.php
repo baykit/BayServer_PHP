@@ -103,7 +103,7 @@ class AjpWarpHandler implements WarpHandler, AjpHandler
 
     public function handleData(CmdData $cmd): int
     {
-        throw new ProtocolException("Invalid AJP command: " . $cmd->type);
+        throw new ProtocolException("Invalid AJP command: ". $cmd->type);
     }
 
     public function handleEndResponse(CmdEndResponse $cmd): int
@@ -124,7 +124,7 @@ class AjpWarpHandler implements WarpHandler, AjpHandler
 
     public function handleForwardRequest(CmdForwardRequest $cmd): int
     {
-        throw new ProtocolException("Invalid AJP command: " . $cmd->type);
+        throw new ProtocolException("Invalid AJP command: ". $cmd->type);
     }
 
     public function handleSendBodyChunk(CmdSendBodyChunk $cmd): int
@@ -160,17 +160,17 @@ class AjpWarpHandler implements WarpHandler, AjpHandler
         $tur = $this->ship()->getTour(self::FIXED_WARP_ID);
 
         if ($this->state != self::STATE_READ_HEADER)
-            throw new ProtocolException("Invalid AJP command: " . $cmd->type . " state=" . $this->state);
+            throw new ProtocolException("Invalid AJP command: ". $cmd->type. " state=". $this->state);
 
         $wdata = WarpData::get($tur);
 
         if(BayServer::$harbor->traceHeader())
-            BayLog::info($wdata . " recv res status: " . $cmd->status);
+            BayLog::info($wdata. " recv res status: ". $cmd->status);
         $wdata->resHeaders->status = $cmd->status;
         foreach ($cmd->headers as $name => $values) {
             foreach($values as $value) {
                 if (BayServer::$harbor->traceHeader())
-                    BayLog::info($wdata . " recv res header: " . $name . "=" . $value);
+                    BayLog::info($wdata. " recv res header: ". $name. "=". $value);
                 $wdata->resHeaders->add($name, $value);
             }
         }
@@ -180,7 +180,7 @@ class AjpWarpHandler implements WarpHandler, AjpHandler
 
     public function handleShutdown(CmdShutdown $cmd): int
     {
-        throw new ProtocolException("Invalid AJP command: " . $cmd->type);
+        throw new ProtocolException("Invalid AJP command: ". $cmd->type);
     }
 
     public function handleGetBodyChunk(CmdGetBodyChunk $cmd): int
@@ -225,7 +225,7 @@ class AjpWarpHandler implements WarpHandler, AjpHandler
 
     private function sendForwardRequest(Tour $tur) : void
     {
-        BayLog::debug($tur . " construct header");
+        BayLog::debug($tur. " construct header");
         $wsip = $this->ship();
 
         $cmd = new CmdForwardRequest();
@@ -236,9 +236,9 @@ class AjpWarpHandler implements WarpHandler, AjpHandler
         $relUri = $tur->req->rewrittenURI != null ? $tur->req->rewrittenURI : $tur->req->uri;
         $twnPath = $tur->town->name;
         if(!StringUtil::endsWith($twnPath, "/"))
-            $twnPath .= "/";
+            $twnPath.= "/";
         $relUri = substr($relUri, strlen($twnPath));
-        $reqUri =  $wsip->docker->warpBase . $relUri;
+        $reqUri =  $wsip->docker->warpBase. $relUri;
 
         $pos = strpos($reqUri, '?');
         if($pos !== false) {

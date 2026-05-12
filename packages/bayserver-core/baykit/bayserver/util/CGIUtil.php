@@ -68,7 +68,7 @@ class CGIUtil
     {
 
         $reqHeaders = $tour->req->headers;
-        
+
         $ctype = $reqHeaders->contentType();
         if($ctype !== null) {
             $pos = strpos($ctype, "charset=");
@@ -98,7 +98,7 @@ class CGIUtil
                 if ($newVal == null)
                     $newVal = $value;
                 else {
-                    $newVal = $newVal . "; " . $value;
+                    $newVal = $newVal. "; ". $value;
                 }
             }
 
@@ -115,7 +115,7 @@ class CGIUtil
                             break;
 
                         default:
-                            self::addEnv($lis, "HTTP_" . $name, $newVal);
+                            self::addEnv($lis, "HTTP_". $name, $newVal);
                             break;
                     }
                 }
@@ -155,12 +155,12 @@ class CGIUtil
         }
 
         if(!StringUtil::endsWith($scriptBase, "/"))
-            $scriptBase = $scriptBase . "/";
-        self::addEnv($lis, self::SCRIPT_FILENAME, $scriptBase . substr($tour->req->scriptName, strlen($path)));
+            $scriptBase = $scriptBase. "/";
+        self::addEnv($lis, self::SCRIPT_FILENAME, $scriptBase. substr($tour->req->scriptName, strlen($path)));
         self::addEnv($lis, self::PATH, getenv("PATH"));
     }
-    
-   
+
+
     private static function addEnv(callable $lis, string $key, ?string $value) : void
     {
         if($value === null)

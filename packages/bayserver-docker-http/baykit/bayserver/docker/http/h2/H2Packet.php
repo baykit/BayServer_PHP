@@ -9,7 +9,7 @@ use baykit\bayserver\protocol\PacketPartAccessor;
 
 /**
  * Http2 spec
- *   https://www.rfc-editor.org/rfc/rfc7540.txt
+ *  https://www.rfc-editor.org/rfc/rfc7540.txt
  *
  * Http2 Frame format
  * +-----------------------------------------------+
@@ -19,7 +19,7 @@ use baykit\bayserver\protocol\PacketPartAccessor;
  * +-+-+-----------+---------------+-------------------------------+
  * |R|                 Stream Identifier (31)                      |
  * +=+=============================================================+
- * |                   Frame Payload (0...)                      ...
+ * |                   Frame Payload (0...)...
  * +---------------------------------------------------------------+
  */
 class H2HeaderAccessor extends PacketPartAccessor
@@ -142,7 +142,7 @@ class H2Packet extends Packet {
     const MAX_PAYLOAD_MAXLEN = 0x00FFFFFF; // = 2^24-1 = 16777215 = 16MB-1
     const DEFAULT_PAYLOAD_MAXLEN = 0x00004000; // = 2^14 = 16384 = 16KB
     const FRAME_HEADER_LEN = 9;
-    
+
     const NO_ERROR = 0x0;
     const PROTOCOL_ERROR = 0x1;
     const INTERNAL_ERROR = 0x2;

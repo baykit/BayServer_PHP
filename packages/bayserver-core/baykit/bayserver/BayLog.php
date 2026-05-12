@@ -47,57 +47,57 @@ class BayLog {
         BayLog::$fullPath = $fullPath;
     }
 
-    public static function info(string $fmt, ...$args) : void
+    public static function info(string $fmt,...$args) : void
     {
         BayLog::log(BayLog::LOG_LEVEL_INFO, 3, null, $fmt, $args);
     }
 
-    public static function info_e(\Throwable $err, string $fmt, ...$args) : void
+    public static function info_e(\Throwable $err, string $fmt,...$args) : void
     {
         BayLog::log(BayLog::LOG_LEVEL_INFO, 3, $err, $fmt, $args);
     }
 
-    public static function trace(string $fmt, ...$args) : void
+    public static function trace(string $fmt,...$args) : void
     {
         BayLog::log(BayLog::LOG_LEVEL_TRACE, 3, null, $fmt, $args);
     }
 
-    public static function debug(string $fmt, ...$args) : void
+    public static function debug(string $fmt,...$args) : void
     {
         BayLog::log(BayLog::LOG_LEVEL_DEBUG, 3, null, $fmt, $args);
     }
 
-    public static function debug_e(\Throwable $err, string $fmt=null, ...$args) : void
+    public static function debug_e(\Throwable $err, string $fmt=null,...$args) : void
     {
         BayLog::log(BayLog::LOG_LEVEL_DEBUG, 3, $err, $fmt, $args);
     }
 
-    public static function warn(string $fmt, ...$args) : void
+    public static function warn(string $fmt,...$args) : void
     {
         BayLog::log(BayLog::LOG_LEVEL_WARN, 3, null, $fmt, $args);
     }
 
-    public static function warn_e(\Throwable $err, string $fmt=null, ...$args) : void
+    public static function warn_e(\Throwable $err, string $fmt=null,...$args) : void
     {
         BayLog::log(BayLog::LOG_LEVEL_WARN, 3, $err, $fmt, $args);
     }
 
-    public static function error(string $fmt, ...$args) : void
+    public static function error(string $fmt,...$args) : void
     {
         BayLog::log(BayLog::LOG_LEVEL_ERROR, 3, null, $fmt, $args);
     }
 
-    public static function error_e(\Throwable $err, string $fmt=null, ...$args) : void
+    public static function error_e(\Throwable $err, string $fmt=null,...$args) : void
     {
         BayLog::log(BayLog::LOG_LEVEL_ERROR, 3, $err, $fmt, $args);
     }
 
-    public static function fatal(string $fmt, ...$args) : void
+    public static function fatal(string $fmt,...$args) : void
     {
         BayLog::log(BayLog::LOG_LEVEL_FATAL, 3, null, $fmt, $args);
     }
 
-    public static function fatal_e(\Throwable $err, string $fmt, ...$args) : void
+    public static function fatal_e(\Throwable $err, string $fmt,...$args) : void
     {
         BayLog::log(BayLog::LOG_LEVEL_FATAL, 3, $err, $fmt, $args);
     }
@@ -116,14 +116,14 @@ class BayLog {
                     if ($args === null || count($args) == 0) {
                         $msg = sprintf("%s", $fmt);
                     } else {
-                        $msg = sprintf($fmt, ...$args);
+                        $msg = sprintf($fmt,...$args);
                     }
                 } catch (\Exception $e) {
                     var_dump($e->getTrace());
                     $msg = $fmt;
                 }
 
-                echo("[" . date('r') . "] " . BayLog::LOG_LEVEL_NAME[$lvl] . ". {$msg} (at {$pos})\n");
+                echo("[". date('r'). "] ". BayLog::LOG_LEVEL_NAME[$lvl]. ". {$msg} (at {$pos})\n");
             }
 
             if ($err !== null) {

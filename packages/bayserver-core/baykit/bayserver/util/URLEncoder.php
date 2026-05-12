@@ -12,9 +12,9 @@ class URLEncoder {
         for ($i = 0; $i < strlen($url); $i++) {
             $c = $url[$i];
             if ($c == '~')
-                $b .= "%7E";
+                $b.= "%7E";
             else
-                $b .= $c;
+                $b.= $c;
         }
 
         return $b;

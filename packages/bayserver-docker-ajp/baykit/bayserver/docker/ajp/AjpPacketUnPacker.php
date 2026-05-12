@@ -68,7 +68,7 @@ class AjpPacketUnPacker extends PacketUnPacker {
         $suspend = false;
         $pos = 0;
 
-        while ( $pos < strlen($buf)) {
+        while ($pos < strlen($buf)) {
             if ($this->state == self::STATE_READ_PREAMBLE) {
                 $len = AjpPacket::PREAMBLE_SIZE - $this->preambleBuf->len;
                 if (strlen($buf) - $pos < $len)

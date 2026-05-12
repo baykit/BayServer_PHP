@@ -43,7 +43,7 @@ class Headers
 
     public function __toString()
     {
-        return "Headers(s=" . $this->status . " h=" . strval($this->headers);
+        return "Headers(s=". $this->status. " h=". strval($this->headers);
     }
 
     public function copyTo(Headers $dst): void

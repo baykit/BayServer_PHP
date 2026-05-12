@@ -84,17 +84,17 @@ class FcgInboundHandler implements InboundHandler, FcgHandler
     public function sendResHeaders(Tour $tur): void
     {
         $sip = $this->ship();
-        BayLog::debug($sip . " PH:sendHeaders: tur=" . $tur);
+        BayLog::debug($sip. " PH:sendHeaders: tur=". $tur);
 
         $scode = $tur->res->headers->status;
-        $status = $scode . " " . HttpStatus::description($scode);
+        $status = $scode. " ". HttpStatus::description($scode);
         $tur->res->headers->set(Headers::STATUS, $status);
 
         if(BayServer::$harbor->traceHeader()) {
-            BayLog::info($tur . " resStatus:" . $tur->res->headers->status);
+            BayLog::info($tur. " resStatus:". $tur->res->headers->status);
             foreach($tur->res->headers->names() as $name) {
                 foreach($tur->res->headers->values($name) as $value) {
-                    BayLog::info("%s resHeader: %s=%s" , $tur, $name, $value);
+                    BayLog::info("%s resHeader: %s=%s", $tur, $name, $value);
                 }
             }
         }
@@ -126,7 +126,7 @@ class FcgInboundHandler implements InboundHandler, FcgHandler
         $ensureFunc = function () use ($keepAlive, $sip) {
             // DO NOT close socket by FCGI server
             //if(!$keepAlive)
-            //    $sip->postClose();
+            //   $sip->postClose();
         };
 
         try {
@@ -160,10 +160,10 @@ class FcgInboundHandler implements InboundHandler, FcgHandler
     public function handleBeginRequest(CmdBeginRequest $cmd): int
     {
         $sip = $this->ship();
-        BayLog::debug($sip . " handleBeginRequest reqId=" . $cmd->reqId . " keep=" . $cmd->keepConn);
+        BayLog::debug($sip. " handleBeginRequest reqId=". $cmd->reqId. " keep=". $cmd->keepConn);
 
         if($this->state != self::STATE_BEGIN_REQUEST)
-            throw new ProtocolException("fcgi: Invalid command: " . $cmd->type . " state=" . $this->state);
+            throw new ProtocolException("fcgi: Invalid command: ". $cmd->type. " state=". $this->state);
 
         $this->checkReqId($cmd->reqId);
 
@@ -181,17 +181,17 @@ class FcgInboundHandler implements InboundHandler, FcgHandler
 
     public function handleEndRequest(CmdEndRequest $cmd): int
     {
-        throw new ProtocolException("Invalid FCGI command: " . $cmd->type);
+        throw new ProtocolException("Invalid FCGI command: ". $cmd->type);
     }
 
     public function handleParams(CmdParams $cmd): int
     {
         $sip = $this->ship();
         if (BayLog::isDebugMode())
-            BayLog::debug($sip . " handleParams reqId=" . $cmd->reqId . " nParams=" . count($cmd->params));
+            BayLog::debug($sip. " handleParams reqId=". $cmd->reqId. " nParams=". count($cmd->params));
 
         if($this->state != self::STATE_READ_PARAMS)
-            throw new ProtocolException("fcgi: Invalid command: " . $cmd->type . " state=" . $this->state);
+            throw new ProtocolException("fcgi: Invalid command: ". $cmd->type. " state=". $this->state);
 
         $this->checkReqId($cmd->reqId);
 
@@ -201,7 +201,7 @@ class FcgInboundHandler implements InboundHandler, FcgHandler
             // Header completed
 
             // check keep-alive
-            //  keep-alive flag of BeginRequest has high priority
+            // keep-alive flag of BeginRequest has high priority
             if ($this->reqKeepAlive) {
                 if (!$tur->req->headers->contains(Headers::CONNECTION))
                     $tur->req->headers->set(Headers::CONNECTION, "Keep-Alive");
@@ -214,7 +214,7 @@ class FcgInboundHandler implements InboundHandler, FcgHandler
 
             // end params
             if (BayLog::isDebugMode())
-                BayLog::debug($tur . " read header method=" . $tur->req->method . " protocol=" . $tur->req->protocol . " uri=" . $tur->req->uri . " contlen=" . $reqContLen);
+                BayLog::debug($tur. " read header method=". $tur->req->method. " protocol=". $tur->req->protocol. " uri=". $tur->req->uri. " contlen=". $reqContLen);
             if (BayServer::$harbor->traceHeader()) {
                 foreach($tur->req->headers->names() as $name) {
                     foreach ($tur->req->headers->values($name) as $value) {
@@ -296,7 +296,7 @@ class FcgInboundHandler implements InboundHandler, FcgHandler
         BayLog::debug("%s handleStdIn reqId=%d len=%d", $sip, $cmd->reqId, $cmd->length);
 
         if($this->state != self::STATE_READ_STDIN)
-            throw new ProtocolException("fcgi: Invalid FCGI command: " . $cmd->type . " state=" . $this->state);
+            throw new ProtocolException("fcgi: Invalid FCGI command: ". $cmd->type. " state=". $this->state);
 
         $this->checkReqId($cmd->reqId);
 
@@ -317,8 +317,7 @@ class FcgInboundHandler implements InboundHandler, FcgHandler
             }
             else {
                 $sid = $sip->shipId;
-                $success = $tur->req->postReqContent(
-                                            Tour::TOUR_ID_NOCHECK,
+                $success = $tur->req->postReqContent(Tour::TOUR_ID_NOCHECK,
                                             $cmd->data,
                                             $cmd->start,
                                             $cmd->length,
@@ -354,14 +353,14 @@ class FcgInboundHandler implements InboundHandler, FcgHandler
     {
         $sip = $this->ship();
         if($receivedId == FcgPacket::FCGI_NULL_REQUEST_ID)
-            throw new ProtocolException("Invalid request id: " . $receivedId);
+            throw new ProtocolException("Invalid request id: ". $receivedId);
 
         if($this->reqId == FcgPacket::FCGI_NULL_REQUEST_ID)
             $reqId = $receivedId;
 
         if($reqId != $receivedId) {
-            BayLog::error($sip . " invalid request id: received=" . $receivedId . " reqId=" . $reqId);
-            throw new ProtocolException("Invalid request id: " . $receivedId);
+            BayLog::error($sip. " invalid request id: received=". $receivedId. " reqId=". $reqId);
+            throw new ProtocolException("Invalid request id: ". $receivedId);
         }
     }
 

@@ -118,7 +118,7 @@ class Tour implements Reusable {
         if($this->city == null)
             $this->city = BayServer::findCity($this->req->reqHost);
 
-        BayLog::debug("%s GO TOUR! ...( ^_^)/: city=%s url=%s", $this, $this->req->reqHost, $this->req->uri);
+        BayLog::debug("%s GO TOUR!...(^_^)/: city=%s url=%s", $this, $this->req->reqHost, $this->req->uri);
 
         if($this->req->headers->contentLength() > 0) {
             $this->changeState(Tour::TOUR_ID_NOCHECK, self::STATE_READING);

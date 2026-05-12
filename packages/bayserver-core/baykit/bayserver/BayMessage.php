@@ -14,8 +14,8 @@ class BayMessage
         self::$msg->init($conf_name, $locale);
     }
 
-    public static function get($key, ...$args)
+    public static function get($key,...$args)
     {
-        return self::$msg->get($key, ...$args);
+        return self::$msg->get($key,...$args);
     }
 }

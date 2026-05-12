@@ -44,14 +44,14 @@ class WordPressDocker extends RerouteBase {
 
         foreach($relParts as $pathItem) {
             if($checkPath != "")
-                $checkPath .= DIRECTORY_SEPARATOR;
-            $checkPath .= $pathItem;
+                $checkPath.= DIRECTORY_SEPARATOR;
+            $checkPath.= $pathItem;
             if(file_exists(SysUtil::joinPath($twn->location, $checkPath)))
                 return $uri;
         }
 
         if(!file_exists(SysUtil::joinPath($twn->location, "/", $checkPath)))
-            return $twn->name . "index.php/" . substr($uri, strlen($twn->name));
+            return $twn->name. "index.php/". substr($uri, strlen($twn->name));
         else
             return $uri;
     }

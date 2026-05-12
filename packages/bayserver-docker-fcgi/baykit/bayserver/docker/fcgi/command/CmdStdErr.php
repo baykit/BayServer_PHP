@@ -9,10 +9,10 @@ use baykit\bayserver\protocol\CommandHandler;
 
 /**
  * FCGI spec
- *   http://www.mit.edu/~yandros/doc/specs/fcgi-spec.html
+ *  http://www.mit.edu/~yandros/doc/specs/fcgi-spec.html
  *
  * StdErr command format
- *   raw data
+ *  raw data
  */
 class CmdStdErr extends InOutCommandBase
 {

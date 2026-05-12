@@ -21,20 +21,18 @@ use const Grpc\CHANNEL_READY;
 /**
  * Header format
  *
+ *       generic-message = start-line
+ *                          *(message-header CRLF)
+ *                          CRLF
+ *                          [ message-body ]
+ *       start-line      = Request-Line | Status-Line
  *
- *        generic-message = start-line
- *                           *(message-header CRLF)
- *                           CRLF
- *                           [ message-body ]
- *        start-line      = Request-Line | Status-Line
- *
- *
- *        message-header = field-name ":" [ field-value ]
- *        field-name     = token
- *        field-value    = *( field-content | LWS )
- *        field-content  = <the OCTETs making up the field-value
- *                         and consisting of either *TEXT or combinations
- *                         of token, separators, and quoted-string>
+ *       message-header = field-name ":" [ field-value ]
+ *       field-name     = token
+ *       field-value    = *(field-content | LWS )
+ *       field-content  = <the OCTETs making up the field-value
+ *                        and consisting of either *TEXT or combinations
+ *                        of token, separators, and quoted-string>
  */
 class CmdHeader extends H1Command
 {
@@ -152,9 +150,7 @@ class CmdHeader extends H1Command
         }
 
         if ($state == CmdHeader::STATE_READ_FIRST_LINE) {
-            throw new ProtocolException(
-                BayMessage::get(
-                    Symbol::HTP_INVALID_HEADER_FORMAT,
+            throw new ProtocolException(BayMessage::get(Symbol::HTP_INVALID_HEADER_FORMAT,
                     substr($pkt->buf, $lineStartPos, $lineLen)));
         }
     }
@@ -200,8 +196,7 @@ class CmdHeader extends H1Command
         $parts = explode(" ", $line);
 
         if(count($parts) < 2)
-            throw new IOException(
-                BayMessage::get(Symbol::HTP_INVALID_FIRST_LINE, $line));
+            throw new IOException(BayMessage::get(Symbol::HTP_INVALID_FIRST_LINE, $line));
 
         try {
             $version = $parts[0];
@@ -210,8 +205,7 @@ class CmdHeader extends H1Command
 
         }
         catch (\Exception $e) {
-            throw new IOException(
-                BayMessage::get(Symbol::HTP_INVALID_FIRST_LINE, $line));
+            throw new IOException(BayMessage::get(Symbol::HTP_INVALID_FIRST_LINE, $line));
         }
     }
 
@@ -235,10 +229,10 @@ class CmdHeader extends H1Command
             } else {
                 if ($read_name) {
                     # make the case of header name be lower force
-                    $buf .= strtolower($b);
+                    $buf.= strtolower($b);
                 } else {
                     # header value
-                    $buf .= $b;
+                    $buf.= $b;
                 }
 
                 $skipping = false;
@@ -246,9 +240,7 @@ class CmdHeader extends H1Command
         }
 
         if ($name === null)
-            throw new ProtocolException(
-                BayMessage::get(
-                    Symbol::HTP_INVALID_HEADER_FORMAT,
+            throw new ProtocolException(BayMessage::get(Symbol::HTP_INVALID_HEADER_FORMAT,
                     substr($buf, $start, $len)));
 
         $value = $buf;

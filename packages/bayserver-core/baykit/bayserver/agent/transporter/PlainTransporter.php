@@ -52,7 +52,7 @@ class PlainTransporter extends Transporter
             else {
                 BayLog::debug("ch type=%s", get_resource_type($this->ch));
                 BayLog::debug("err: %s", SysUtil::lastSocketErrorMessage());
-                throw new IOException("Cannot receive data: " . SysUtil::lastErrorMessage());
+                throw new IOException("Cannot receive data: ". SysUtil::lastErrorMessage());
             }
         }
         return [$ret, null];
@@ -69,7 +69,7 @@ class PlainTransporter extends Transporter
         #$ret = stream_socket_sendto($this->ch, $buf);
         if($ret === false) {
             if(IOUtil::isEof($this->ch)) {
-                throw new IOException($this . " Write failed (EOF)");
+                throw new IOException($this. " Write failed (EOF)");
             }
             else if(SysUtil::lastSocketErrorMessage() == "Success") {
                 // Will be retried (ad-hoc code)
@@ -81,7 +81,7 @@ class PlainTransporter extends Transporter
                     BayLog::error("%s SSL Error: %s", $this, $msg);
                 BayLog::error("%s Socket Error: %s", $this, SysUtil::lastSocketErrorMessage());
                 BayLog::error("%s System Error: %s", $this, SysUtil::lastErrorMessage());
-                throw new IOException("Cannot write data: " . SysUtil::lastErrorMessage());
+                throw new IOException("Cannot write data: ". SysUtil::lastErrorMessage());
             }
         }
         return $ret;

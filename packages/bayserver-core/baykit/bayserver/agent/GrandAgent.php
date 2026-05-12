@@ -17,6 +17,7 @@ use baykit\bayserver\common\Multiplexer;
 use baykit\bayserver\common\Postpone;
 use baykit\bayserver\common\Recipient;
 use baykit\bayserver\common\RudderState;
+use baykit\bayserver\common\RudderStateStore;
 use baykit\bayserver\common\Transporter;
 use baykit\bayserver\HttpException;
 use baykit\bayserver\MemUsage;
@@ -87,8 +88,7 @@ class GrandAgent
     private array $letterQueue = [];
     private array $postponeQueue = [];
 
-    public function __construct(
-        int $agentId,
+    public function __construct(int $agentId,
         int $maxShips,
         bool $anchorable)
     {
@@ -119,7 +119,9 @@ class GrandAgent
         if($this->anchorable) {
             // Adds server socket channel of anchorable ports
             foreach(BayServer::$anchorablePortMap as $portMap) {
-                $this->netMultiplexer->addRudderState($portMap->rudder, new RudderState($portMap->rudder));
+                $st = RudderStateStore::getStore($this->agentId)->rent();
+                $st->init($portMap->rudder);
+                $this->netMultiplexer->addRudderState($portMap->rudder, $st);
             }
         }
 
@@ -210,8 +212,7 @@ class GrandAgent
         $this->commandReceiver->end();
 
         # remove from array
-        self::$agents = array_filter(
-            self::$agents,
+        self::$agents = array_filter(self::$agents,
             function ($item)  {
                 return $item->agentId != $this->agentId;
             });
@@ -293,7 +294,9 @@ class GrandAgent
         $this->commandReceiver = new CommandReceiver();
         $comTransporter = new PlainTransporter($this->netMultiplexer, $this->commandReceiver, true, 8, false);
         $this->commandReceiver->init($this->agentId, $rd, $comTransporter);
-        $this->netMultiplexer->addRudderState($this->commandReceiver->rudder, new RudderState($this->commandReceiver->rudder, $comTransporter));
+        $st = RudderStateStore::getStore($this->agentId)->rent();
+        $st->init($this->commandReceiver->rudder, $comTransporter);
+        $this->netMultiplexer->addRudderState($this->commandReceiver->rudder, $st);
         BayLog::info("CommandReceiver=%s", $this->commandReceiver);
     }
 
@@ -326,7 +329,7 @@ class GrandAgent
         $this->postponeQueue[] = $p;
     }
 
-    public function countPostpone() : int
+    private function countPostpone() : int
     {
         return count($this->postponeQueue);
     }
@@ -509,6 +512,10 @@ class GrandAgent
 
         $st->closed = true;
         $st->access();
+
+        // Return the RudderState to the per-agent pool so it can be
+        // reused for the next connection.
+        RudderStateStore::getStore($this->agentId)->Return($st);
 
         // Java / Ruby pattern: the only place we flip the
         // netMultiplexer out of busy state. If we were busy and this

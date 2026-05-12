@@ -78,8 +78,7 @@ class FcgWarpDocker extends WarpBase implements FcgDocker
 
     protected function newTransporter(GrandAgent $agent, Rudder $rd, Ship $sip): Transporter
     {
-        $tp = new PlainTransporter(
-                    $agent->netMultiplexer,
+        $tp = new PlainTransporter($agent->netMultiplexer,
                     $sip,
                     false,
                     IOUtil::getSockRecvBufSize($rd->key()),
@@ -94,13 +93,11 @@ class FcgWarpDocker extends WarpBase implements FcgDocker
 //////////////////////////////////////////////////////
 // Class initializer
 //////////////////////////////////////////////////////
-PacketStore::registerProtocol(
-    FcgDocker::PROTO_NAME,
+PacketStore::registerProtocol(FcgDocker::PROTO_NAME,
     new FcgPacketFactory()
 );
 
-ProtocolHandlerStore::registerProtocol(
-    FcgDocker::PROTO_NAME,
+ProtocolHandlerStore::registerProtocol(FcgDocker::PROTO_NAME,
     false,
     new FcgWarpProtocolHandlerFactory());
 

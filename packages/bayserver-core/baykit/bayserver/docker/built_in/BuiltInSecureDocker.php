@@ -117,8 +117,7 @@ class BuiltInSecureDocker extends DockerBase implements  Secure  {
     public function newTransporter(int $agtId, Ship $sip, int $bufsiz) : Transporter
     {
         $agt = GrandAgent::get($agtId);
-        $tp = new SecureTransporter(
-            $agt->netMultiplexer,
+        $tp = new SecureTransporter($agt->netMultiplexer,
             $sip,
             true,
             $bufsiz,
@@ -142,9 +141,9 @@ class BuiltInSecureDocker extends DockerBase implements  Secure  {
 
         if ($this->keyStore === null) {
             if(!file_exists($this->certFile))
-                throw new IOException("Cert file not found: " . $this->certFile);
+                throw new IOException("Cert file not found: ". $this->certFile);
             if(!file_exists($this->keyFile))
-                throw new IOException("Key file not found: " . $this->keyFile);
+                throw new IOException("Key file not found: ". $this->keyFile);
             stream_context_set_option($this->sslctx, 'ssl', 'local_cert', $this->certFile);
             stream_context_set_option($this->sslctx, 'ssl', 'local_pk', $this->keyFile);
             //stream_context_set_option($context, 'ssl', 'passphrase', $pem_passphrase);
@@ -167,7 +166,7 @@ class BuiltInSecureDocker extends DockerBase implements  Secure  {
     {
         $path = BayServer::parsePath($fileName);
         if ($path == null)
-            throw new IOException("File not found: " . $fileName);
+            throw new IOException("File not found: ". $fileName);
 
         return $path;
     }

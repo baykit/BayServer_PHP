@@ -17,8 +17,7 @@ class FcgWarpProtocolHandlerFactory implements ProtocolHandlerFactory
         $packetPacker = new PacketPacker();
         $commandPacker = new CommandPacker($packetPacker, $pktStore);
         $protocolHandler =
-            new FcgProtocolHandler(
-                $warpHandler,
+            new FcgProtocolHandler($warpHandler,
                 $packetUnpacker,
                 $packetPacker,
                 $commandUnpacker,

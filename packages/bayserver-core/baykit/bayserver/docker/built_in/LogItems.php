@@ -272,7 +272,7 @@ class QueryStringItem extends LogItem
     {
         $qStr = $tour->req->queryString;
         if ($qStr != null)
-            return '?' . $qStr;
+            return '?'. $qStr;
         else
             return null;
     }
@@ -288,7 +288,7 @@ class StartLineItem extends LogItem
 
     public function getItem(Tour $tour) : ?string
     {
-        return $tour->req->method . " " . $tour->req->uri . " " . $tour->req->protocol;
+        return $tour->req->method. " ". $tour->req->uri. " ". $tour->req->protocol;
     }
 }
 StartLineItem::$factory = function () { return new StartLineItem(); };

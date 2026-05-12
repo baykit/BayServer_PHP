@@ -17,8 +17,7 @@ class AjpWarpProtocolHandlerFactory implements ProtocolHandlerFactory
         $packetPacker = new PacketPacker();
         $commandPacker = new CommandPacker($packetPacker, $pktStore);
         $protocolHandler =
-            new AjpProtocolHandler(
-                $warpHandler,
+            new AjpProtocolHandler($warpHandler,
                 $packetUnpacker,
                 $packetPacker,
                 $commandUnpacker,

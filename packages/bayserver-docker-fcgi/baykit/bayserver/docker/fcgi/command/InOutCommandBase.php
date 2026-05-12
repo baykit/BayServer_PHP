@@ -10,10 +10,10 @@ use baykit\bayserver\protocol\Packet;
 
 /**
  * FCGI spec
- *   http://www.mit.edu/~yandros/doc/specs/fcgi-spec.html
+ *  http://www.mit.edu/~yandros/doc/specs/fcgi-spec.html
  *
  * StdIn/StdOut/StdErr command format
- *   raw data
+ *  raw data
  */
 abstract class InOutCommandBase extends FcgCommand
 {

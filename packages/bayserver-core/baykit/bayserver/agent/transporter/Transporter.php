@@ -211,7 +211,7 @@ abstract class Transporter implements ChannelListener, Reusable, Valve, Postman
                 if($len == 0) {
                     $this->writeTryCount++;
                     if ($this->writeTryCount > 100) {
-                        throw new IOException($this . " Too many retry count to write");
+                        throw new IOException($this. " Too many retry count to write");
                     }
                     # Data remains
                     break;
@@ -265,7 +265,7 @@ abstract class Transporter implements ChannelListener, Reusable, Valve, Postman
         #var_dump($status);
         #$address = stream_socket_get_name($this->ch, true);
         #if ($address === false)
-        #    BayLog::error("Connect Error: %s", SysUtil::lastSocketErrorMessage());
+        #   BayLog::error("Connect Error: %s", SysUtil::lastSocketErrorMessage());
 
         # check connection by sending 0 bytes data.
         $success = stream_socket_sendto($this->ch, "");

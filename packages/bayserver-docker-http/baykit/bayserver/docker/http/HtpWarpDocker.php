@@ -99,8 +99,7 @@ class HtpWarpDocker extends WarpBase implements HtpDocker
     protected function newTransporter(GrandAgent $agent, Rudder $rd, Ship $sip): Transporter
     {
         if($this->secure) {
-            $tp = new SecureTransporter(
-                        $this->sslCtx,
+            $tp = new SecureTransporter($this->sslCtx,
                         $sip,
                         false,
                         IOUtil::getSockRecvBufSize($rd->key()),
@@ -108,8 +107,7 @@ class HtpWarpDocker extends WarpBase implements HtpDocker
                         $this->sslCtx);
         }
         else {
-            $tp = new PlainTransporter(
-                        $agent->netMultiplexer,
+            $tp = new PlainTransporter($agent->netMultiplexer,
                         $sip,
                         false,
                         IOUtil::getSockRecvBufSize($rd->key()),
@@ -125,13 +123,11 @@ class HtpWarpDocker extends WarpBase implements HtpDocker
 //////////////////////////////////////////////////////
 // Class initializer
 //////////////////////////////////////////////////////
-PacketStore::registerProtocol(
-    HtpDocker::H1_PROTO_NAME,
+PacketStore::registerProtocol(HtpDocker::H1_PROTO_NAME,
     new H1PacketFactory()
 );
 
-ProtocolHandlerStore::registerProtocol(
-    HtpDocker::H1_PROTO_NAME,
+ProtocolHandlerStore::registerProtocol(HtpDocker::H1_PROTO_NAME,
     false,
     new H1WarpProtocolHandlerFactory());
 

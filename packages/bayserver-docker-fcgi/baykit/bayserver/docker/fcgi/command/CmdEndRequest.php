@@ -12,17 +12,17 @@ use baykit\bayserver\util\StringUtil;
 
 /**
  * FCGI spec
- *   http://www.mit.edu/~yandros/doc/specs/fcgi-spec.html
+ *  http://www.mit.edu/~yandros/doc/specs/fcgi-spec.html
  *
  * Endrequest command format
- *         typedef struct {
- *             unsigned char appStatusB3;
- *             unsigned char appStatusB2;
- *             unsigned char appStatusB1;
- *             unsigned char appStatusB0;
- *             unsigned char protocolStatus;
- *             unsigned char reserved[3];
- *         } FCGI_EndRequestBody;
+ *        typedef struct {
+ *            unsigned char appStatusB3;
+ *            unsigned char appStatusB2;
+ *            unsigned char appStatusB1;
+ *            unsigned char appStatusB0;
+ *            unsigned char protocolStatus;
+ *            unsigned char reserved[3];
+ *        } FCGI_EndRequestBody;
  */
 class CmdEndRequest extends FcgCommand
 {

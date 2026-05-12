@@ -15,8 +15,7 @@ class H1ProtocolHandler extends ProtocolHandler{
 
     public $keeping;
 
-    public function __construct(
-                        H1Handler $h1Handler,
+    public function __construct(H1Handler $h1Handler,
                         H1PacketUnpacker $packetUnpacker,
                         PacketPacker $packetPacker,
                         H1CommandUnpacker $commandUnpacker,

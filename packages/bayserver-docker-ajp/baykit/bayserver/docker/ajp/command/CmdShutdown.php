@@ -10,7 +10,7 @@ use baykit\bayserver\protocol\CommandHandler;
 /**
  * Shutdown command format
  *
- *   none
+ *  none
  */
 class CmdShutdown extends AjpCommand
 {

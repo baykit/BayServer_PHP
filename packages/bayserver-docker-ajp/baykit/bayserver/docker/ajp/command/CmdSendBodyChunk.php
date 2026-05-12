@@ -14,9 +14,9 @@ use baykit\bayserver\util\StringUtil;
  * Send body chunk format
  *
  * AJP13_SEND_BODY_CHUNK :=
- *   prefix_code   3
- *   chunk_length  (integer)
- *   chunk        *(byte)
+ *  prefix_code   3
+ *  chunk_length  (integer)
+ *  chunk        *(byte)
  */
 class CmdSendBodyChunk extends AjpCommand
 {

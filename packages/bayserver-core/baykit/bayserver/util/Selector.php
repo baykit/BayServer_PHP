@@ -113,15 +113,15 @@ class Selector {
             throw new IOException("No channel registered");
         }
 
-        //var_dump( $read_list);
-        //var_dump( $write_list);
+        //var_dump($read_list);
+        //var_dump($write_list);
         //BayLog::debug("SELECTING");
         if (stream_select($read_list, $write_list, $except_list, $timeout < 0 ? null : $timeout) === false) {
-            throw new IOException("Select failed: err=" . SysUtil::lastErrorMessage() . ", skt_err=" . SysUtil::lastSocketErrorMessage());
+            throw new IOException("Select failed: err=". SysUtil::lastErrorMessage(). ", skt_err=". SysUtil::lastSocketErrorMessage());
         }
         //BayLog::debug("SELECTED");
-        //var_dump( $read_list);
-        //var_dump( $write_list);
+        //var_dump($read_list);
+        //var_dump($write_list);
 
         $result = [];
         foreach ($read_list as $ch) {

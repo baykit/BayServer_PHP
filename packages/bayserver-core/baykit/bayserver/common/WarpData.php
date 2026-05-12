@@ -28,7 +28,7 @@ class WarpData implements ReqContentHandler
     }
 
     public function __toString() : string{
-        return $this->warpShip . " wtur#" . $this->warpId;
+        return $this->warpShip. " wtur#". $this->warpId;
     }
 
 
@@ -57,8 +57,7 @@ class WarpData implements ReqContentHandler
                 $buf = &$newBuf;
             }
 
-            $this->warpShip->warpHandler()->sendReqContents(
-                $tur,
+            $this->warpShip->warpHandler()->sendReqContents($tur,
                 $buf,
                 $start + $pos,
                 $postLen,

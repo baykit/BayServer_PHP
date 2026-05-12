@@ -137,7 +137,7 @@ class H2PacketUnPacker extends PacketUnPacker {
                 $this->tmpBuf->reset();
             }
         }
-        
+
         while ($this->state != self::STATE_END && $this->pos < strlen($buf)) {
             switch ($this->state) {
                 case self::STATE_READ_LENGTH:

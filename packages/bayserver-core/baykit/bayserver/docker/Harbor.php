@@ -79,6 +79,15 @@ interface Harbor extends Docker
     /** Multi core flag */
     public function multiCore(): bool;
 
+    /** True if cache is enabled */
+    public function enableCache(): bool;
+
+    /** Lifespan seconds of cache */
+    public function cacheLifespanSec(): int;
+
+    /** Cache size in MB */
+    public function cacheSizeMb(): int;
+
 }
 
 function getMultiplexerTypeName(int $type): ?string {

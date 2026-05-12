@@ -42,10 +42,10 @@ class BuiltInTownDocker extends DockerBase implements  Town  {
     {
         $arg = $elm->arg;
         if(!StringUtil::startsWith($arg, "/"))
-            $arg = "/" . $arg;
+            $arg = "/". $arg;
         $this->name = $arg;
         if(!StringUtil::endsWith($this->name, "/"))
-            $this->name = $this->name . "/";
+            $this->name = $this->name. "/";
         $this->city = $parent;
 
         parent::init($elm, $parent);
@@ -107,7 +107,7 @@ class BuiltInTownDocker extends DockerBase implements  Town  {
     {
         if(StringUtil::startsWith($uri, $this->name))
             return self::MATCH_TYPE_MATCHED;
-        elseif($uri . "/" == $this->name)
+        elseif($uri. "/" == $this->name)
             return self::MATCH_TYPE_CLOSE;
         else
             return self::MATCH_TYPE_NOT_MATCHED;

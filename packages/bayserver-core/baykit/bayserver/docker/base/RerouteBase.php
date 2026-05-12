@@ -19,7 +19,7 @@ abstract class RerouteBase extends DockerBase implements Reroute
     {
         $name = $elm->arg;
         if($name != "*")
-            throw new ConfigException($elm->fileName, $elm->lineNo, "Invalid reroute name: " . $name);
+            throw new ConfigException($elm->fileName, $elm->lineNo, "Invalid reroute name: ". $name);
 
         parent::init($elm, $parent);
     }

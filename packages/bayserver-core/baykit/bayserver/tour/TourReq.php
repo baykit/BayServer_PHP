@@ -151,9 +151,7 @@ class TourReq implements Reusable {
             BayLog::warn("%s content read, but no content handler", $this->tour);
         }
         else if ($this->bytesPosted + $len > $this->bytesLimit) {
-            throw new ProtocolException(
-                BayMessage::get(
-                    Symbol::HTTP_READ_DATA_EXCEEDED,
+            throw new ProtocolException(BayMessage::get(Symbol::HTTP_READ_DATA_EXCEEDED,
                     $this->bytesPosted + $len,
                     $this->bytesLimit));
         }
@@ -193,7 +191,7 @@ class TourReq implements Reusable {
 
         $this->tour->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_RUNNING);
         if ($this->bytesLimit >= 0 && $this->bytesPosted != $this->bytesLimit) {
-            throw new ProtocolException("Read data exceed content-length: " . $this->bytesPosted . "/" . $this->bytesLimit);
+            throw new ProtocolException("Read data exceed content-length: ". $this->bytesPosted. "/". $this->bytesLimit);
         }
 
         if ($this->contentHandler !== null)
