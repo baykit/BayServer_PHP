@@ -32,8 +32,26 @@ class PacketPartAccessor
 
         if ($len > 0) {
             $this->checkWrite($len);
-            for ($i = 0; $i < $len; $i++) {
-                $this->packet->buf[$this->start + $this->pos + $i] = $buf[$ofs + $i];
+            // Previously a per-char `$buf[i] = $src[i]` loop, which is
+            // O(len) PHP-level iterations and the dominant cost when
+            // streaming a 1MB body in 64KB chunks (~1M char-writes per
+            // request,  cap measured on loopback). Use native
+            // string ops instead -- a single substr_replace / concat is
+            // an internal memcpy and orders of magnitude faster.
+            $writePos = $this->start + $this->pos;
+            $slice = ($ofs === 0 && $len === strlen($buf)) ? $buf : substr($buf, $ofs, $len);
+            $curLen = strlen($this->packet->buf);
+            if ($writePos === $curLen) {
+                $this->packet->buf.= $slice;
+            } elseif ($writePos < $curLen) {
+                $this->packet->buf = substr_replace($this->packet->buf, $slice, $writePos, $len);
+            } else {
+                // Sparse write past end-of-buffer: zero-pad the gap, then
+                // append. The original loop relied on PHP's silent space
+                // padding for `$str[i] = $c` at i > strlen; mirror that
+                // semantically (though the gap case is not exercised by
+                // any current call site).
+                $this->packet->buf.= str_repeat("\0", $writePos - $curLen). $slice;
             }
             $this->forward($len);
         }

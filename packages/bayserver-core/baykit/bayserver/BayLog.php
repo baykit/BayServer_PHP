@@ -137,7 +137,11 @@ class BayLog {
 
     private static function getCaller(int $idx) : array
     {
-        $trace = debug_backtrace();
+        // DEBUG_BACKTRACE_IGNORE_ARGS skips capturing every frame's
+        // argument list, which is the dominant cost when args are large
+        // objects (Tour, RudderState etc). The limit caps depth so PHP
+        // doesn't walk the whole call stack just to read one frame.
+        $trace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, $idx);
         $frame = $trace[$idx - 1];
         return array($frame["file"], $frame["line"]);
     }

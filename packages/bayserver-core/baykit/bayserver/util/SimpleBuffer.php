@@ -22,8 +22,8 @@ class SimpleBuffer implements Reusable
     public function reset() : void
     {
         # clear for security raeson
-        for($i = 0; $i < $this->len; $i++) {
-            $this->buf[$i] = chr(0);
+        if ($this->len > 0) {
+            $this->buf = str_repeat(chr(0), strlen($this->buf));
         }
         $this->len = 0;
     }
@@ -51,19 +51,22 @@ class SimpleBuffer implements Reusable
         while ($this->len + $len > strlen($this->buf))
             $this->extendBuf();
 
-        for($i = 0; $i < $len; $i++) {
-            $this->buf[$this->len + $i] = $buf[$pos + $i];
-        }
+        // Native substr_replace beats the per-char $buf[i] = $src[i] loop
+        // by orders of magnitude (the per-char form was a hot-path drag
+        // on every header-parse and small-body response).
+        $slice = ($pos === 0 && $len === strlen($buf)) ? $buf : substr($buf, $pos, $len);
+        $this->buf = substr_replace($this->buf, $slice, $this->len, $len);
 
         $this->len += $len;
     }
 
     public function extendBuf() : void
     {
-        $new_buf = StringUtil::allocate(strlen($this->buf) * 2);
-        for($i = 0; $i < $this->len; $i++) {
-            $new_buf[$i] = $this->buf[$i];
-        }
-        $this->buf = $new_buf;
+        $newCap = strlen($this->buf) * 2;
+        // Keep the existing $len bytes and pad the rest with zeros; the
+        // previous per-char copy loop made buffer-extension a hot-path
+        // O(N) PHP loop on every header that crossed a chunk boundary.
+        $this->buf = substr($this->buf, 0, $this->len)
+. str_repeat("\0", $newCap - $this->len);
     }
 }
