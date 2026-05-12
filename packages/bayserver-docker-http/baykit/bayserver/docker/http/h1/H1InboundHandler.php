@@ -165,7 +165,7 @@ class H1InboundHandler implements H1Handler, InboundHandler {
             $tur = $this->curTour;
 
         $tur->res->sendError(Tour::TOUR_ID_NOCHECK, HttpStatus::BAD_REQUEST, $e->getMessage(), $e);
-        return true;
+        return false;
     }
 
     function onProtocolError(ProtocolException $e): bool
@@ -177,7 +177,7 @@ class H1InboundHandler implements H1Handler, InboundHandler {
             $tur = $this->curTour;
 
         $tur->res->sendError(Tour::TOUR_ID_NOCHECK, HttpStatus::BAD_REQUEST, $e->getMessage(), $e);
-        return true;
+        return false;
     }
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -230,6 +230,7 @@ class H1InboundHandler implements H1Handler, InboundHandler {
 
         $tur->req->uri = URLEncoder::encodeTilde($cmd->uri);
         $tur->req->method = strtoupper($cmd->method);
+        HttpUtil::checkMethod($tur->req->method);
         $tur->req->protocol = $protocol;
 
         if (!($tur->req->protocol == "HTTP/1.1"

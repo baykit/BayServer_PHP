@@ -296,12 +296,18 @@ class FcgWarpHandler implements WarpHandler, FcgHandler
         $cmd = new CmdParams($warpId);
 
         $scriptFname = "";
-        CGIUtil::getEnv($tur->town->name, $docRoot, $scriptBase, $tur, function ($name, $value) use ($cmd, &$scriptFname) {
-            if($name == CGIUtil::SCRIPT_FILENAME)
-                $scriptFname = $value;
-            else
-                $cmd->addParam($name, $value);
-        });
+        try {
+            CGIUtil::getEnv($tur->town->name, $docRoot, $scriptBase, $tur, function ($name, $value) use ($cmd, &$scriptFname) {
+                if($name == CGIUtil::SCRIPT_FILENAME)
+                    $scriptFname = $value;
+                else
+                    $cmd->addParam($name, $value);
+            });
+        }
+        catch (\Exception $e) {
+            BayLog::error_e($e, "Invalid CGI environment value");
+            throw new ProtocolException("Invalid CGI environment value");
+        }
 
         $scriptFname = "proxy:fcgi://". $this->ship()->docker->host. ":".  $this->ship()->docker->port. $scriptFname;
         $cmd->addParam(CGIUtil::SCRIPT_FILENAME, $scriptFname);

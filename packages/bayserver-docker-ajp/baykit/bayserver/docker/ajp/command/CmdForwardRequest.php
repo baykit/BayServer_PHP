@@ -144,7 +144,10 @@ class CmdForwardRequest extends AjpCommand
     {
         $acc = $pkt->newAjpDataAccessor();
         $acc->putByte($this->type); // prefix code
-        $acc->putByte(self::getMethodCode($this->method));
+        $code = self::getMethodCode($this->method);
+        if($code <= 0)
+            throw new ProtocolException("Invalid method: ". $this->method);
+        $acc->putByte($code);
         $acc->putString($this->protocol);
         $acc->putString($this->reqUri);
         $acc->putString($this->remoteAddr);
@@ -165,7 +168,10 @@ class CmdForwardRequest extends AjpCommand
 
         $acc = $pkt->newAjpDataAccessor();
         $acc->getByte(); // prefix code
-        $this->method = self::$methods[$acc->getByte()];
+        $code = $acc->getByte();
+        if(!isset(self::$methods[$code]))
+            throw new ProtocolException("Invalid method code: ". $code);
+        $this->method = self::$methods[$code];
         $this->protocol = $acc->getString();
         $this->reqUri = $acc->getString();
         $this->remoteAddr = $acc->getString();

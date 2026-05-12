@@ -451,7 +451,9 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
     {
         try {
             if (empty($st->writeQueue)) {
-                throw new IOException("%s No data to write: rd=%s", $this->agent, $st->rudder);
+                BayLog::debug("%s No data to write: rd=%s", $this, $st->rudder);
+                $this->agent->sendWroteLetter($st, 0, false);
+                return;
             }
 
             for($i = 0; $i < count($st->writeQueue); $i++) {

@@ -165,6 +165,8 @@ class CGIUtil
     {
         if($value === null)
             $value = "";
+        if(strpos($value, "\0") !== false)
+            throw new \InvalidArgumentException($key. " contains null byte: ". $value);
 
         $lis($key, (string)$value);
     }

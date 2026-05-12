@@ -8,6 +8,7 @@ use baykit\bayserver\BayMessage;
 use baykit\bayserver\BayServer;
 use baykit\bayserver\common\InboundHandler;
 use baykit\bayserver\common\InboundShip;
+use baykit\bayserver\docker\http\h2\command\CmdContinuation;
 use baykit\bayserver\docker\http\h2\command\CmdData;
 use baykit\bayserver\docker\http\h2\command\CmdGoAway;
 use baykit\bayserver\docker\http\h2\command\CmdHeaders;
@@ -189,66 +190,10 @@ class H2InboundHandler implements H2Handler, InboundHandler
             return NextSocketAction::CONTINUE;
         }
 
-        foreach($cmd->headerBlocks as $blk) {
-            if($blk->op == HeaderBlock::UPDATE_DYNAMIC_TABLE_SIZE) {
-                BayLog::trace("%s header block update table size: %d", $tur, $blk->size);
-                $this->reqHeaderTbl->setSize($blk->size);
-                continue;
-            }
-            $this->analyzer->analyzeHeaderBlock($blk, $this->reqHeaderTbl);
-            if(BayServer::$harbor->traceHeader())
-                BayLog::info("%s req header: %s=%s :%s", $tur, $this->analyzer->name, $this->analyzer->value, $blk);
-
-            if($this->analyzer->name == null) {
-                continue;
-            }
-            else if($this->analyzer->name[0] != ':') {
-                $tur->req->headers->add($this->analyzer->name, $this->analyzer->value);
-            }
-            else if($this->analyzer->method != null) {
-                $tur->req->method = $this->analyzer->method;
-            }
-            else if($this->analyzer->path != null) {
-                $tur->req->uri = $this->analyzer->path;
-            }
-            else if($this->analyzer->scheme != null) {
-            }
-            else if($this->analyzer->status != null) {
-                throw new \Exception();
-            }
-        }
+        $this->applyHeaderBlocks($tur, $cmd->headerBlocks);
 
         if ($cmd->flags->endHeaders()) {
-            $tur->req->protocol = "HTTP/2.0";
-            BayLog::debug("%s H2 read header method=%s protocol=%s uri=%s contlen=%d",
-                $sip, $tur->req->method, $tur->req->protocol, $tur->req->uri, $tur->req->headers->contentLength());
-
-            $reqContLen = $tur->req->headers->contentLength();
-
-            if($reqContLen > 0) {
-                $tur->req->setLimit($reqContLen);
-            }
-
-            try {
-                $this->startTour($tur);
-                if ($tur->req->headers->contentLength() <= 0) {
-                    $this->endReqContent($tur->id(), $tur);
-                }
-            } catch (HttpException $e) {
-                BayLog::debug_e($e, "%s Http error occurred", $this);
-                if($reqContLen <= 0) {
-                    // no post data
-                    $tur->res->sendHttpException(Tour::TOUR_ID_NOCHECK, $e);
-
-                    return NextSocketAction::CONTINUE;
-                }
-                else {
-                    // Delay send
-                    $tur->error = $e;
-                    $tur->req->setContentHandler(ReqContentHandlerUtil::$devNull);
-                    return NextSocketAction::CONTINUE;
-                }
-            }
+            return $this->finishHeaderBlock($tur);
         }
         return NextSocketAction::CONTINUE;
     }
@@ -259,9 +204,6 @@ class H2InboundHandler implements H2Handler, InboundHandler
         $tur = $this->getTour($cmd->streamId);
         if($tur == null) {
             throw new \InvalidArgumentException("Invalid stream id: ". $cmd->streamId);
-        }
-        if($tur->req->headers->contentLength() <= 0) {
-            throw new ProtocolException("Post content not allowed");
         }
 
         try {
@@ -395,9 +337,105 @@ class H2InboundHandler implements H2Handler, InboundHandler
         return NextSocketAction::CONTINUE;
     }
 
+    public function handleContinuation(CmdContinuation $cmd): int
+    {
+        $sip = $this->ship();
+        BayLog::debug("%s handle_continuation: stm=%d blocks=%d", $sip, $cmd->streamId, count($cmd->headerBlocks));
+        $tur = $this->getTour($cmd->streamId);
+        if($tur == null) {
+            // CONTINUATION arrived without a prior HEADERS for this stream:
+            // protocol error per RFC 7540 sec 6.10.
+            throw new ProtocolException("H2 CONTINUATION for unknown stream id: ". $cmd->streamId);
+        }
+
+        $this->applyHeaderBlocks($tur, $cmd->headerBlocks);
+
+        if ($cmd->flags->endHeaders()) {
+            return $this->finishHeaderBlock($tur);
+        }
+        return NextSocketAction::CONTINUE;
+    }
+
     /////////////////////////////////////////////////
     // private
     /////////////////////////////////////////////////
+
+    /**
+     * Decode and apply a list of HeaderBlock entries to the request.
+     * Used by both handleHeaders and handleContinuation so CONTINUATION
+     * frames can extend the header set of the previously-started tour.
+     */
+    private function applyHeaderBlocks(Tour $tur, array $blocks) : void
+    {
+        foreach($blocks as $blk) {
+            if($blk->op == HeaderBlock::UPDATE_DYNAMIC_TABLE_SIZE) {
+                BayLog::trace("%s header block update table size: %d", $tur, $blk->size);
+                $this->reqHeaderTbl->setSize($blk->size);
+                continue;
+            }
+            $this->analyzer->analyzeHeaderBlock($blk, $this->reqHeaderTbl);
+            if(BayServer::$harbor->traceHeader())
+                BayLog::info("%s req header: %s=%s :%s", $tur, $this->analyzer->name, $this->analyzer->value, $blk);
+
+            if($this->analyzer->name == null) {
+                continue;
+            }
+            else if($this->analyzer->name[0] != ':') {
+                $tur->req->headers->add($this->analyzer->name, $this->analyzer->value);
+            }
+            else if($this->analyzer->method != null) {
+                $tur->req->method = $this->analyzer->method;
+            }
+            else if($this->analyzer->path != null) {
+                $tur->req->uri = $this->analyzer->path;
+            }
+            else if($this->analyzer->scheme != null) {
+            }
+            else if($this->analyzer->status != null) {
+                throw new \Exception();
+            }
+        }
+    }
+
+    /**
+     * Called when END_HEADERS flag is seen, after the full header block
+     * (HEADERS [+ CONTINUATION...]) has been accumulated. Starts the tour.
+     */
+    private function finishHeaderBlock(Tour $tur) : int
+    {
+        $sip = $this->ship();
+        $tur->req->protocol = "HTTP/2.0";
+        BayLog::debug("%s H2 read header method=%s protocol=%s uri=%s contlen=%d",
+            $sip, $tur->req->method, $tur->req->protocol, $tur->req->uri, $tur->req->headers->contentLength());
+
+        $reqContLen = $tur->req->headers->contentLength();
+
+        if($reqContLen > 0) {
+            $tur->req->setLimit($reqContLen);
+        }
+
+        try {
+            $this->startTour($tur);
+            if ($tur->req->headers->contentLength() <= 0) {
+                $this->endReqContent($tur->id(), $tur);
+            }
+        } catch (HttpException $e) {
+            BayLog::debug_e($e, "%s Http error occurred", $this);
+            if($reqContLen <= 0) {
+                // no post data
+                $tur->res->sendHttpException(Tour::TOUR_ID_NOCHECK, $e);
+                return NextSocketAction::CONTINUE;
+            }
+            else {
+                // Delay send
+                $tur->error = $e;
+                $tur->req->setContentHandler(ReqContentHandlerUtil::$devNull);
+                return NextSocketAction::CONTINUE;
+            }
+        }
+        return NextSocketAction::CONTINUE;
+    }
+
     private function getTour(int $key) : ?Tour
     {
         return $this->ship()->getTour($key);

@@ -3,6 +3,7 @@ namespace baykit\bayserver\util;
 
 
 use baykit\bayserver\BayLog;
+use baykit\bayserver\protocol\ProtocolException;
 use baykit\bayserver\tour\Tour;
 
 class HttpUtil
@@ -91,6 +92,27 @@ class HttpUtil
             return null;
         }
         return $name;
+    }
+
+    public static function checkUri(string $uri) : void
+    {
+        if (strpos($uri, "\0") !== false) {
+            throw new ProtocolException("path contains null byte");
+        }
+
+        $len = strlen($uri);
+        for ($i = 0; $i < $len; $i++) {
+            $ch = ord($uri[$i]);
+            if ($ch < 0x20 || $ch == 0x7F) {
+                throw new ProtocolException("path contains control character");
+            }
+        }
+    }
+
+    public static function checkMethod(string $method) : void
+    {
+        if (!preg_match("/^[A-Za-z0-9!#\$%&'*+\\-.^_`|~]+\$/", $method))
+            throw new ProtocolException("Invalid method: ". $method);
     }
 
 }

@@ -156,8 +156,8 @@ class FileContentHandler implements ReqContentHandler
             $mpx->addRudderState($rd, $st);
             $mpx->reqRead($rd);
         }
-        catch (IOException $e) {
-            BayLog::error_e(e);
+        catch (\Exception $e) {
+            BayLog::error_e($e);
             throw new HttpException(HttpStatus::INTERNAL_SERVER_ERROR, $fname);
         }
     }

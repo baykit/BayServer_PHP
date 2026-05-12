@@ -2,6 +2,7 @@
 
 namespace baykit\bayserver\docker\http\h2;
 
+use baykit\bayserver\docker\http\h2\command\CmdContinuation;
 use baykit\bayserver\docker\http\h2\command\CmdData;
 use baykit\bayserver\docker\http\h2\command\CmdGoAway;
 use baykit\bayserver\docker\http\h2\command\CmdHeaders;
@@ -32,5 +33,7 @@ interface H2CommandHandler extends CommandHandler {
     public function handlePing(CmdPing $cmd) : int;
 
     public function handleRstStream(CmdRstStream $cmd) : int;
+
+    public function handleContinuation(CmdContinuation $cmd) : int;
 
 }
