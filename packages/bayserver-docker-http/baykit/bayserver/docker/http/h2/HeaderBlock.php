@@ -75,6 +75,10 @@ class HeaderBlock
              */
             $blk->op = self::INDEX;
             $blk->index = $index & 0x7F;
+            // RFC 7541 § 6.1: index 0 is not used and MUST be treated
+            // as a decoding error.
+            if ($blk->index === 0)
+                throw new \baykit\bayserver\protocol\ProtocolException("Indexed header field with index 0");
         } else {
             // literal header field
             $updateIndex = ($index & 0x40) != 0;
@@ -133,6 +137,13 @@ class HeaderBlock
                     if ($size == 0x1f) {
                         $size = $size + $acc->getHPackIntRest();
                     }
+                    // RFC 7541 § 6.3: dynamic table size update must
+                    // not exceed SETTINGS_HEADER_TABLE_SIZE. BayServer
+                    // never advertises a value other than the RFC
+                    // default (4096), so any larger update is a
+                    // decoding error.
+                    if ($size > 4096)
+                        throw new \baykit\bayserver\protocol\ProtocolException("Dynamic table size update $size exceeds SETTINGS_HEADER_TABLE_SIZE 4096");
                     $blk->op = self::UPDATE_DYNAMIC_TABLE_SIZE;
                     $blk->size = $size;
                 } else {

@@ -20,7 +20,10 @@ use baykit\bayserver\protocol\Packet;
  */
 class CmdContinuation extends H2Command
 {
+    /** Pre-decoded blocks; populated on the outbound path only. */
     public $headerBlocks = [];
+    /** See CmdHeaders::$rawHeaderBlock. */
+    public string $rawHeaderBlock = "";
 
     public function __construct(int $streamId, H2Flags $flags = null)
     {
@@ -30,9 +33,7 @@ class CmdContinuation extends H2Command
     public function unpack(Packet $pkt): void
     {
         parent::unpack($pkt);
-
-        $acc = $pkt->newH2DataAccessor();
-        $this->readHeaderBlock($acc, $pkt->dataLen());
+        $this->rawHeaderBlock = substr($pkt->buf, $pkt->headerLen, $pkt->dataLen());
     }
 
     public function pack(Packet $pkt): void

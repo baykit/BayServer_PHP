@@ -8,6 +8,7 @@ use baykit\bayserver\docker\http\h2\H2Packet;
 use baykit\bayserver\docker\http\h2\H2Type;
 use baykit\bayserver\protocol\CommandHandler;
 use baykit\bayserver\protocol\Packet;
+use baykit\bayserver\protocol\ProtocolException;
 
 /**
  * HTTP/2 Priority payload format
@@ -39,6 +40,11 @@ class CmdPriority extends H2Command
         $this->streamDependency = H2Packet::extractInt31($val);
 
         $this->weight = $acc->getByte();
+
+        // RFC 7540 § 5.3.1: a stream MUST NOT depend on itself.
+        // Mirrors
+        if ($this->streamDependency === $this->streamId)
+            throw new ProtocolException("PRIORITY stream depends on itself: {$this->streamId}");
     }
 
     public function pack(Packet $pkt): void

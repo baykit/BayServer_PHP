@@ -31,6 +31,15 @@ class RudderState implements Reusable {
 
     public bool $accepting = false;
     public bool $connecting = false;
+    /**
+     * True while this state is enqueued in SpiderMultiplexer's
+     * tryWriteList. Used to dedup pushes from
+     * back-to-back reqWrite calls on the same rudder; without it,
+     * a 1MB body's 16 chunked sendResContent calls each push the
+     * same state, and the drain replays onWritable 16 times, firing
+     * 16x as many WroteLetters as there are units to pop.
+     */
+    public bool $inTryWriteList = false;
 
     public function __construct(?Rudder $rd = null, ?Transporter $tp = null, int $timeoutSec = 0) {
         if ($rd !== null) {
@@ -126,5 +135,6 @@ class RudderState implements Reusable {
         $this->accepting = false;
         $this->connecting = false;
         $this->skipFormalities = false;
+        $this->inTryWriteList = false;
     }
 }

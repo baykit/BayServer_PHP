@@ -2,14 +2,22 @@
 
 namespace baykit\bayserver\docker\http\h2\huffman;
 
+use baykit\bayserver\protocol\ProtocolException;
+
 class HTree
 {
+    // RFC 7541 defines the EOS symbol with value 256; it must never
+    // appear in a header's payload except as padding at the tail.
+    // Mirrors
+    const EOS_SYMBOL = 256;
+
     static $root; // HNode
 
     public static function decode(string &$data) : string
     {
         $w = "";
         $cur = self::$root;
+        $bitsSinceLastLeaf = 0;
         for ($i = 0; $i < strlen($data); $i++) {
             for ($j = 0; $j < 8; $j++) {
                 $bit = ord($data[$i]) >> (8 - $j - 1) & 0x1;
@@ -21,15 +29,51 @@ class HTree
                 else {
                     $cur = $cur->zero;
                 }
+                if ($cur === null) {
+                    // Bit pattern does not match any Huffman code.
+                    throw new ProtocolException("Huffman decode: invalid code sequence");
+                }
+                $bitsSinceLastLeaf++;
 
                 if ($cur->value >= 0) {
                     // leaf node
+                    // RFC 7541 § 5.2: EOS MUST NOT appear in a literal.
+                    if ($cur->value === self::EOS_SYMBOL)
+                        throw new ProtocolException("Huffman decode: EOS symbol in string literal");
                     $w.= chr($cur->value);
                     $cur = self::$root;
+                    $bitsSinceLastLeaf = 0;
                 }
             }
         }
+
+        if ($cur !== self::$root) {
+            // RFC 7541 § 5.2: trailing bits form padding that MUST be
+            // a strict prefix of the EOS code (all 1s) and no longer
+            // than 7 bits.
+            if ($bitsSinceLastLeaf > 7)
+                throw new ProtocolException("Huffman decode: padding longer than 7 bits ($bitsSinceLastLeaf)");
+            if (!self::isEosPrefix($cur))
+                throw new ProtocolException("Huffman decode: padding must be MSB of EOS (all 1s)");
+        }
+
         return $w;
+    }
+
+    /**
+     * True iff the path from root to $node traverses only the 1-bit
+     * branch. The EOS code is all 1s, so this is "bits consumed so
+     * far are a prefix of EOS".
+     */
+    private static function isEosPrefix(HNode $node) : bool
+    {
+        $cur = self::$root;
+        while ($cur !== $node) {
+            if ($cur->one === null)
+                return false;
+            $cur = $cur->one;
+        }
+        return true;
     }
 
     static function insert(int $code, int $lenInBits, int $sym) : void

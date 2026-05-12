@@ -7,6 +7,7 @@ use baykit\bayserver\docker\http\h2\H2Flags;
 use baykit\bayserver\docker\http\h2\H2Type;
 use baykit\bayserver\protocol\CommandHandler;
 use baykit\bayserver\protocol\Packet;
+use baykit\bayserver\protocol\ProtocolException;
 
 
 
@@ -41,9 +42,20 @@ class CmdData extends H2Command
     public function unpack(Packet $pkt): void
     {
         parent::unpack($pkt);
+        $acc = $pkt->newDataAccessor();
+
+        $padLength = 0;
+        if ($pkt->flags->padded())
+            $padLength = $acc->getByte();
+
         $this->data = $pkt->buf;
-        $this->start = $pkt->headerLen;
-        $this->length = $pkt->dataLen();
+        $this->start = $pkt->headerLen + $acc->pos;
+        $this->length = $pkt->dataLen() - $acc->pos - $padLength;
+
+        // RFC 7540 § 6.1: padding length must leave at least one
+        // octet of data.
+        if ($this->length < 0)
+            throw new ProtocolException("DATA pad length exceeds payload: pad=$padLength");
     }
 
     public function pack(Packet $pkt): void

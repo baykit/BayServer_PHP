@@ -113,18 +113,26 @@ class H2PacketUnPacker extends PacketUnPacker {
         $this->pos = 0;
 
         if($this->serverMode && !$this->prefaceRead) {
-            $len = strlen(self::CONNECTION_PREFACE) - $this->tmpBuf->len;
+            $prevLen = $this->tmpBuf->len;
+            $len = strlen(self::CONNECTION_PREFACE) - $prevLen;
             if($len > strlen($buf))
                 $len = strlen($buf);
 
             $this->tmpBuf->put($buf, 0, $len);
             $this->pos += $len;
 
+            // Validate each newly-arrived byte against the expected
+            // preface so a malformed client is rejected immediately
+            // rather than only after all 24 bytes accumulate. Also
+            // surfaces the error via GOAWAY even if the peer sends
+            // fewer than 24 bytes before closing.
+            $expectedBytes = self::CONNECTION_PREFACE;
+            $actualBytes = $this->tmpBuf->bytes();
+            for ($i = $prevLen; $i < $this->tmpBuf->len; $i++) {
+                if ($expectedBytes[$i] !== $actualBytes[$i])
+                    throw new ProtocolException("Invalid connection preface at byte $i: got ". ord($actualBytes[$i]));
+            }
             if($this->tmpBuf->len == strlen(self::CONNECTION_PREFACE)) {
-                for($i = 0; $i < $this->tmpBuf->len; $i++) {
-                    if(self::CONNECTION_PREFACE[$i] != $this->tmpBuf->bytes()[$i])
-                        throw new ProtocolException("Invalid connection preface");
-                }
                 $pkt = $this->pktStore->rent(H2Type::PREFACE);
                 $pkt->newDataAccessor()->putBytes($this->tmpBuf->buf, 0, $this->tmpBuf->len);
                 $nstat = $this->cmdUnpacker->packetReceived($pkt);
@@ -145,6 +153,12 @@ class H2PacketUnPacker extends PacketUnPacker {
                         $this->payloadLen = (($this->item->get($this->tmpBuf, 0) & 0xFF) << 16 |
                                              ($this->item->get($this->tmpBuf, 1) & 0xFF) << 8 |
                                              ($this->item->get($this->tmpBuf, 2) & 0xFF));
+                        // RFC 7540 § 4.2: payload size must not
+                        // exceed SETTINGS_MAX_FRAME_SIZE. BayServer
+                        // never negotiates this up so the initial
+                        // value of 16384 applies.
+                        if ($this->payloadLen > H2Packet::DEFAULT_PAYLOAD_MAXLEN)
+                            throw new ProtocolException("Frame size {$this->payloadLen} exceeds MAX_FRAME_SIZE ". H2Packet::DEFAULT_PAYLOAD_MAXLEN);
                         $this->item = new H2PacketUnPacker_FrameHeaderItem($this->tmpBuf->len, self::FRAME_LEN_TYPE);
                         $this->changeState(self::STATE_READ_TYPE);
                     }

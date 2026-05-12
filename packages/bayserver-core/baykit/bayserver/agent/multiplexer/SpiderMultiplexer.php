@@ -128,7 +128,17 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
         // immediately, which it almost always is on loopback / a freshly
         // drained TCP buffer.
         if ($st->remaining() > 0 && ($flush || $st->remaining() >= $st->bufSize)) {
-            $this->tryWriteList[] = $st;
+            // Dedup: each onWritable() drains the rudder's full
+            // writeQueue, so pushing the same state twice would replay
+            // the loop and fire spurious zero-length WroteLetters
+            // ("Write queue is empty" Sink in GrandAgent.onWrote). The
+            // implementation uses a synchronized list and naturally enqueues
+            // one entry per consumer; PHP is single-threaded per agent
+            // so a flag on the state is enough.
+            if (!$st->inTryWriteList) {
+                $st->inTryWriteList = true;
+                $this->tryWriteList[] = $st;
+            }
             $this->wakeup();
         }
 
@@ -282,6 +292,7 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
         // its existing partial-write path.
         while (!empty($this->tryWriteList)) {
             $st = array_shift($this->tryWriteList);
+            $st->inTryWriteList = false;
             // The state may have been Returned to the pool between the
             // push (reqWrite) and now -- e.g. the peer closed the
             // connection and onClosed has already run. reset() clears

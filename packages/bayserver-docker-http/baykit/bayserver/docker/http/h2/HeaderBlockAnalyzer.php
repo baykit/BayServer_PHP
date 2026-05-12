@@ -7,19 +7,30 @@ class HeaderBlockAnalyzer
 {
     public $name;
     public $value;
+    /**
+     * Original header name before pseudo-header renaming (e.g.
+     * :authority -> host). Needed by pseudo-header validation so
+     * :authority and a literal "host" header can be distinguished.
+     * Mirrors
+     */
+    public $rawName;
     public $method;
     public $path;
     public $scheme;
     public $status;
+    /** True iff rawName started with ':' (i.e. a pseudo-header). */
+    public bool $pseudo = false;
 
     public function clear() : void
     {
         $this->name = null;
         $this->value = null;
+        $this->rawName = null;
         $this->method = null;
         $this->path = null;
         $this->scheme = null;
         $this->status = null;
+        $this->pseudo = false;
     }
 
     public function analyzeHeaderBlock(HeaderBlock $blk, HeaderTable $tbl) : void
@@ -69,7 +80,10 @@ class HeaderBlockAnalyzer
                 throw new \Exception("Illega State");
         }
 
-        if($this->name != null && $this->name[0] == ':') {
+        $this->rawName = $this->name;
+        $this->pseudo = $this->name !== null && $this->name !== "" && $this->name[0] === ':';
+
+        if($this->pseudo) {
             switch($this->name) {
                 case HeaderTable::PSEUDO_HEADER_AUTHORITY:
                     $this->name = "host";

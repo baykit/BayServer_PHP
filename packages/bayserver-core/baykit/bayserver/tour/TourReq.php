@@ -4,10 +4,12 @@ namespace baykit\bayserver\tour;
 use baykit\bayserver\BayLog;
 use baykit\bayserver\BayMessage;
 use baykit\bayserver\BayServer;
+use baykit\bayserver\HttpException;
 use baykit\bayserver\protocol\ProtocolException;
 use baykit\bayserver\Sink;
 use baykit\bayserver\Symbol;
 use baykit\bayserver\util\Headers;
+use baykit\bayserver\util\HttpStatus;
 use baykit\bayserver\util\Reusable;
 
 class TourReq implements Reusable {
@@ -144,8 +146,18 @@ class TourReq implements Reusable {
         //$this->tour->checkTourId($checkId);
 
         $dataPassed = false;
-        if(!$this->tour->isReading()) {
-            BayLog::debug("%s tour is not reading.", $this->tour);
+        // Order matches upstream's TourReq.postReqContent: error first (lenient),
+        // then !isReading (strict). The !isReading branch must throw a
+        // request-scoped error so the caller can respond with 400 and keep
+        // the connection alive -- previously it logged and fell through,
+        // which let bytesPosted advance and re-entered endReqContent on a
+        // tour whose req side was already ended (Sink kills the agent).
+        if($this->tour->error != null) {
+            // If has error, only read content. (Do not call content handler)
+            BayLog::debug("%s tour has error.", $this->tour);
+        }
+        else if(!$this->tour->isReading()) {
+            throw new HttpException(HttpStatus::BAD_REQUEST, $this->tour. " tour is not reading.");
         }
         else if ($this->tour->req->contentHandler == null) {
             BayLog::warn("%s content read, but no content handler", $this->tour);
@@ -154,10 +166,6 @@ class TourReq implements Reusable {
             throw new ProtocolException(BayMessage::get(Symbol::HTTP_READ_DATA_EXCEEDED,
                     $this->bytesPosted + $len,
                     $this->bytesLimit));
-        }
-        else if($this->tour->error != null) {
-            // If has error, only read content. (Do not call content handler)
-            BayLog::debug("%s tour has error.", $this->tour);
         }
         else {
             $this->contentHandler->onReadReqContent($this->tour, $data, $start, $len, $callback);

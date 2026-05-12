@@ -544,8 +544,15 @@ sendFile
     private function consumed(int $checkId, int $length, bool $bufferAvailable) : void
     {
         //$this->tour->checkTourId($checkId);
-        if ($this->resConsumeListener === null)
-            throw new Sink("Consume listener is null");
+        // The listener can be cleared between when the write was queued
+        // and when it completes (H2 multiplexes many streams on one
+        // connection, and a stream reset or finalize clears it). Treat
+        // null as a no-op rather than a Sink that would tear down the
+        // whole agent.
+        if ($this->resConsumeListener === null) {
+            BayLog::debug("%s resConsumed (no listener): len=%d", $this->tour, $length);
+            return;
+        }
 
         BayLog::debug("%s resConsumed: len=%d avail=%b", $this->tour, $length, $bufferAvailable);
 

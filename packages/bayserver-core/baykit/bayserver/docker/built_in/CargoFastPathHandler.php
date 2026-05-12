@@ -63,6 +63,13 @@ class CargoFastPathHandler implements ReqContentHandler
         $turId = $tur->tourId;
         $chunkSize = $tur->ship->protocolHandler->maxResPacketDataSize();
         $pos = 0;
+        // Re-entry guard. sendResContent may complete synchronously
+        // for a chunk that fits in the write queue, in which case the
+        // consume listener fires inside sendChunks itself -- if the
+        // listener then calls sendChunks again, each chunk adds a
+        // stack frame and 100KB+ responses overflow the stack.
+        // Mirrors
+        $sending = false;
 
         $sendChunks = function () use ($tur, $cgo, $chunkSize, &$pos) {
             $available = true;
@@ -79,16 +86,25 @@ class CargoFastPathHandler implements ReqContentHandler
             }
         };
 
-        $tur->res->setConsumeListener(function ($len, $resume) use ($sendChunks) {
-            if ($resume) {
-                try {
-                    $sendChunks();
-                } catch (IOException $e) {
-                    BayLog::error_e($e);
-                }
+        $tur->res->setConsumeListener(function ($len, $resume) use ($sendChunks, &$sending) {
+            if (!$resume || $sending) {
+                return;
+            }
+            $sending = true;
+            try {
+                $sendChunks();
+            } catch (IOException $e) {
+                BayLog::error_e($e);
+            } finally {
+                $sending = false;
             }
         });
 
-        $sendChunks();
+        $sending = true;
+        try {
+            $sendChunks();
+        } finally {
+            $sending = false;
+        }
     }
 }
