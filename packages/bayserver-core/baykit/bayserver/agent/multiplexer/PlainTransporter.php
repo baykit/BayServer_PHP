@@ -114,9 +114,9 @@ class PlainTransporter implements Transporter {
         $this->multiplexer->reqRead($rd);
     }
 
-    public function reqWrite(Rudder $rd, string $buf, $adr, $tag, ?callable $callback): void {
+    public function reqWrite(Rudder $rd, string $buf, $adr, $tag, bool $flush, ?callable $callback): void {
         $this->checkRudder($rd);
-        $this->multiplexer->reqWrite($rd, $buf, $adr, $tag, $callback);
+        $this->multiplexer->reqWrite($rd, $buf, $adr, $tag, $flush, $callback);
     }
 
     public function reqTransfer(Rudder $rd, Rudder $fileRd, int $ofs, int $len, ?callable $callback): void {

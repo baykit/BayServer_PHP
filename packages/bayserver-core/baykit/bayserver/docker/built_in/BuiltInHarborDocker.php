@@ -27,12 +27,13 @@ use function baykit\bayserver\docker\getRecipientTypeName;
 class BuiltInHarborDocker extends DockerBase implements Harbor
 {
     const DEFAULT_MAX_SHIPS = 100;
+    const DEFAULT_MAX_TOURS_PER_SHIP = 128;
     const DEFAULT_GRAND_AGENTS = 0;
     const DEFAULT_TRAIN_RUNNERS = 8;
     const DEFAULT_TAXI_RUNNERS = 8;
     const DEFAULT_WAIT_TIMEOUT_SEC = 120;
     const DEFAULT_KEEP_TIMEOUT_SEC = 20;
-    const DEFAULT_TOUR_BUFFER_SIZE = 1024 * 1024;  # 1M
+    const DEFAULT_SHIP_BUFFER_SIZE = 1024 * 1024;  # 1M
     const DEFAULT_TRACE_HEADER = False;
     const DEFAULT_CHARSET = "UTF-8";
     const DEFAULT_CONTROL_PORT = -1;
@@ -66,6 +67,8 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
 
     # Max count of ships
     private int $maxShips = self::DEFAULT_MAX_SHIPS;
+    /** Max tours per ship (= H2 MAX_CONCURRENT_STREAMS). */
+    private int $maxToursPerShip = self::DEFAULT_MAX_TOURS_PER_SHIP;
 
     # Socket timeout in seconds
     private int $socketTimeoutSec = self::DEFAULT_WAIT_TIMEOUT_SEC;
@@ -74,7 +77,7 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
     private int $keepTimeoutSec = self::DEFAULT_KEEP_TIMEOUT_SEC;
 
     # Internal buffer size of Tour
-    private int $tourBufferSize = self::DEFAULT_TOUR_BUFFER_SIZE;
+    private int $shipBufferSize = self::DEFAULT_SHIP_BUFFER_SIZE;
 
     # Trace req/res header flag
     private bool $traceHeader = self::DEFAULT_TRACE_HEADER;
@@ -256,14 +259,19 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
             case "maxships":
                 $this->maxShips = intval($kv->value);
                 break;
+
+            case "maxtourspership":
+                $this->maxToursPerShip = intval($kv->value);
+                break;
             case "timeout":
                 $this->socketTimeoutSec = intval($kv->value);
                 break;
             case "keeptimeout":
                 $this->keepTimeoutSec = intval($kv->value);
                 break;
-            case "tourbuffersize":
-                $this->tourBufferSize = StringUtil::parseSize($kv->value);
+            case "shipbuffersize":
+            case "tourbuffersize":  // backward-compat alias
+                $this->shipBufferSize = StringUtil::parseSize($kv->value);
                 break;
             case "traceheader":
                 $this->traceHeader = StringUtil::parseBool($kv->value);
@@ -383,6 +391,12 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
         return $this->maxShips;
     }
 
+    /** Max tours per ship (H2 MAX_CONCURRENT_STREAMS) */
+    public function maxToursPerShip(): int
+    {
+        return $this->maxToursPerShip;
+    }
+
     /** Trouble docker */
     public function trouble(): ?Trouble
     {
@@ -408,9 +422,9 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
     }
 
     /** Internal buffer size of Tour */
-    public function tourBufferSize(): int
+    public function shipBufferSize(): int
     {
-        return $this->tourBufferSize;
+        return $this->shipBufferSize;
     }
 
     /** File name to redirect stdout/stderr */

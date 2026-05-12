@@ -103,13 +103,13 @@ class FcgInboundHandler implements InboundHandler, FcgHandler
         HttpUtil::sendMimeHeaders($tur->res->headers, $buf);
         HttpUtil::sendNewLine($buf);
         $cmd = new CmdStdOut($tur->req->key, $buf->buf, 0, $buf->len);
-        $this->protocolHandler->post($cmd);
+        $this->protocolHandler->post($cmd, false);
     }
 
     public function sendResContent(Tour $tur, string $bytes, int $ofs, int $len, ?callable $callback): void
     {
         $cmd = new CmdStdOut($tur->req->key, $bytes, $ofs, $len);
-        $this->protocolHandler->post($cmd, $callback);
+        $this->protocolHandler->post($cmd, false, $callback);
     }
 
     public function transferContent(Tour $tur, \baykit\bayserver\rudder\Rudder $fileRd, int $ofs, int $len, ?callable $callback): void
@@ -124,7 +124,7 @@ class FcgInboundHandler implements InboundHandler, FcgHandler
 
         // Send empty stdout command
         $cmd = new CmdStdOut($tur->req->key);
-        $this->protocolHandler->post($cmd);
+        $this->protocolHandler->post($cmd, false);
 
         // Send end request command
         $cmd = new CmdEndRequest($tur->req->key);
@@ -134,7 +134,7 @@ class FcgInboundHandler implements InboundHandler, FcgHandler
         };
 
         try {
-            $this->protocolHandler->post($cmd, function () use ($callback, $ensureFunc, $tur, $sip) {
+            $this->protocolHandler->post($cmd, true, function () use ($callback, $ensureFunc, $tur, $sip) {
                 BayLog::debug("%s call back in sendEndTour: tur=%s", $sip, $tur);
                 $ensureFunc();
                 $callback();

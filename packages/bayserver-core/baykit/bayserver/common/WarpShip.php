@@ -277,7 +277,9 @@ class WarpShip extends Ship
             $callback();
         }
         else {
-            $this->protocolHandler->post($cmd, $callback);
+            // Warp's protocolHandler->post existed pre-flush refactor and
+            // was always treated as a single-shot flush; preserve that.
+            $this->protocolHandler->post($cmd, true, $callback);
         }
     }
 
@@ -289,7 +291,7 @@ class WarpShip extends Ship
             if($cmd == null)
                 $lis();
             else
-                $this->protocolHandler->post($cmd, $lis);
+                $this->protocolHandler->post($cmd, true, $lis);
         }
         $this->cmdBuf = [];
     }

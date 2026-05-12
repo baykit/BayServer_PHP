@@ -118,13 +118,17 @@ class H1InboundHandler implements H1Handler, InboundHandler {
         }
 
         $cmd = CmdHeader::newResHeader($tur->res->headers, $tur->req->protocol);
-        $this->protocolHandler->post($cmd);
+        // flush=false: defer registration until the body comes through, so
+        // headers + content batch into one socket write.
+        $this->protocolHandler->post($cmd, false);
     }
 
     public function sendResContent(Tour $tur, string $bytes, int $ofs, int $len, ?callable $callback): void
     {
         $cmd = new CmdContent($bytes, $ofs, $len);
-        $this->protocolHandler->post($cmd, $callback);
+        // flush=false: more chunks (or endTour) will follow; the final
+        // CmdEndContent forces the actual socket write.
+        $this->protocolHandler->post($cmd, false, $callback);
     }
 
     public function transferContent(Tour $tur, \baykit\bayserver\rudder\Rudder $fileRd, int $ofs, int $len, ?callable $callback): void
@@ -157,7 +161,7 @@ class H1InboundHandler implements H1Handler, InboundHandler {
 
 
         try {
-            $this->protocolHandler->post($cmd, function () use ($ensure_func, $callback, $sip, $tur) {
+            $this->protocolHandler->post($cmd, true, function () use ($ensure_func, $callback, $sip, $tur) {
                 BayLog::debug("%s call back of end content command: tur=%s", $sip, $tur);
                 $ensure_func();
                 $callback();

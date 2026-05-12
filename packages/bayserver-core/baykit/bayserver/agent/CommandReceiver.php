@@ -115,7 +115,7 @@ class CommandReceiver extends Ship
             IOUtil::writeInt32($this->rudder->key(), GrandAgent::CMD_OK);
         else {
             $buf = pack('N', $cmd);
-            $agt->netMultiplexer->reqWrite($this->rudder, $buf, null, null, null);
+            $agt->netMultiplexer->reqWrite($this->rudder, $buf, null, null, true, null);
         }
     }
 

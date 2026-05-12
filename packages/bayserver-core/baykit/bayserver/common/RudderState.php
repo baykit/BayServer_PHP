@@ -82,6 +82,20 @@ id.
         $this->finale = true;
     }
 
+    /**
+     * Total bytes pending in the write queue. Used by SpiderMultiplexer's
+     * flush-batching decision: if remaining() crosses
+     * bufSize, register OP_WRITE even when the caller requested flush=false.
+     */
+    public function remaining(): int
+    {
+        $sum = 0;
+        foreach ($this->writeQueue as $u) {
+            $sum += strlen($u->buf);
+        }
+        return $sum;
+    }
+
     public function toString(): string {
         $str = "st(rd={$this->rudder} mpx={$this->multiplexer} tp={$this->transporter})";
         if ($this->closing)

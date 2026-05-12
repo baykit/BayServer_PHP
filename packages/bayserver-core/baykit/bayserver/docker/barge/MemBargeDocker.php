@@ -126,7 +126,13 @@ class MemBargeDocker extends DockerBase implements Barge
                 $cgo->addWaiter($waitRd);
             }
             else {
-                $tour->res->directBoarding = false;
+                // Cargo present. EXCEEDED cargo (too big for cache) should
+                // still flow through Direct Boarding (sendfile) if the
+                // harbor enables it -- mirrors Cargo that
+                // fits in cache disables directBoarding so the in-memory
+                // content path is taken.
+                $tour->res->directBoarding =
+                    $cgo->exceeded() && BayServer::$harbor->directBoarding();
             }
         }
         $cgo->access();

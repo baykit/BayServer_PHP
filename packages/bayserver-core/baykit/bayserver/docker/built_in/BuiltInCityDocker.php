@@ -238,6 +238,29 @@ class BuiltInCityDocker extends DockerBase implements  City  {
         return $b;
     }
 
+    /**
+     * Cached is_file() for welcome-file probes. Avoids one stat per
+     * request when the request URI ends in "/".
+     * TTL keeps the cache fresh enough for new files to be picked up
+     * within ~10 s of being added to docroot.
+     */
+    private static array $welcomeExistsCache = [];
+    private const WELCOME_EXISTS_TTL = 10;
+
+    private static function welcomeFileExists(string $path) : bool
+    {
+        $now = time();
+        if (isset(self::$welcomeExistsCache[$path])) {
+            [$exists, $expireAt] = self::$welcomeExistsCache[$path];
+            if ($now <= $expireAt) {
+                return $exists;
+            }
+        }
+        $exists = is_file($path);
+        self::$welcomeExistsCache[$path] = [$exists, $now + self::WELCOME_EXISTS_TTL];
+        return $exists;
+    }
+
     public function log(Tour $tur) : void
     {
         foreach ($this->logs as $d) {
@@ -362,7 +385,7 @@ class BuiltInCityDocker extends DockerBase implements  City  {
                     $indexUri = $uri. $t->welcome;
                     $relUri = $rel. $t->welcome;
                     $indexLocation = $t->location. DIRECTORY_SEPARATOR. $relUri;
-                    if(is_file($indexLocation)) {
+                    if(self::welcomeFileExists($indexLocation)) {
                         if ($mi->queryString !== null)
                             $indexUri.= "?". $mi->queryString;
                         $m2 = $this->getTownAndClub($indexUri);

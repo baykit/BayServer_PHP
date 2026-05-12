@@ -17,12 +17,13 @@ class PacketPacker implements Reusable
     {
     }
 
-    public function post(Ship $ship, Packet $pkt, ?callable $lsnr) : void
+    public function post(Ship $ship, Packet $pkt, bool $flush, ?callable $lsnr) : void
     {
         $ship->transporter->reqWrite($ship->rudder,
             substr($pkt->buf, 0, $pkt->bufLen),
             null,
             $pkt,
+            $flush,
             $lsnr);
     }
 }

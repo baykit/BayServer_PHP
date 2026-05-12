@@ -81,9 +81,9 @@ abstract class ProtocolHandler implements Reusable
         return $this->packetUnpacker->bytesReceived($buf);
     }
 
-    public function post(Command $cmd, ?callable $callback = null)
+    public function post(Command $cmd, bool $flush, ?callable $callback = null)
     {
-        $this->commandPacker->post($this->ship, $cmd, $callback);
+        $this->commandPacker->post($this->ship, $cmd, $flush, $callback);
     }
 
 

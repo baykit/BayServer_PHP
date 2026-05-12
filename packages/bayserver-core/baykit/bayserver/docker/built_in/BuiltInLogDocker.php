@@ -204,7 +204,9 @@ class BuiltInLogDocker extends DockerBase implements Log
             $this->multiplexers[$tour->ship->agentId]->reqWrite($this->rudders[$tour->ship->agentId],
                 $sb,
                 null,
-                "Log"
+                "Log",
+                true,
+                null
             );
         }
     }

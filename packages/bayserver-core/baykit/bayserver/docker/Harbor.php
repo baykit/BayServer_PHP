@@ -34,6 +34,9 @@ interface Harbor extends Docker
     /** Max count of ships */
     public function maxShips(): int;
 
+    /** Max tours per ship (H2 MAX_CONCURRENT_STREAMS) */
+    public function maxToursPerShip(): int;
+
     /** Trouble docker */
     public function trouble(): ?Trouble;
 
@@ -47,7 +50,7 @@ interface Harbor extends Docker
     public function traceHeader(): bool;
 
     /** Internal buffer size of Tour */
-    public function tourBufferSize(): int;
+    public function shipBufferSize(): int;
 
     /** File name to redirect stdout/stderr */
     public function redirectFile(): ?string;

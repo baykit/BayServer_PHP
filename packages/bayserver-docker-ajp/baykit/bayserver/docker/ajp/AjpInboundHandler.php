@@ -98,13 +98,13 @@ class AjpInboundHandler implements InboundHandler, AjpHandler
                 }
             }
         }
-        $this->protocolHandler->post($cmd);
+        $this->protocolHandler->post($cmd, false);
     }
 
     public function sendResContent(Tour $tur, string $bytes, int $ofs, int $len, ?callable $callback): void
     {
         $cmd = new CmdSendBodyChunk($bytes, $ofs, $len);
-        $this->protocolHandler->post($cmd, $callback);
+        $this->protocolHandler->post($cmd, false, $callback);
     }
 
     public function transferContent(Tour $tur, \baykit\bayserver\rudder\Rudder $fileRd, int $ofs, int $len, ?callable $callback): void
@@ -125,7 +125,7 @@ class AjpInboundHandler implements InboundHandler, AjpHandler
         };
 
         try {
-            $this->protocolHandler->post($cmd, function () use ($callback, $ensureFunc, $tur, $sip) {
+            $this->protocolHandler->post($cmd, true, function () use ($callback, $ensureFunc, $tur, $sip) {
                 BayLog::debug("%s call back in sendEndTour: tur=%s", $sip, $tur);
                 $ensureFunc();
                 $callback();
@@ -263,7 +263,7 @@ class AjpInboundHandler implements InboundHandler, AjpHandler
                 if($bch->reqLen > AjpPacket::MAX_DATA_LEN) {
                     $bch->reqLen = AjpPacket::MAX_DATA_LEN;
                 }
-                $this->protocolHandler->post($bch);
+                $this->protocolHandler->post($bch, true);
 
                 if(!$success)
                     return NextSocketAction::SUSPEND;

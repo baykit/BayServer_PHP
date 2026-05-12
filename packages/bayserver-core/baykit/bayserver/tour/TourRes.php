@@ -559,7 +559,7 @@ sendFile
 
     private function bufferAvailable() : bool
     {
-        return $this->bytesPosted - $this->bytesConsumed < BayServer::$harbor->tourBufferSize();
+        return $this->bytesPosted - $this->bytesConsumed < BayServer::$harbor->shipBufferSize();
     }
 }
 

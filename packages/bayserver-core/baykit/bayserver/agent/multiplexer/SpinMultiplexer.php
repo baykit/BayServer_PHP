@@ -132,7 +132,7 @@ class SpinMultiplexer extends MultiplexerBase implements TimerHandler
         $st->access();
     }
 
-    public function reqWrite(Rudder $rd, string $buf, ?string $adr, $tag, ?callable $callback): void
+    public function reqWrite(Rudder $rd, string $buf, ?string $adr, $tag, bool $flush, ?callable $callback): void
     {
         $st = $this->getRudderState($rd);
 

@@ -97,7 +97,7 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
         $st->access();
     }
 
-    public function reqWrite(Rudder $rd, string $buf, ?string $adr, $tag, ?callable $callback = null): void
+    public function reqWrite(Rudder $rd, string $buf, ?string $adr, $tag, bool $flush, ?callable $callback = null): void
     {
         $st = $this->getRudderState($rd);
         BayLog::debug("%s reqWrite chState=%s tag=%s", $this->agent, $st, $tag);
@@ -109,7 +109,16 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
 
         $unt = new WriteUnit($buf, $adr, $tag, $callback);
         $st->writeQueue[] = $unt;
-        $this->addOperation($rd, Selector::OP_WRITE);
+
+        // When the caller indicates this is not the final write of the
+        // logical message, hold the OP_WRITE registration until enough
+        // bytes accumulate. Mirrors: lets the H1/H2/AJP/FCGI
+        // handlers post headers + body as separate commands but emit a
+        // single socket write per response, halving the addOperation /
+        // wakeup overhead under load.
+        if ($flush || $st->remaining() >= $st->bufSize) {
+            $this->addOperation($rd, Selector::OP_WRITE);
+        }
 
         $st->access();
     }

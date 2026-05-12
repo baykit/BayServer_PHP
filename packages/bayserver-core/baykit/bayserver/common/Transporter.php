@@ -22,7 +22,7 @@ interface Transporter extends Reusable
 
     public function reqRead(Rudder $rd): void;
 
-    public function reqWrite(Rudder $rd, string $buf, ?string $adr, $tag, ?callable $callback): void;
+    public function reqWrite(Rudder $rd, string $buf, ?string $adr, $tag, bool $flush, ?callable $callback): void;
 
     /**
      * Direct Boarding: forward a file-rudder transfer to the multiplexer.
