@@ -127,6 +127,13 @@ class H2InboundHandler implements H2Handler, InboundHandler
         $this->protocolHandler->post($cmd, $callback);
     }
 
+    public function transferContent(Tour $tur, \baykit\bayserver\rudder\Rudder $fileRd, int $ofs, int $len, ?callable $callback): void
+    {
+        // HTTP/2 frames are encrypted at the TLS layer, so sendfile cannot
+        // bypass user space.
+        throw new Sink();
+    }
+
     public function sendEndTour(Tour $tur, ?callable $callback): void
     {
         $data = "";

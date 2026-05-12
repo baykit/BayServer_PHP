@@ -112,6 +112,11 @@ class FcgInboundHandler implements InboundHandler, FcgHandler
         $this->protocolHandler->post($cmd, $callback);
     }
 
+    public function transferContent(Tour $tur, \baykit\bayserver\rudder\Rudder $fileRd, int $ofs, int $len, ?callable $callback): void
+    {
+        throw new \baykit\bayserver\Sink();
+    }
+
     public function sendEndTour(Tour $tur, ?callable $callback): void
     {
         $sip = $this->ship();

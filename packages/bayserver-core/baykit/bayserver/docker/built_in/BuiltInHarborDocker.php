@@ -8,6 +8,8 @@ use baykit\bayserver\bcf\BcfKeyVal;
 use baykit\bayserver\ConfigException;
 use baykit\bayserver\Symbol;
 use baykit\bayserver\bcf\BcfElement;
+use baykit\bayserver\common\Barges;
+use baykit\bayserver\docker\Barge;
 use baykit\bayserver\docker\Harbor;
 use baykit\bayserver\docker\Docker;
 use baykit\bayserver\docker\Trouble;
@@ -42,9 +44,10 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
     const DEFAULT_CGI_MULTIPLEXER = Harbor::MULTIPLEXER_TYPE_SPIDER;
     const DEFAULT_RECIPIENT = Harbor::RECIPIENT_TYPE_SPIDER;
     const DEFAULT_PID_FILE = "bayserver.pid";
-    const DEFAULT_ENABLE_CACHE = false;
-    const DEFAULT_CACHE_LIFESPAN_SEC = 60;
-    const DEFAULT_CACHE_SIZE_MB = 32;
+    const DEFAULT_DIRECT_BOARDING = false;
+    const DEFAULT_CARGO_LIFESPAN_SEC = 60;
+    const DEFAULT_MAX_DIRECT_BOARDINGS = 128;
+    const DEFAULT_MAX_CARGO_SIZE = 1 * 1024 * 1024;
 
     # Default charset
     private string $charset = self::DEFAULT_CHARSET;
@@ -113,14 +116,19 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
     # PID file name
     private $pidFile = self::DEFAULT_PID_FILE;
 
-    # File cache settings
-    private bool $enableCache = self::DEFAULT_ENABLE_CACHE;
-    private int $cacheLifespanSec = self::DEFAULT_CACHE_LIFESPAN_SEC;
-    private int $cacheSizeMb = self::DEFAULT_CACHE_SIZE_MB;
+    # Direct Boarding / Barge settings
+    private bool $directBoarding = self::DEFAULT_DIRECT_BOARDING;
+    private int $cargoLifespanSec = self::DEFAULT_CARGO_LIFESPAN_SEC;
+    private int $maxDirectBoardings = self::DEFAULT_MAX_DIRECT_BOARDINGS;
+    private int $maxCargoSize = self::DEFAULT_MAX_CARGO_SIZE;
+
+    # Barge dockers configured at the harbor level
+    public Barges $barges;
 
     public function __construct()
     {
         $this->groups = new Groups();
+        $this->barges = new Barges();
     }
 
     //////////////////////////////////////////////////////
@@ -203,8 +211,14 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
 
     public function initDocker(Docker $dkr) : bool
     {
-        if ($dkr instanceof Trouble)
+        if ($dkr instanceof Trouble) {
             $this->trouble = $dkr;
+            return true;
+        }
+        else if ($dkr instanceof Barge) {
+            $this->barges->add($dkr);
+            return true;
+        }
         else
             return parent::initDocker($dkr);
     }
@@ -306,16 +320,20 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
                 $this->pidFile = $kv->value;
                 break;
 
-            case "enablecache":
-                $this->enableCache = StringUtil::parseBool($kv->value);
+            case "directboarding":
+                $this->directBoarding = StringUtil::parseBool($kv->value);
                 break;
 
-            case "cachelifespan":
-                $this->cacheLifespanSec = intval($kv->value);
+            case "cargolifespan":
+                $this->cargoLifespanSec = intval($kv->value);
                 break;
 
-            case "cachesize":
-                $this->cacheSizeMb = intval($kv->value);
+            case "maxdirectboardings":
+                $this->maxDirectBoardings = intval($kv->value);
+                break;
+
+            case "maxcargosize":
+                $this->maxCargoSize = intval($kv->value);
                 break;
 
             default:
@@ -455,22 +473,34 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
         return $this->multiCore;
     }
 
-    /** True if cache is enabled */
-    public function enableCache(): bool
+    /** True if Direct Boarding is enabled (sendfile fast-path) */
+    public function directBoarding(): bool
     {
-        return $this->enableCache;
+        return $this->directBoarding;
     }
 
-    /** Lifespan seconds of cache */
-    public function cacheLifespanSec(): int
+    /** Lifespan seconds of cargo */
+    public function cargoLifespanSec(): int
     {
-        return $this->cacheLifespanSec;
+        return $this->cargoLifespanSec;
     }
 
-    /** Cache size in MB */
-    public function cacheSizeMb(): int
+    /** Maximum number of cached fds for Direct Boarding */
+    public function maxDirectBoardings(): int
     {
-        return $this->cacheSizeMb;
+        return $this->maxDirectBoardings;
+    }
+
+    /** Maximum size in bytes of a single cargo */
+    public function maxCargoSize(): int
+    {
+        return $this->maxCargoSize;
+    }
+
+    /** Find barge whose name matches the given path */
+    public function findBarge(string $path) : ?Barge
+    {
+        return $this->barges->findBarge($path);
     }
 
 }

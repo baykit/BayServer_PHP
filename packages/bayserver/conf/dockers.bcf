@@ -18,4 +18,6 @@ permission          baykit.bayserver.docker.built_in.BuiltInPermissionDocker
 secure              baykit.bayserver.docker.built_in.BuiltInSecureDocker
 trouble             baykit.bayserver.docker.built_in.BuiltInTroubleDocker
 reroute:wordpress   baykit.bayserver.docker.wordpress.WordPressDocker
+barge               baykit.bayserver.docker.barge.MemBargeDocker
+barge:memBarge      baykit.bayserver.docker.barge.MemBargeDocker
 

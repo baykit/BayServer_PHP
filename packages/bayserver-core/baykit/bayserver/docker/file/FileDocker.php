@@ -2,37 +2,31 @@
 namespace baykit\bayserver\docker\file;
 
 
-
-use baykit\bayserver\BayServer;
+use baykit\bayserver\BayLog;
 use baykit\bayserver\bcf\BcfElement;
 use baykit\bayserver\bcf\BcfKeyVal;
 use baykit\bayserver\docker\base\ClubBase;
 use baykit\bayserver\docker\Docker;
-use baykit\bayserver\HttpException;
 use baykit\bayserver\tour\Tour;
-use baykit\bayserver\util\HttpStatus;
 use baykit\bayserver\util\StringUtil;
 use baykit\bayserver\util\SysUtil;
 use baykit\bayserver\util\URLDecoder;
 
+/**
+ * FileDocker after the Direct Boarding / Barge refactor.
+ *
+ * The FileStore management that used to live here has moved to the
+ * harbor-/city-/town-level Barge Docker, so this class only resolves
+ * the filesystem path and hands the tour off to FileContentHandler.
+ */
 class FileDocker extends ClubBase
 {
-    public $listFiles = false;
-    /** Lazily-allocated per-docker file content cache */
-    private ?FileStore $fileStore = null;
-
-    ///////////////////////////////////////////////////////////////////////
-    // Implements Docker
-    ///////////////////////////////////////////////////////////////////////
+    public bool $listFiles = false;
 
     public function init(BcfElement $elm, ?Docker $parent) : void
     {
         parent::init($elm, $parent);
     }
-
-    ///////////////////////////////////////////////////////////////////////
-    // Implements DockerBase
-    ///////////////////////////////////////////////////////////////////////
 
     public function initKeyVal(BcfKeyVal $kv) : bool
     {
@@ -47,10 +41,6 @@ class FileDocker extends ClubBase
         return true;
     }
 
-    ///////////////////////////////////////////////////////////////////////
-    // Implements Club
-    ///////////////////////////////////////////////////////////////////////
-
     public function arrive(Tour $tur) : void
     {
         $relPath = $tur->req->rewrittenURI !== null ? $tur->req->rewrittenURI : $tur->req->uri;
@@ -60,23 +50,16 @@ class FileDocker extends ClubBase
         if($pos !== false)
             $relPath = substr($relPath, 0, $pos);
 
-        $relPath = URLDecoder::decode($relPath, $tur->req->charset);
+        try {
+            $relPath = URLDecoder::decode($relPath, $tur->req->charset);
+        }
+        catch (\Throwable $e) {
+            BayLog::error("Cannot decode path: %s: %s", $relPath, $e);
+        }
 
         $real = SysUtil::joinPath($tur->town->location, $relPath);
 
-        if(is_dir($real) && $this->listFiles) {
-            //DirectoryTrain train = new DirectoryTrain(tur, real);
-            //train.startTour();
-            throw new HttpException(HttpStatus::NOT_FOUND, $relPath);
-        }
-        else {
-            if (BayServer::$harbor->enableCache() && $this->fileStore === null) {
-                $this->fileStore = new FileStore(BayServer::$harbor->cacheLifespanSec(),
-                    BayServer::$harbor->cacheSizeMb() * 1024 * 1024);
-            }
-            $handler = new FileContentHandler($real, $this->fileStore);
-            $tur->req->setContentHandler($handler);
-        }
+        $handler = new FileContentHandler($tur, $real, $tur->res->charset, $this->listFiles);
+        $tur->req->setContentHandler($handler);
     }
-
 }

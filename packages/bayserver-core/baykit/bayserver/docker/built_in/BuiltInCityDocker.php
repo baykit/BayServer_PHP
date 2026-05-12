@@ -4,9 +4,15 @@ namespace baykit\bayserver\docker\built_in;
 
 
 
+use baykit\bayserver\agent\GrandAgent;
+use baykit\bayserver\agent\multiplexer\PlainTransporter;
 use baykit\bayserver\BayMessage;
 use baykit\bayserver\BayServer;
 use baykit\bayserver\BayLog;
+use baykit\bayserver\common\Barges;
+use baykit\bayserver\common\RudderState;
+use baykit\bayserver\common\RudderStateStore;
+use baykit\bayserver\docker\Barge;
 use baykit\bayserver\docker\base\DockerBase;
 use baykit\bayserver\docker\City;
 use baykit\bayserver\docker\Club;
@@ -16,6 +22,7 @@ use baykit\bayserver\docker\Log;
 use baykit\bayserver\docker\Permission;
 use baykit\bayserver\docker\Town;
 use baykit\bayserver\docker\Trouble;
+use baykit\bayserver\tour\ReqContentHandler;
 use baykit\bayserver\HttpException;
 use baykit\bayserver\Symbol;
 use baykit\bayserver\tour\Tour;
@@ -50,10 +57,17 @@ class BuiltInCityDocker extends DockerBase implements  City  {
 
     public $logs = [];
     public $permissions = [];
+    /** Barge dockers configured under this city */
+    public Barges $barges;
 
     public $trouble;
 
     public $name;
+
+    public function __construct()
+    {
+        $this->barges = new Barges();
+    }
 
     public function __toString()
     {
@@ -96,6 +110,8 @@ class BuiltInCityDocker extends DockerBase implements  City  {
             $this->permissions[] = $dkr;
         elseif ($dkr instanceof Trouble)
             $this->trouble = $dkr;
+        elseif ($dkr instanceof Barge)
+            $this->barges->add($dkr);
         else
             return false;
         return true;
@@ -166,9 +182,60 @@ class BuiltInCityDocker extends DockerBase implements  City  {
             $club = $mInfo->clubMatch->club;
             $tur->town = $mInfo->town;
             $tur->club = $club;
+
+            // Barge Docker fast-path: see if this request URI matches any
+            // configured barge. enter
+            //
+            $barge = $this->findBargeForTour($tur, $mInfo->town);
+            if ($barge !== null) {
+                [$cgo, $waitRd] = $barge->getCargo($tur);
+                if ($waitRd !== null) {
+                    // Cargo is currently loading; subscribe a waiter ship.
+                    $agt = GrandAgent::get($tur->ship->agentId);
+                    $waitShip = new WaitCargoShip();
+                    $tp = new PlainTransporter($agt->spiderMultiplexer, $waitShip, true, 8192, false);
+                    $waitShip->initWaiter($waitRd, $tp, $tur, $cgo, $club);
+
+                    $st = RudderStateStore::getStore($agt->agentId)->rent();
+                    $st->init($waitRd, $tp);
+                    $agt->spiderMultiplexer->addRudderState($waitRd, $st);
+                    $agt->spiderMultiplexer->reqRead($waitRd);
+                    return;
+                }
+                else if ($cgo !== null && $cgo->onBarge()) {
+                    // Cargo is loaded -- serve from memory without
+                    // bouncing through the club's arrive().
+                    $tur->req->setContentHandler(new CargoFastPathHandler($cgo));
+                    return;
+                }
+                else if ($cgo !== null) {
+                    // First requester loads the file; record the cargo on
+                    // the tour so TourRes.sendResHeaders / sendResContent
+                    // / endResContent populate it as we serve.
+                    $tur->cargo = $cgo;
+                }
+            }
+
             $club->arrive($tur);
         }
 
+    }
+
+    /**
+     * Resolve which Barge (if any) applies to this tour. Looks up the
+     * tour's town, then the city's own barges, then the harbor-level
+     * fallback (mirrors upstream's BuiltInCityDocker.findBarge).
+     */
+    private function findBargeForTour(Tour $tur, Town $twn) : ?Barge
+    {
+        $b = $twn->findBarge($tur->req->uri);
+        if ($b === null) {
+            $b = $this->barges->findBarge($tur->req->uri);
+            if ($b === null) {
+                $b = BayServer::$harbor->findBarge($tur->req->uri);
+            }
+        }
+        return $b;
     }
 
     public function log(Tour $tur) : void

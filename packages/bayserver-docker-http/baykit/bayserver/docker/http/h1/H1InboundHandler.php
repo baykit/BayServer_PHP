@@ -127,6 +127,15 @@ class H1InboundHandler implements H1Handler, InboundHandler {
         $this->protocolHandler->post($cmd, $callback);
     }
 
+    public function transferContent(Tour $tur, \baykit\bayserver\rudder\Rudder $fileRd, int $ofs, int $len, ?callable $callback): void
+    {
+        // PHP cannot do non-blocking sendfile, so the SpiderMultiplexer
+        // throws Sink from reqTransfer. We keep the call-chain intact for
+        // parity with upstream (upstream's H1InboundHandler forwards to
+        // the transporter, which forwards to the multiplexer).
+        $this->ship()->transporter->reqTransfer($tur->ship->rudder, $fileRd, $ofs, $len, $callback);
+    }
+
     public function sendEndTour(Tour $tur, ?callable $callback): void
     {
         $sip = $this->ship();

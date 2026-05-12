@@ -24,6 +24,12 @@ interface Transporter extends Reusable
 
     public function reqWrite(Rudder $rd, string $buf, ?string $adr, $tag, ?callable $callback): void;
 
+    /**
+     * Direct Boarding: forward a file-rudder transfer to the multiplexer.
+     * Mirrors the Transporter.reqTransfer
+     */
+    public function reqTransfer(Rudder $rd, Rudder $fileRd, int $ofs, int $len, ?callable $callback): void;
+
     public function reqClose(Rudder $rd): void;
 
     public function checkTimeout(Rudder $rd, int $durationSec): bool;

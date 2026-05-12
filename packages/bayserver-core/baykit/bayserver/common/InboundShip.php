@@ -234,6 +234,16 @@ class InboundShip extends Ship
         }
     }
 
+    /**
+     * Forward a Direct Boarding transfer request to the active tour handler.
+     * Mirrors the InboundShip.transferResContent
+     */
+    public function transferResContent(int $chkId, Tour $tur, \baykit\bayserver\rudder\Rudder $fileRd, int $ofs, int $len, ?callable $callback) : void
+    {
+        $this->checkShipId($chkId);
+        $this->tourHandler()->transferContent($tur, $fileRd, $ofs, $len, $callback);
+    }
+
     public function sendEndTour(int $chkShipId, Tour $tur, callable $callback) : void
     {
         $this->checkShipId($chkShipId);

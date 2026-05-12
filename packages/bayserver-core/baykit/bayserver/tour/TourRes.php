@@ -1,15 +1,23 @@
 <?php
 namespace baykit\bayserver\tour;
 
+use baykit\bayserver\agent\GrandAgent;
+use baykit\bayserver\agent\multiplexer\PlainTransporter as MultiplexerPlainTransporter;
 use baykit\bayserver\agent\transporter\PlainTransporter;
 use baykit\bayserver\agent\transporter\SpinReadTransporter;
 use baykit\bayserver\BayLog;
 use baykit\bayserver\BayServer;
+use baykit\bayserver\common\RudderState;
+use baykit\bayserver\common\RudderStateStore;
+use baykit\bayserver\docker\file\SendFileShip;
 use baykit\bayserver\docker\Harbor;
 use baykit\bayserver\docker\Trouble;
 use baykit\bayserver\HttpException;
 use baykit\bayserver\protocol\ProtocolException;
+use baykit\bayserver\rudder\Rudder;
+use baykit\bayserver\rudder\StreamRudder;
 use baykit\bayserver\Sink;
+use baykit\bayserver\util\DirectoryException;
 use baykit\bayserver\util\Headers;
 use baykit\bayserver\util\HttpStatus;
 use baykit\bayserver\util\IOException;
@@ -42,6 +50,14 @@ class TourRes implements Reusable {
     private $compressor;
     private $yacht;
 
+    /**
+     * Direct Boarding flag (mirrors upstream's TourRes.directBoarding, set from
+     * harbor config in init()). PHP cannot actually do non-blocking
+     * sendfile so SpiderMultiplexer.reqTransfer throws Sink at runtime
+     * the framework hooks are wired up only for parity.
+     */
+    public bool $directBoarding = false;
+
     public function __construct(Tour $tur)
     {
         $this->tour = $tur;
@@ -56,6 +72,7 @@ class TourRes implements Reusable {
     public function init() : void
     {
         $this->yacht = new SendFileYacht();
+        $this->directBoarding = BayServer::$harbor->directBoarding();
     }
 
     //////////////////////////////////////////////////////////////////
@@ -76,6 +93,7 @@ class TourRes implements Reusable {
         $this->resConsumeListener = null;
         $this->canCompress = false;
         $this->compressor = null;
+        $this->directBoarding = false;
     }
 
     public function charset() : ?string
@@ -101,6 +119,12 @@ class TourRes implements Reusable {
 
         if ($this->headerSent)
             return;
+
+        // If this tour is feeding a barge (cache), capture the headers
+        // before they go out so subsequent hits can serve from memory.
+        if ($this->tour->cargo !== null) {
+            $this->tour->cargo->saveHeaders($this->headers);
+        }
 
         $this->bytesLimit = $this->headers->contentLength();
 
@@ -202,6 +226,132 @@ class TourRes implements Reusable {
         }
     }
 
+    /**
+     * Open the given file and stream its contents to the client.
+sendFile
+     *
+     * In upstream this method picks between (a) Direct Boarding via
+     * DirectBoardingStore + transferContent, which uses sendfile(2), and
+     * (b) opening an async file channel and pumping through SendFileShip.
+     *
+     * PHP cannot do non-blocking sendfile so we only implement path (b);
+     * the directBoarding flag is wired up but reqTransfer throws Sink in
+     * SpiderMultiplexer so the framework code in BuiltInCityDocker /
+     * MemBargeDocker can still consult it.
+     */
+    public function sendFile(string $path, ?string $charset) : void
+    {
+        if (is_dir($path)) {
+            throw new DirectoryException("directory: ". $path);
+        }
+        if (!file_exists($path)) {
+            throw new HttpException(HttpStatus::NOT_FOUND, $path);
+        }
+
+        $fileSize = filesize($path);
+        if ($fileSize === false) $fileSize = 0;
+
+        $mtype = null;
+        $pos = strrpos($path, '.');
+        if ($pos !== false) {
+            $ext = strtolower(substr($path, $pos + 1));
+            $mtype = Mimes::type($ext);
+        }
+        if ($mtype === null)
+            $mtype = "application/octet-stream";
+        if (StringUtil::startsWith($mtype, "text/") && $charset !== null)
+            $mtype = $mtype. "; charset=". $charset;
+
+        $this->headers->setContentType($mtype);
+        $this->headers->setContentLength($fileSize);
+        $this->sendResHeaders(Tour::TOUR_ID_NOCHECK);
+
+        // PHP: open file non-blocking and pump through SendFileShip.
+        $infile = @fopen($path, "rb");
+        if ($infile === false) {
+            throw new HttpException(HttpStatus::INTERNAL_SERVER_ERROR, $path);
+        }
+        stream_set_blocking($infile, false);
+        $rd = new StreamRudder($infile);
+
+        $bufsize = $this->tour->ship->protocolHandler->maxResPacketDataSize();
+        $agt = GrandAgent::get($this->tour->ship->agentId);
+
+        // Mirrors Java TourRes.sendFile's switch on
+        // BayServer.harbor.fileMultiplexer(). PHP only implements
+        // Spider and Spin multiplexers (Job / Taxi / Pigeon are
+        // thread-based and don't fit PHP's process-per-agent model);
+        // BuiltInHarborDocker validates the config and falls back to
+        // the Spider default for unsupported types, so this switch
+        // only needs to handle Spider and Spin in practice.
+        switch (BayServer::$harbor->fileMultiplexer()) {
+            case Harbor::MULTIPLEXER_TYPE_SPIN:
+                $mpx = $agt->spinMultiplexer;
+                break;
+            case Harbor::MULTIPLEXER_TYPE_SPIDER:
+            default:
+                $mpx = $agt->spiderMultiplexer;
+                break;
+        }
+
+        $sendFileShip = new SendFileShip();
+        $tp = new MultiplexerPlainTransporter($mpx, $sendFileShip, true, $bufsize, false);
+        $sendFileShip->initSendFile($rd, $tp, $this->tour);
+        $sid = $sendFileShip->shipId;
+        $this->setConsumeListener(function ($len, $resume) use ($sendFileShip, $sid) {
+            if ($resume) {
+                $sendFileShip->resumeRead($sid);
+            }
+        });
+
+        $st = RudderStateStore::getStore($agt->agentId)->rent();
+        $st->init($rd, $tp);
+        $mpx->addRudderState($rd, $st);
+        $mpx->reqRead($rd);
+    }
+
+    /**
+     * Direct Boarding transfer (mirrors upstream's TourRes.transferContent).
+     * PHP forwards via the ship -> handler -> multiplexer chain; the
+     * SpiderMultiplexer override throws Sink, so this method only exists
+     * to keep the call graph identical to upstream.
+     */
+    public function transferContent(int $checkId, Rudder $fileRd, int $ofs, int $len) : void
+    {
+        BayLog::debug("%s transfer content: ofs=%d len=%d", $this, $ofs, $len);
+        $lis = function () use ($checkId, $len) {
+            if ($this->resConsumeListener !== null)
+                ($this->resConsumeListener)($len, false);
+        };
+
+        if ($this->tour->isZombie()) {
+            BayLog::debug("%s zombie tour. return", $this);
+            $lis();
+            return;
+        }
+        if (!$this->headerSent)
+            throw new Sink("Header not sent");
+
+        $this->bytesPosted += $len;
+
+        if ($this->tour->isAborted()) {
+            BayLog::debug("%s Aborted tour. do nothing", $this);
+            $this->tour->changeState($checkId, Tour::STATE_ENDED);
+            $lis();
+        }
+        else {
+            try {
+                $this->tour->ship->transferResContent($this->tour->shipId, $this->tour, $fileRd, $ofs, $len, $lis);
+            }
+            catch (\Throwable $e) {
+                BayLog::debug_e($e, "%s error on transferContent", $this);
+                $lis();
+                $this->tour->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ABORTED);
+                throw $e;
+            }
+        }
+    }
+
     public function setConsumeListener(callable $listener) : void
     {
         $this->resConsumeListener =$listener;
@@ -214,7 +364,12 @@ class TourRes implements Reusable {
     public function sendResContent(int $checkId, string $buf, int $ofs, int $len) : bool
     {
         //$this->tour->checkTourId($checkId);
-        BayLog::debug("%s sendContent len=%d", $this->tour, $len);
+        BayLog::debug("%s sendContent len=%d cargo=%s", $this->tour, $len,
+            $this->tour->cargo === null ? "null" : $this->tour->cargo);
+
+        if ($this->tour->cargo !== null) {
+            $this->tour->cargo->saveContent($buf, $ofs, $len);
+        }
 
         // Callback
         $consumed_cb = function () use ($len, $checkId) {
@@ -281,6 +436,11 @@ class TourRes implements Reusable {
 
         if (!$this->tour->isZombie() && $this->tour->city !== null)
             $this->tour->city->log($this->tour);
+
+        // Seal off the cache entry so subsequent requests serve from it.
+        if ($this->tour->cargo !== null) {
+            $this->tour->cargo->endSave();
+        }
 
         // send end message
         if ($this->canCompress) {

@@ -4,7 +4,9 @@ namespace baykit\bayserver\agent\multiplexer;
 
 use baykit\bayserver\agent\GrandAgent;
 use baykit\bayserver\agent\PortMap;
+use baykit\bayserver\common\WriteUnit;
 use baykit\bayserver\BayLog;
+use baykit\bayserver\Sink;
 use baykit\bayserver\rudder\StreamRudder;
 use baykit\bayserver\BayServer;
 use baykit\bayserver\agent\TimerHandler;
@@ -110,6 +112,14 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
         $this->addOperation($rd, Selector::OP_WRITE);
 
         $st->access();
+    }
+
+    public function reqTransfer(Rudder $rd, Rudder $fileRd, int $ofs, int $len, ?callable $callback): void {
+        // PHP has no non-blocking sendfile equivalent (stream_copy_to_stream
+        // is synchronous and would stall the event loop under high concurrency). The
+        // framework wiring is preserved for parity with upstream but the actual
+        // transfer path is not available.
+        throw new Sink();
     }
 
     public function reqEnd(Rudder $rd): void {

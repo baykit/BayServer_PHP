@@ -3,7 +3,9 @@
 namespace baykit\bayserver\agent\multiplexer;
 
 use baykit\bayserver\common\Multiplexer;
+use baykit\bayserver\rudder\Rudder;
 use baykit\bayserver\ship\Ship;
+use baykit\bayserver\Sink;
 
 class SecureTransporter extends PlainTransporter {
 
@@ -28,6 +30,13 @@ class SecureTransporter extends PlainTransporter {
     public function secure(): bool
     {
         return true;
+    }
+
+    public function reqTransfer(Rudder $rd, Rudder $fileRd, int $ofs, int $len, ?callable $callback): void {
+        // sendfile() bypasses the TLS layer, so Direct Boarding does not
+        // apply to secure transports. Mirrors the SecureTransporter
+        // override (which also throws Sink).
+        throw new Sink();
     }
 
     ////////////////////////////////////////////

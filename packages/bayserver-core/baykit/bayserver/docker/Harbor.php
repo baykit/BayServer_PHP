@@ -79,15 +79,25 @@ interface Harbor extends Docker
     /** Multi core flag */
     public function multiCore(): bool;
 
-    /** True if cache is enabled */
-    public function enableCache(): bool;
+    /**
+     * Whether to enable Direct Boarding (the sendfile API).
+     * In PHP this only switches the framework on -- the SpiderMultiplexer
+     * reqTransfer path throws Sink because PHP cannot do a true sendfile
+     * without blocking the event loop.
+     */
+    public function directBoarding(): bool;
 
-    /** Lifespan seconds of cache */
-    public function cacheLifespanSec(): int;
+    /** The lifespan, in seconds, of a cargo (cached file) */
+    public function cargoLifespanSec(): int;
 
-    /** Cache size in MB */
-    public function cacheSizeMb(): int;
+    /** Maximum number of cached fds (LRU eviction) for Direct Boarding */
+    public function maxDirectBoardings(): int;
 
+    /** Maximum size in bytes of a single cargo */
+    public function maxCargoSize(): int;
+
+    /** Find a Barge whose name matches the given path */
+    public function findBarge(string $path) : ?Barge;
 }
 
 function getMultiplexerTypeName(int $type): ?string {

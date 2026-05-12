@@ -12,4 +12,7 @@ interface Town extends Docker
     public function reroute(String $uri) : string;
     public function matches(String $uri) : int;
     public function checkAdmitted(Tour $tur) : void;
+
+    /** Find a Barge whose name matches the given path */
+    public function findBarge(string $path) : ?Barge;
 }

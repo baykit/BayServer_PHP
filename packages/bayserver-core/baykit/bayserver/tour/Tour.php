@@ -4,6 +4,7 @@ namespace baykit\bayserver\tour;
 use baykit\bayserver\BayLog;
 use baykit\bayserver\BayServer;
 use baykit\bayserver\common\InboundShip;
+use baykit\bayserver\docker\Barge_Cargo;
 use baykit\bayserver\docker\City;
 use baykit\bayserver\docker\Club;
 use baykit\bayserver\docker\Town;
@@ -40,6 +41,8 @@ class Tour implements Reusable {
     public ?Town $town = null;
     public ?City $city = null;
     public ?Club $club = null;
+    /** Optional cache cargo associated with this tour (Barge Docker fast-path) */
+    public ?Barge_Cargo $cargo = null;
 
     public TourReq $req;
     public TourRes $res;
@@ -78,6 +81,7 @@ class Tour implements Reusable {
         $this->city = null;
         $this->town = null;
         $this->club = null;
+        $this->cargo = null;
         $this->errorHandling = false;
         $this->tourId = Tour::INVALID_TOUR_ID;
         $this->interval = 0;

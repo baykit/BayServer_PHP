@@ -26,6 +26,8 @@ class RudderState implements Reusable {
     public bool $finale = false;
     public int $timeoutSec = 0;
     public int $writeTryCount = 0;
+    /** Direct Boarding marker -- mirrors upstream's RudderState.skipFormalities */
+    public bool $skipFormalities = false;
 
     public bool $accepting = false;
     public bool $connecting = false;
@@ -98,5 +100,6 @@ class RudderState implements Reusable {
         $this->writeTryCount = 0;
         $this->accepting = false;
         $this->connecting = false;
+        $this->skipFormalities = false;
     }
 }

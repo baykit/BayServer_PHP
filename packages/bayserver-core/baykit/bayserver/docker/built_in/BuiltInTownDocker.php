@@ -9,7 +9,9 @@ use baykit\bayserver\BayMessage;
 use baykit\bayserver\BayServer;
 use baykit\bayserver\bcf\BcfElement;
 use baykit\bayserver\bcf\BcfKeyVal;
+use baykit\bayserver\common\Barges;
 use baykit\bayserver\ConfigException;
+use baykit\bayserver\docker\Barge;
 use baykit\bayserver\docker\base\DockerBase;
 use baykit\bayserver\docker\Club;
 use baykit\bayserver\docker\Docker;
@@ -31,8 +33,15 @@ class BuiltInTownDocker extends DockerBase implements  Town  {
     public $clubs = [];
     public $permissions = [];
     public $reroutes = [];
+    /** Barge dockers configured under this town */
+    public Barges $barges;
     public $city;
     public $name;
+
+    public function __construct()
+    {
+        $this->barges = new Barges();
+    }
 
     /////////////////////////////////////////////////////////////////////
     // Implements Docker
@@ -64,10 +73,18 @@ class BuiltInTownDocker extends DockerBase implements  Town  {
         } elseif ($dkr instanceof Reroute) {
             $this->reroutes[] = $dkr;
         }
+        elseif ($dkr instanceof Barge) {
+            $this->barges->add($dkr);
+        }
         else {
             return parent::initDocker($dkr);
         }
         return true;
+    }
+
+    public function findBarge(string $path) : ?Barge
+    {
+        return $this->barges->findBarge($path);
     }
 
     public function initKeyVal(BcfKeyVal $kv): bool

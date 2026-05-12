@@ -27,6 +27,14 @@ interface Multiplexer
 
     public function reqWrite(Rudder $rd, string $buf, ?string $adr, $tag, ?callable $callback): void;
 
+    /**
+     * Direct Boarding: queue a file-rudder transfer onto the write queue.
+     * Mirrors the Multiplexer.reqTransfer The PHP
+     * SpiderMultiplexer implementation throws Sink because PHP has no
+     * non-blocking sendfile equivalent.
+     */
+    public function reqTransfer(Rudder $rd, Rudder $fileRd, int $ofs, int $len, ?callable $callback): void;
+
     public function reqEnd(Rudder $rd): void;
 
     public function reqClose(Rudder $rd): void;

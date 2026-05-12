@@ -5,6 +5,7 @@ namespace baykit\bayserver\agent\multiplexer;
 use baykit\bayserver\agent\GrandAgent;
 use baykit\bayserver\agent\NextSocketAction;
 use baykit\bayserver\agent\PortMap;
+use baykit\bayserver\common\WriteUnit;
 use baykit\bayserver\agent\SpinHandler_ListenerInfo;
 use baykit\bayserver\agent\SpinHandler_SpinListener;
 use baykit\bayserver\agent\UpgradeException;
@@ -149,6 +150,12 @@ class SpinMultiplexer extends MultiplexerBase implements TimerHandler
         if($needWrite) {
             $this->nextWrite($st);
         }
+    }
+
+    public function reqTransfer(Rudder $rd, Rudder $fileRd, int $ofs, int $len, ?callable $callback): void {
+        // No sendfile equivalent in PHP -- mirrors the SpinMultiplexer
+        // override of this method which also throws Sink.
+        throw new Sink();
     }
 
     public function reqEnd(Rudder $rd): void {
