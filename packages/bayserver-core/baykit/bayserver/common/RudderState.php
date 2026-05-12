@@ -5,12 +5,24 @@ namespace baykit\bayserver\common;
 
 use baykit\bayserver\BayLog;
 use baykit\bayserver\rudder\Rudder;
+use baykit\bayserver\Sink;
+use baykit\bayserver\util\Counter;
 use baykit\bayserver\util\Reusable;
 
 class RudderState implements Reusable {
+    const STATE_ID_NOCHECK = -1;
+
     public ?Rudder $rudder = null;
     public ?Transporter $transporter = null;
     public ?Multiplexer $multiplexer = null;
+
+    /**
+     * Monotonic id used by the GrandAgent letter dispatch loop to detect
+     * stale letters whose state has been returned to the pool and reused.
+id.
+     */
+    public static ?Counter $idCounter = null;
+    public int $id = 0;
 
     public int $lastAccessTime = 0;
     public bool $closing = false;
@@ -40,6 +52,9 @@ class RudderState implements Reusable {
 
     public function init(Rudder $rd, ?Transporter $tp = null, int $timeoutSec = 0) : void
     {
+        if (self::$idCounter === null)
+            self::$idCounter = new Counter();
+        $this->id = self::$idCounter->next();
         $this->rudder = $rd;
         $this->transporter = $tp;
         $this->closed = false;
@@ -78,8 +93,24 @@ class RudderState implements Reusable {
     // Implements Reusable
     ////////////////////////////////////////////
 
+    /**
+     * Used by the GrandAgent letter dispatch loop. Throws Sink if a stale
+     * letter carries a stateId that no longer matches the current state
+     * (i.e. the state was Returned to the pool and rented out for a
+     * different rudder). checkStateId.
+     */
+    public function checkStateId(int $checkId) : void
+    {
+        if ($checkId === self::STATE_ID_NOCHECK)
+            return;
+        if ($checkId !== $this->id) {
+            throw new Sink("%s Invalid state id : %d", $this, $checkId);
+        }
+    }
+
     public function reset(): void
     {
+        $this->id = 0;
         $this->rudder = null;
         $this->transporter = null;
         $this->multiplexer = null;

@@ -163,23 +163,39 @@ class GrandAgent
                 while(!empty($this->letterQueue)) {
                     $let = array_shift($this->letterQueue);
 
+                    // Fetch the live RudderState from the multiplexer.
+                    // If null, the rudder was already removed (e.g. by an
+                    // earlier letter in this batch) so the letter is
+                    // stale -- skip. Mirrors the upstream GrandAgent letter loop
+                    // (0580a2b).
+                    $st = $let->multiplexer->getRudderState($let->rudder);
+                    if ($st === null) {
+                        BayLog::debug("%s rudder is already returned: %s", $this, $let->rudder);
+                        continue;
+                    }
+                    // Detect a state that was returned to the pool and
+                    // then rented out for a different rudder: the letter
+                    // carries the old id, the state has a new one
+                    // (39cbed1).
+                    $st->checkStateId($let->stateId);
+
                     if($let instanceof AcceptedLetter) {
-                        $this->onAccepted($let);
+                        $this->onAccepted($let, $st);
                     }
                     else if($let instanceof ConnectedLetter) {
-                        $this->onConnected($let);
+                        $this->onConnected($let, $st);
                     }
                     else if($let instanceof ReadLetter) {
-                        $this->onRead($let);
+                        $this->onRead($let, $st);
                     }
                     else if($let instanceof WroteLetter) {
-                        $this->onWrote($let);
+                        $this->onWrote($let, $st);
                     }
                     else if($let instanceof ClosedLetter) {
-                        $this->onClosed($let);
+                        $this->onClosed($let, $st);
                     }
                     else if($let instanceof ErrorLetter) {
-                        $this->onError($let);
+                        $this->onError($let, $st);
                     }
                 }
 
@@ -264,7 +280,15 @@ class GrandAgent
 
     public function wakeup() : void
     {
-        IOUtil::writeInt32($this->selectWakeupPipe[1], 0);
+        // The wake-up pipe lives on the Recipient (= SpiderMultiplexer
+        // or PipeRecipient, selected by Harbor.recipient()) -- not on
+        // this class. The original code dereferenced an undefined
+        // property $this->selectWakeupPipe and PHP returned null,
+        // causing fwrite(null) fatals whenever reqShutdown()
+        // (CMD_SHUTDOWN) or NonBlockingHandler.wakeup() fired.
+        // Mirror upstream's sendLetter(wakeup=true) which calls
+        // recipient.wakeup() directly.
+        $this->recipient->wakeup();
     }
 
     public function clean() {
@@ -300,28 +324,28 @@ class GrandAgent
         BayLog::info("CommandReceiver=%s", $this->commandReceiver);
     }
 
-    public function sendAcceptedLetter(RudderState $st, Rudder $clientRd, bool $wakeup) : void {
-        $this->sendLetter(new AcceptedLetter($st, $clientRd), $wakeup);
+    public function sendAcceptedLetter(int $stateId, Rudder $rd, Multiplexer $mpx, Rudder $clientRd, bool $wakeup) : void {
+        $this->sendLetter(new AcceptedLetter($stateId, $rd, $mpx, $clientRd), $wakeup);
     }
 
-    public function sendConnectedLetter(RudderState $st, bool $wakeup) : void {
-        $this->sendLetter(new ConnectedLetter($st), $wakeup);
+    public function sendConnectedLetter(int $stateId, Rudder $rd, Multiplexer $mpx, bool $wakeup) : void {
+        $this->sendLetter(new ConnectedLetter($stateId, $rd, $mpx), $wakeup);
     }
 
-    public function sendReadLetter(RudderState $st, int $n, ?string $adr, bool $wakeup) : void {
-        $this->sendLetter(new ReadLetter($st, $n, $adr), $wakeup);
+    public function sendReadLetter(int $stateId, Rudder $rd, Multiplexer $mpx, int $n, ?string $adr, bool $wakeup) : void {
+        $this->sendLetter(new ReadLetter($stateId, $rd, $mpx, $n, $adr), $wakeup);
     }
 
-    public function sendWroteLetter(RudderState $st, int $n, bool $wakeup) : void {
-        $this->sendLetter(new WroteLetter($st, $n), $wakeup);
+    public function sendWroteLetter(int $stateId, Rudder $rd, Multiplexer $mpx, int $n, bool $wakeup) : void {
+        $this->sendLetter(new WroteLetter($stateId, $rd, $mpx, $n), $wakeup);
     }
 
-    public function sendClosedLetter(RudderState $st, bool $wakeup) : void {
-        $this->sendLetter(new ClosedLetter($st), $wakeup);
+    public function sendClosedLetter(int $stateId, Rudder $rd, Multiplexer $mpx, bool $wakeup) : void {
+        $this->sendLetter(new ClosedLetter($stateId, $rd, $mpx), $wakeup);
     }
 
-    public function sendErrorLetter(RudderState $st, \Throwable $e, bool $wakeup) : void {
-        $this->sendLetter(new ErrorLetter($st, $e), $wakeup);
+    public function sendErrorLetter(int $stateId, Rudder $rd, Multiplexer $mpx, \Throwable $e, bool $wakeup) : void {
+        $this->sendLetter(new ErrorLetter($stateId, $rd, $mpx, $e), $wakeup);
     }
 
     public function addPostpone(Postpone $p) : void
@@ -370,10 +394,9 @@ class GrandAgent
             $this->recipient->wakeup();
     }
 
-    private function onAccepted(AcceptedLetter $let) : void
+    private function onAccepted(AcceptedLetter $let, RudderState $st) : void
     {
         BayLog::debug("%s onAccepted", $this);
-        $st = $let->state;
         try {
             $p = PortMap::findDocker($st->rudder, BayServer::$anchorablePortMap);
             $p->onConnected($this->agentId, $let->clientRudder);
@@ -393,12 +416,11 @@ class GrandAgent
             $this->busy = true;
         }
         else {
-            $let->state->multiplexer->nextAccept($let->state);
+            $st->multiplexer->nextAccept($st);
         }
     }
 
-    private function onConnected(ConnectedLetter $let) : void {
-        $st = $let->state;
+    private function onConnected(ConnectedLetter $let, RudderState $st) : void {
         if ($st->closed) {
             BayLog::debug("%s Rudder is already closed: rd=%s", $this, $st->rudder);
             return;
@@ -423,8 +445,7 @@ class GrandAgent
         $this->nextAction($st, $nextAct, false);
     }
 
-    private function onRead(ReadLetter $let) : void {
-        $st = $let->state;
+    private function onRead(ReadLetter $let, RudderState $st) : void {
         if ($st->closed) {
             BayLog::debug("%s Rudder is already closed: rd=%s", $this, $st->rudder);
             return;
@@ -451,8 +472,7 @@ class GrandAgent
         $this->nextAction($st, $nextAct, true);
     }
 
-    private function onWrote(WroteLetter $let) : void {
-        $st = $let->state;
+    private function onWrote(WroteLetter $let, RudderState $st) : void {
         if ($st->closed) {
             BayLog::debug("%s Rudder is already closed: rd=%s", $this, $st->rudder);
             return;
@@ -494,13 +514,15 @@ class GrandAgent
         }
     }
 
-    private function onClosed(ClosedLetter $let) : void {
-        $st = $let->state;
+    private function onClosed(ClosedLetter $let, RudderState $st) : void {
         BayLog::debug("%s onClose rd=%s", $this, $st->rudder);
         if ($st->closed) {
             BayLog::debug("%s Rudder is already closed: rd=%s", $this, $st->rudder);
             return;
         }
+        // Deduplication of stale ClosedLetters is now handled in the
+        // dispatch loop via getRudderState / checkStateId, so by the time
+        // we get here $st is the live state and we can proceed.
 
         $st->multiplexer->removeRudderState($st->rudder);
 
@@ -528,15 +550,15 @@ class GrandAgent
         }
     }
 
-    private function onError(ErrorLetter $let) : void {
+    private function onError(ErrorLetter $let, RudderState $st) : void {
 
         try {
             throw $let->err;
         }
         catch (IOException | HttpException $e) {
-            if($let->state->transporter != null) {
-                $let->state->transporter->onError($let->state->rudder, $e);
-                $this->nextAction($let->state, NextSocketAction::CLOSE, false);
+            if($st->transporter != null) {
+                $st->transporter->onError($st->rudder, $e);
+                $this->nextAction($st, NextSocketAction::CLOSE, false);
             }
             else {
                 // Accept error

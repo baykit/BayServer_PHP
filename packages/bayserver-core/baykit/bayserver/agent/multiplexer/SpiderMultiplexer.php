@@ -142,7 +142,7 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
         }
 
         $this->closeRudder($st);
-        $this->agent->sendClosedLetter($st, false);
+        $this->agent->sendClosedLetter($st->id, $st->rudder, $this, false);
 
         $st->access();
     }
@@ -194,9 +194,13 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
 
     public final function onBusy() : void {
         BayLog::debug("%s onBusy", $this->agent);
-        foreach(array_keys(BayServer::$anchorablePortMap) as $rd ) {
-            $this->selector->unregister($rd->key());
-            $st = $this->getRudderState($rd);
+        // anchorablePortMap is a list of PortMap, not Rudder, so iterate
+        // the values; the previous array_keys() pass gave int indices and
+        // hit "Call to a member function key() on int" once the agent
+        // crossed the maxInboundShips threshold (default 100, easy to hit
+        //.
+        foreach (BayServer::$anchorablePortMap as $portMap) {
+            $this->selector->unregister($portMap->rudder->key());
         }
     }
 
@@ -371,7 +375,7 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
         }
         catch(\Exception $e) {
             BayLog::info("%s Unhandled error error: %s (skt=%s)", $this, $e, $ch);
-            $this->agent->sendErrorLetter($st, $e, false);
+            $this->agent->sendErrorLetter($st->id, $st->rudder, $this, $e, false);
         }
 
         $st->access();
@@ -404,7 +408,7 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
                 // time out is OK
                 return;
             }
-            $this->agent->sendErrorLetter($st, new IOException(SysUtil::lastErrorMessage()), false);
+            $this->agent->sendErrorLetter($st->id, $st->rudder, $this, new IOException(SysUtil::lastErrorMessage()), false);
             return;
         }
         //error_reporting($level);
@@ -424,7 +428,7 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
         $clientRd = new StreamRudder($clientSkt);
         BayLog::debug("%s Accepted: rd=%s", $this->agent, $clientRd);
 
-        $this->agent->sendAcceptedLetter($st, $clientRd, false);
+        $this->agent->sendAcceptedLetter($st->id, $st->rudder, $this, $clientRd, false);
     }
 
     public function onConnectable(RudderState $st) : void
@@ -436,10 +440,10 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
         BayLog::debug("%s write zero bytes success=%s", $this, $success);
         if ($success === false || $success == -1) {
             BayLog::error("Connect failed: %s", SysUtil::lastErrorMessage());
-            $this->agent->sendErrorLetter($st, new IOException("Connect failed: ". SysUtil::lastErrorMessage()), false);
+            $this->agent->sendErrorLetter($st->id, $st->rudder, $this, new IOException("Connect failed: ". SysUtil::lastErrorMessage()), false);
             return;
         }
-        $this->agent->sendConnectedLetter($st, false);
+        $this->agent->sendConnectedLetter($st->id, $st->rudder, $this, false);
     }
 
     public function onReadable(RudderState $st) : void
@@ -449,11 +453,11 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
         try {
             $st->readBuf = $st->rudder->read($st->bufSize);
 
-            $this->agent->sendReadLetter($st, strlen($st->readBuf), null, false);
+            $this->agent->sendReadLetter($st->id, $st->rudder, $this, strlen($st->readBuf), null, false);
         }
         catch(\Exception $e) {
             BayLog::debug_e($e, "%s Unhandled error", $this);
-            $this->agent->sendErrorLetter($st, $e, false);
+            $this->agent->sendErrorLetter($st->id, $st->rudder, $this, $e, false);
         }
     }
 
@@ -499,7 +503,7 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
                         $wunit->buf = substr($wunit->buf, $len);
                     }
                 }
-                $this->agent->sendWroteLetter($st, $len, false);
+                $this->agent->sendWroteLetter($st->id, $st->rudder, $this, $len, false);
 
                 if($len < $bufsize) {
                     BayLog::debug("%s Data remains", $this);
@@ -509,7 +513,7 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
         }
         catch(IOException $e) {
             BayLog::debug_e($e, "%s IO error", $this);
-            $this->agent->sendErrorLetter($st, $e, false);
+            $this->agent->sendErrorLetter($st->id, $st->rudder, $this, $e, false);
         }
     }
 

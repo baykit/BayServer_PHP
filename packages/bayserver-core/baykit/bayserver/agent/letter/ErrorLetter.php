@@ -2,15 +2,16 @@
 
 namespace baykit\bayserver\agent\letter;
 
-use baykit\bayserver\common\RudderState;
+use baykit\bayserver\common\Multiplexer;
+use baykit\bayserver\rudder\Rudder;
 
 class ErrorLetter extends Letter
 {
-    public \Exception $err;
+    public \Throwable $err;
 
-    public function __construct(RudderState $state, \Exception $err)
+    public function __construct(int $stateId, Rudder $rd, Multiplexer $mpx, \Throwable $err)
     {
-        parent::__construct($state);
+        parent::__construct($stateId, $rd, $mpx);
         $this->err = $err;
     }
 }

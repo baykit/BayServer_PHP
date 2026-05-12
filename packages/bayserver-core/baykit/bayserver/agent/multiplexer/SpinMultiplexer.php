@@ -171,7 +171,7 @@ class SpinMultiplexer extends MultiplexerBase implements TimerHandler
         $st->closing = true;
 
         $this->closeRudder($st);
-        $this->agent->sendClosedLetter($st, false);
+        $this->agent->sendClosedLetter($st->id, $st->rudder, $this, false);
 
         $st->access();
     }
