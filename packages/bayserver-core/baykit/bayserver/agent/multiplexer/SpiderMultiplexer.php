@@ -126,6 +126,9 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
 
         $unt = new WriteUnit($buf, $adr, $tag, $callback);
         $st->writeQueue[] = $unt;
+        // Maintain the O(1) pending-bytes counter. Pair
+        // with the array_shift decrement in MultiplexerBase::consumeOldestUnit.
+        $st->writeQueueBytes += strlen($buf);
 
         // Flush when the caller asked for it or the buffered data has
         // crossed bufSize. Instead of registering OP_WRITE

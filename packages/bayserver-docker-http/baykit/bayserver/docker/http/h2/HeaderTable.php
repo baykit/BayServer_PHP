@@ -21,6 +21,28 @@ class HeaderTable
     private $addCount = 0;
     private $nameMap = [];
 
+    /**
+     * Running byte size of the dynamic table. RFC 7541 §4.1: each
+     * entry counts as name.length + value.length + 32 overhead.
+     * Mirrors
+     */
+    private int $curByteSize = 0;
+    /**
+     * Maximum byte size of the dynamic table. RFC 7541 default = 4096
+     * (may be raised by SETTINGS_HEADER_TABLE_SIZE). Without the
+     * cap, idxMap grew unbounded and ArrayUtil::insert(new, list, 0)
+     * stayed O(N) per insert -- throughput degraded ~5x over the life of an
+     * H2 connection.
+     */
+    private int $maxByteSize = 4096;
+
+    private static function entrySize(?string $name, ?string $value) : int
+    {
+        return ($name === null ? 0 : strlen($name))
+            + ($value === null ? 0 : strlen($value))
+            + 32;
+    }
+
     public function get(int $idx) : KeyVal
     {
         if($idx <= 0 || $idx > self::$staticSize + count($this->idxMap))
@@ -52,13 +74,36 @@ class HeaderTable
 
     public function insert(string $name, string $value) : void
     {
+        // RFC 7541 §4.4: evict oldest entries until the new one fits.
+        // idxMap stores newest-first (idxMap[0] is the most recent
+        // insert), so the oldest entry sits at the end.
+        $sz = self::entrySize($name, $value);
+        while (!empty($this->idxMap) && $this->curByteSize + $sz > $this->maxByteSize) {
+            $evicted = array_pop($this->idxMap);
+            $this->curByteSize -= self::entrySize($evicted->name, $evicted->value);
+        }
+        if ($sz > $this->maxByteSize) {
+            // §4.4: an entry alone exceeding the max empties the
+            // table and is not inserted. addCount still increments
+            // so encoder/decoder agree on numbering.
+            $this->addCount++;
+            return;
+        }
         ArrayUtil::insert(new KeyVal($name, $value), $this->idxMap, 0);
+        $this->curByteSize += $sz;
         $this->addCount++;
         $this->addToNameMap($name, $this->addCount);
     }
 
     public function setSize(int $size) : void
     {
+        // SETTINGS_HEADER_TABLE_SIZE bumps the cap; evict from tail
+        // when current exceeds the new max.
+        $this->maxByteSize = $size;
+        while (!empty($this->idxMap) && $this->curByteSize > $this->maxByteSize) {
+            $evicted = array_pop($this->idxMap);
+            $this->curByteSize -= self::entrySize($evicted->name, $evicted->value);
+        }
     }
 
     private function put(int $idx, string $name, ?string $value) : void

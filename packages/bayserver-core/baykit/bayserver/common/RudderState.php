@@ -17,6 +17,13 @@ class RudderState implements Reusable {
     public string $readBuf = "";
     public int $bufSize = 0;
     public array $writeQueue = [];
+    /**
+     * Running sum of pending bytes across {@link $writeQueue}.
+     * Replaces the O(N) iteration in remaining() that ran on every
+     * reqWrite to decide flush=true. Multiplexers maintain it: add
+     * on enqueue and subtract on full consume.
+     */
+    public int $writeQueueBytes = 0;
     public bool $handshaking = false;
     public bool $reading = false;
     public bool $writing = false;
@@ -83,11 +90,13 @@ class RudderState implements Reusable {
      */
     public function remaining(): int
     {
-        $sum = 0;
-        foreach ($this->writeQueue as $u) {
-            $sum += strlen($u->buf);
-        }
-        return $sum;
+        // O(1) via the writeQueueBytes counter the multiplexers
+        // maintain. The counter slightly
+        // overestimates during partial writes because the
+        // consumeOldestUnit decrement only fires when the unit
+        // fully drains; the overestimate is harmless for the
+        // back-pressure threshold check.
+        return $this->writeQueueBytes;
     }
 
     /**
@@ -123,6 +132,7 @@ class RudderState implements Reusable {
         $this->readBuf = "";
         $this->bufSize = 0;
         $this->writeQueue = [];
+        $this->writeQueueBytes = 0;
         $this->handshaking = false;
         $this->reading = false;
         $this->writing = false;

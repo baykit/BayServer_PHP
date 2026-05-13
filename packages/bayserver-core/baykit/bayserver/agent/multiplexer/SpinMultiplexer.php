@@ -138,6 +138,9 @@ class SpinMultiplexer extends MultiplexerBase implements TimerHandler
 
         $unt = new WriteUnit($buf, $adr, $tag, $callback);
         $st->writeQueue[] = $unt;
+        //: O(1) pending-bytes counter; decremented when the
+        // unit fully drains in MultiplexerBase::consumeOldestUnit.
+        $st->writeQueueBytes += strlen($buf);
 
         $st->access();
 

@@ -173,6 +173,18 @@ abstract class WarpBase extends ClubBase implements Warp
                 }
                 stream_set_blocking($ch, false);
 
+                // TCP_NODELAY on the warp upstream socket. php-fpm and
+                // similar backends leave Nagle on; with the proxy
+                // side's delayed-ACK timer this adds 40 ms per
+                // response in the few-MTU range.
+                // Skip for unix-domain (no Nagle to disable).
+                if ($this->port !== null) {
+                    $imp = @socket_import_stream($ch);
+                    if ($imp !== false && $imp !== null) {
+                        @socket_set_option($imp, SOL_TCP, TCP_NODELAY, 1);
+                    }
+                }
+
                 $rd = new StreamRudder($ch);
                 $tp = $this->newTransporter($agt, $rd, $wsip);
                 $protoHnd = ProtocolHandlerStore::getStore($this->protocol(), false, $agt->agentId)->rent();

@@ -24,6 +24,13 @@ class WriteUnit {
     public int $offset;
     public int $length;
     public int $written = 0;
+    /** Total bytes this unit will eventually write. Captured at
+     * construction so RudderState::writeQueueBytes can
+     * decrement by a stable value in MultiplexerBase::consumeOldestUnit
+     * even though SpiderMultiplexer::onWritable shrinks $buf in place
+     * as bytes drain. For byte-string mode it's strlen($buf); for the
+     * unused sendfile path it's $length. */
+    public int $initialSize;
 
     public function __construct(?string $buf, ?string $adr, $tag, ?callable $callback,
                                 ?Rudder $file = null, int $offset = 0, int $length = 0)
@@ -35,6 +42,7 @@ class WriteUnit {
         $this->file = $file;
         $this->offset = $offset;
         $this->length = $length;
+        $this->initialSize = $buf !== null ? strlen($buf) : $length;
     }
 
     public static function forFile(Rudder $file, int $offset, int $length, ?callable $callback) : self

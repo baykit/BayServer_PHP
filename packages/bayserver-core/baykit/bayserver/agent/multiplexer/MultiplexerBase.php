@@ -89,6 +89,18 @@ abstract class MultiplexerBase implements Multiplexer {
             return false;
 
         $u = array_shift($st->writeQueue);
+        // O(1) pending-bytes counter decrement to match the enqueue
+        // increment in {Spider,Spin}Multiplexer::reqWrite.
+        // Use the unit's initialSize captured at construction: by the
+        // time we pop, SpiderMultiplexer::onWritable has shrunk $u->buf
+        // in place down to "" (substr after each successful write), so
+        // strlen($u->buf) would always return 0 and the counter would
+        // grow unboundedly. upstream's comment notes that the counter
+        // slightly overestimates during partial writes; that is fine
+        // for the back-pressure threshold check.
+        $st->writeQueueBytes -= $u->initialSize;
+        if ($st->writeQueueBytes < 0)
+            $st->writeQueueBytes = 0;
         // Pass the post-consumption bufferAvailable flag.
         // After we've popped the unit, the actual buffer state may have
         // freed up; we report it here so the upstream consume listener

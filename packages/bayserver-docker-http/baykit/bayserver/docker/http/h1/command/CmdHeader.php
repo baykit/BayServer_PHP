@@ -211,40 +211,19 @@ class CmdHeader extends H1Command
 
     private function unpackMessageHeader(string $bytes, int $start, int $len): void
     {
-        $buf = "";
-        $read_name = true;
-        $name = null;
-        $skipping = true;
-
-        for ($i = 0; $i < $len; $i++) {
-            $b = $bytes[$start + $i];
-            if ($skipping && $b == " ")
-                continue;
-            elseif ($read_name && $b == ":") {
-                # header name completed
-                $name = $buf;
-                $buf = "";
-                $skipping = true;
-                $read_name = false;
-            } else {
-                if ($read_name) {
-                    # make the case of header name be lower force
-                    $buf.= strtolower($b);
-                } else {
-                    # header value
-                    $buf.= $b;
-                }
-
-                $skipping = false;
-            }
-        }
-
-        if ($name === null)
+        // fast path adapted to PHP: instead of looping
+        // byte-by-byte with per-iteration `$buf.= strtolower($b)`
+        // (every concat reallocates the string in PHP), find the
+        // colon with strpos and slice with substr; one C-level
+        // strtolower on the whole name beats $len PHP-level concats.
+        $line = substr($bytes, $start, $len);
+        $colon = strpos($line, ':');
+        if ($colon === false) {
             throw new ProtocolException(BayMessage::get(Symbol::HTP_INVALID_HEADER_FORMAT,
-                    substr($buf, $start, $len)));
-
-        $value = $buf;
-
+                    $line));
+        }
+        $name = strtolower(ltrim(substr($line, 0, $colon), " \t"));
+        $value = ltrim(substr($line, $colon + 1), " \t");
         $this->addHeader($name, $value);
     }
 
