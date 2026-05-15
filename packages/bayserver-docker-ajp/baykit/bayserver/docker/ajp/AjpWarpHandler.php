@@ -67,6 +67,13 @@ class AjpWarpHandler implements WarpHandler, AjpHandler
         return 1;
     }
 
+    public function maxMultiplexedTours(): int
+    {
+        // AJP/1.3 has no stream multiplexing -- one request per
+        // connection. Mirrors H1WarpHandler.
+        return 1;
+    }
+
     public function newWarpData(int $warpId): WarpData
     {
         return new WarpData($this->ship(), $warpId);

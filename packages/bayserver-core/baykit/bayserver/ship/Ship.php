@@ -83,7 +83,19 @@ abstract Class Ship implements Reusable
 
     public function resumeRead(int $chkId) : void
     {
-        $this->checkShipId($chkId);
+        // STABILITY FIX: H2 warp multiplexes many tours over one ship.
+        // When one tour's backend connection ends and the ship is
+        // returned to the store, sibling tours may still have deferred
+        // consume callbacks pending; those callbacks fire
+        // resumeRead(chkId) with an id the ship has since reset.
+        // Crashing the agent is the wrong call -- a recycled ship has
+        // no read side to resume, so silently drop.
+        if (!$this->initialized
+                || ($chkId !== self::SHIP_ID_NOCHECK && $chkId !== $this->shipId)) {
+            BayLog::debug("%s resumeRead on stale ship (chkId=%d, current=%d): ignored",
+                $this, $chkId, $this->shipId);
+            return;
+        }
         BayLog::debug("%s resume read", $this);
         $this->transporter->reqRead($this->rudder);
     }

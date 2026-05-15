@@ -8,6 +8,14 @@ interface WarpHandler
 {
     public function nextWarpId() : int;
 
+    /**
+     * Maximum number of tours that can ride a single WarpShip before
+     * the warp pool opens another backend connection. 1 = single-tour
+     * (HTTP/1.1 keep-alive style); higher = stream-multiplexed (HTTP/2).
+     * Mirrors WarpHandler.maxMultiplexedTours.
+     */
+    public function maxMultiplexedTours() : int;
+
     public function newWarpData(int $warpId) : WarpData;
 
     public function sendReqHeaders(Tour $tur) : void;

@@ -7,6 +7,7 @@ use baykit\bayserver\BayLog;
 use baykit\bayserver\tour\ReqContentHandler;
 use baykit\bayserver\tour\Tour;
 use baykit\bayserver\util\Headers;
+use baykit\bayserver\util\IOException;
 
 class WarpData implements ReqContentHandler
 {
@@ -38,7 +39,15 @@ class WarpData implements ReqContentHandler
     public function onReadReqContent(Tour $tur, string $buf, int $start, int $len, ?callable $callback): void
     {
         BayLog::debug("%s onReadReqContent tur=%s len=%d", $this->warpShip, $tur, $len);
-        $this->warpShip->checkShipId($this->warpShipId);
+        // STABILITY FIX: the shared warp ship may
+        // have been recycled out from under us by a sibling tour in H2
+        // multiplex. Drop with a bounded IOException so the caller
+        // cleans up the front-end tour normally instead of taking down
+        // the agent with Sink.
+        if ($this->isStaleShip()) {
+            if ($callback !== null) $callback($len, true);
+            throw new IOException($this->warpShip. " warp connection has been closed");
+        }
         $maxLen = $this->warpShip->protocolHandler->maxReqPacketDataSize();
         for($pos = 0; $pos < $len; $pos += $maxLen) {
             $postLen = $len - $pos;
@@ -68,7 +77,9 @@ class WarpData implements ReqContentHandler
     public function onEndReqContent(Tour $tur): void
     {
         BayLog::debug("%s endReqContent tur=%s", $this->warpShip, $tur);
-        $this->warpShip->checkShipId($this->warpShipId);
+        if ($this->isStaleShip()) {
+            throw new IOException($this->warpShip. " warp connection has been closed");
+        }
         $this->warpShip->warpHandler()->sendEndReq($tur, false, function ()  {
             $agt = GrandAgent::get($this->warpShip->agentId);
             $agt->netMultiplexer->reqRead($this->warpShip->rudder);
@@ -78,9 +89,21 @@ class WarpData implements ReqContentHandler
     public function onAbortReq(Tour $tur): bool
     {
         BayLog::debug("%s onAbortReq tur=%s", $this->warpShip, $tur);
-        $this->warpShip->checkShipId($this->warpShipId);
+        // STABILITY FIX: warp ship may already be
+        // gone (recycled by sibling tour's close in H2 multiplex).
+        // Treat the abort as completed so the inbound side can return
+        // the tour now.
+        if ($this->isStaleShip()) {
+            return true;
+        }
         $this->warpShip->abort($this->warpShipId);
         return false; // not aborted immediately
+    }
+
+    /** True if the underlying warp ship has been recycled out from under us. */
+    private function isStaleShip(): bool
+    {
+        return !$this->warpShip->initialized || $this->warpShip->id() !== $this->warpShipId;
     }
 
 

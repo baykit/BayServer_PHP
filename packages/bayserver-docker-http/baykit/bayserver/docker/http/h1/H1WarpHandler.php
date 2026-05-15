@@ -250,6 +250,14 @@ class H1WarpHandler implements WarpHandler, H1Handler {
         return self::FIXED_WARP_ID;
     }
 
+    public function maxMultiplexedTours(): int
+    {
+        // HTTP/1.1 has no stream multiplexing -- each WarpShip carries
+        // one tour at a time (next tour must wait for the previous
+        // response to drain).
+        return 1;
+    }
+
     public function newWarpData(int $warpId): WarpData
     {
         return new WarpData($this->ship(), $warpId);

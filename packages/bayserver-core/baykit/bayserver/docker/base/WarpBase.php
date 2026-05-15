@@ -129,6 +129,23 @@ abstract class WarpBase extends ClubBase implements Warp
     public function arrive(Tour $tur)
     {
         $agt = GrandAgent::get($tur->ship->agentId);
+
+        // Subclass hook (multiplex-capable warp dockers, e.g. HtpWarpDocker
+        // with enableH2 yes): return an existing shared WarpShip here.
+        // When non-null, skip the rent path entirely.
+        $reused = $this->pickReusableShip($agt, $tur);
+        if ($reused !== null) {
+            try {
+                $this->tourList[] = $tur;
+                $reused->startWarpTour($tur);
+            }
+            catch(IOException $e) {
+                BayLog::error($e);
+                throw new HttpException(HttpStatus::INTERNAL_SERVER_ERROR, $e);
+            }
+            return;
+        }
+
         $sto = $this->getShipStore($agt->agentId);
 
         $wsip = $sto->rent();
@@ -169,6 +186,12 @@ abstract class WarpBase extends ClubBase implements Warp
 
             $wsip->startWarpTour($tur);
 
+            // Subclass hook: notify after a fresh ship has been rented and
+            // attached to its first tour. Used by multiplex-capable
+            // dockers to register the ship in their reuse pool.
+            // Mirrors
+            $this->onShipRented($agt, $wsip);
+
             if($needConnect) {
                 $st = RudderStateStore::getStore($agt->agentId)->rent();
                 $st->init($wsip->rudder, $tp);
@@ -180,6 +203,40 @@ abstract class WarpBase extends ClubBase implements Warp
             BayLog::error($e);
             throw new HttpException(HttpStatus::INTERNAL_SERVER_ERROR, $e);
         }
+    }
+
+    /////////////////////////////////////
+    // Subclass hooks for multiplex-aware dockers
+    /////////////////////////////////////
+
+    /**
+     * Subclasses override to return an existing WarpShip that can carry
+     * an additional tour (= H2 stream multiplex). Returning non-null
+     * causes arrive() to skip the rent / connect path and just start
+     * the tour on the returned ship. Default returns null = always
+     * rent fresh.
+     */
+    protected function pickReusableShip(\baykit\bayserver\agent\GrandAgent $agt, Tour $tur) : ?\baykit\bayserver\common\WarpShip
+    {
+        return null;
+    }
+
+    /**
+     * Subclasses are notified immediately after arrive() rents a fresh
+     * WarpShip and starts its first tour. Use to register the ship in
+     * a reuse pool. Default no-op.
+     */
+    protected function onShipRented(\baykit\bayserver\agent\GrandAgent $agt, \baykit\bayserver\common\WarpShip $wsip) : void
+    {
+    }
+
+    /**
+     * Default no-op for Warp::excludeFromPool. Multiplex-aware dockers
+     * (HtpWarpDocker with enableH2) override this to remove the ship
+     * from their pool.
+     */
+    public function excludeFromPool(Ship $warpShip) : void
+    {
     }
 
     //////////////////////////////////////////

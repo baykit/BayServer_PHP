@@ -160,6 +160,22 @@ class WarpShip extends Ship
         return $this->protocolHandler->commandHandler;
     }
 
+    /** Whether the underlying TCP connection has completed connect. */
+    public function isConnected() : bool
+    {
+        return $this->connected;
+    }
+
+    /**
+     * Number of tours currently riding this ship (= active H2 streams
+     * for H2). Used by WarpShipPool to pick the least-busy multiplex
+     * candidate. tourCount.
+     */
+    public function tourCount() : int
+    {
+        return count($this->tourMap);
+    }
+
     public function startWarpTour(Tour $tur) : void
     {
         $wHnd = $this->warpHandler();
@@ -222,18 +238,35 @@ class WarpShip extends Ship
     public function notifyErrorToOwnerTour(int $status, string $msg) : void
     {
         foreach (array_keys($this->tourMap) as $warpId)  {
-            $tur = $this->getTour($warpId);
-            BayLog::debug("%s send error to owner: %s running=%b", $this, $tur, $tur->isRunning());
-            if ($tur->isRunning()) {
-                try {
+            $tur = null;
+            try {
+                $tur = $this->getTour($warpId);
+                BayLog::debug("%s send error to owner: %s running=%b", $this, $tur, $tur->isRunning());
+                if ($tur->isRunning()) {
                     $tur->res->sendError(Tour::TOUR_ID_NOCHECK, $status, $msg);
                 }
-                catch (IOException $e) {
-                    BayLog::error_e($e);
+                else {
+                    $tur->res->endResContent(Tour::TOUR_ID_NOCHECK);
                 }
             }
-            else {
-                $tur->res->endResContent(Tour::TOUR_ID_NOCHECK);
+            catch (IOException $e) {
+                BayLog::error_e($e);
+            }
+            catch (\Throwable $e) {
+                // STABILITY FIX: sendError ->
+                // endResContent -> sendEndTour can throw Sink when the
+                // front-end inbound ship has already been recycled
+                // (its shipId no longer matches the captured one). In
+                // H2 multiplex this is a common race; force-return the
+                // tour so per-agent TourStore.activeTourMap doesn't
+                // drift up to the cap.
+                BayLog::debug_e($e, "%s send error to owner failed (front-end recycled?), force-returning tour: %s", $this, $tur);
+                if ($tur !== null) {
+                    try {
+                        $tur->ship->returnTour($tur);
+                    }
+                    catch (\Throwable $ignored) { /* ship gone too */ }
+                }
             }
         }
 

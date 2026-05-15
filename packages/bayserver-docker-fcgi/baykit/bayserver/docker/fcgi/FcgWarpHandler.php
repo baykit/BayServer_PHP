@@ -75,6 +75,16 @@ class FcgWarpHandler implements WarpHandler, FcgHandler
         return 1;
     }
 
+    public function maxMultiplexedTours(): int
+    {
+        // FastCGI 1.1 spec allows multiplexing, but in practice every
+        // PHP FCGI server (php-fpm, php-cgi, PHPVerse) advertises
+        // FCGI_MPXS_CONNS=0 and serves one request per connection.
+        // Mirrors H1WarpHandler — each WarpShip carries one tour at a
+        // time, the next must wait for the previous response to drain.
+        return 1;
+    }
+
     public function newWarpData(int $warpId): WarpData
     {
         return new WarpData($this->ship(), $warpId);
