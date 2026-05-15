@@ -1,0 +1,31 @@
+{
+    "name": "baykit/phpverse",
+    "description": "A modern, embeddable FastCGI worker pool for PHP.",
+    "type": "library",
+    "license": "LicenseRef-Baykit-1.1",
+    "homepage": "https://github.com/baykit/PHPVerse",
+    "require": {
+        "php": ">=8.1"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "phpverse\\": "src/"
+        }
+    },
+    "bin": [
+        "bin/phpverse"
+    ],
+    "autoload-dev": {
+        "psr-4": {
+            "phpverse\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

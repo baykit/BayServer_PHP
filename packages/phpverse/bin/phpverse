@@ -1,0 +1,56 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/**
+ * phpverse CLI entry point.
+ *
+ * Composer's vendor/bin/phpverse symlink resolves to this file's real
+ * path, but the script may also be invoked directly from a source
+ * checkout (= bin/phpverse). Try both autoloader locations: the
+ * in-repo vendor/ first (= dev / source layout), then the
+ * grand-parent vendor/ that Composer creates when this package is
+ * installed as a dependency.
+ */
+
+$autoloadCandidates = [
+    __DIR__ . '/../vendor/autoload.php',    // source / dev checkout
+    __DIR__ . '/../../../autoload.php',     // installed as a composer dep
+];
+
+$loaded = false;
+foreach ($autoloadCandidates as $candidate) {
+    if (is_file($candidate)) {
+        require $candidate;
+        $loaded = true;
+        break;
+    }
+}
+if (!$loaded) {
+    // Fallback for embedded / vendor-less deployments (e.g. when phpverse
+    // is shipped as a subpackage of another project without its own
+    // composer install). Register a minimal PSR-4 autoloader for the
+    // phpverse\ namespace pointing at our src/ directory. This keeps the
+    // embedded copy vendor-free while standalone phpverse checkouts
+    // continue to use their own composer autoload.
+    $phpverseSrc = realpath(__DIR__ . '/../src');
+    if ($phpverseSrc === false || !is_dir($phpverseSrc)) {
+        fwrite(STDERR, "phpverse: could not locate vendor/autoload.php and src/ fallback missing\n");
+        exit(1);
+    }
+    spl_autoload_register(function (string $class) use ($phpverseSrc) {
+        $prefix = 'phpverse\\';
+        if (strncmp($class, $prefix, strlen($prefix)) !== 0) {
+            return;
+        }
+        $relative = substr($class, strlen($prefix));
+        $path = $phpverseSrc . DIRECTORY_SEPARATOR
+              . str_replace('\\', DIRECTORY_SEPARATOR, $relative) . '.php';
+        if (is_file($path)) {
+            require $path;
+        }
+    });
+}
+
+exit(\phpverse\Cli\Main::run($argv));
