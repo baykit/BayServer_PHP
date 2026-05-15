@@ -50,9 +50,9 @@ class WarpDocker_AgentListener implements LifecycleListener
 
 abstract class WarpBase extends ClubBase implements Warp
 {
-    public string $host;
-    public int $port = -1;
-    public string $warpBase;
+    public string $host = "";
+    public ?int $port = -1;
+    public string $warpBase = "";
     public int $maxShips = -1;
     public int $timeoutSec = -1; // -1 means "Use harbor.socketTimeoutSec"
 

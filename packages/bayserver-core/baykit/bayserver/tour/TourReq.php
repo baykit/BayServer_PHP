@@ -19,11 +19,11 @@ class TourReq implements Reusable {
     /**
      * Request Header info
      */
-    public int $key;  // request id in FCGI or stream id in HTTP/2
+    public int $key = 0;  // request id in FCGI or stream id in HTTP/2
 
-    public ?string $uri;
-    public ?string $protocol;
-    public ?string $method;
+    public ?string $uri = null;
+    public ?string $protocol = null;
+    public ?string $method = null;
 
     public Headers $headers;
 
@@ -31,17 +31,17 @@ class TourReq implements Reusable {
     public ?string $queryString = null;
     public ?string $pathInfo = null;
     public ?string $scriptName = null;
-    public ?string $reqHost;  // from Host header
-    public string $reqPort;     // from Host header
+    public ?string $reqHost = null;  // from Host header
+    public string $reqPort = "";     // from Host header
 
     public ?string $remoteUser = null;
     public ?string $remotePass = null;
 
     public ?string $remoteAddress = null;
-    public int $remotePort;
+    public int $remotePort = 0;
     public $remoteHostFunc;   // callable. (Remote host is resolved on demand since performance reason)
     public ?string $serverAddress = null;
-    public int $serverPort;
+    public int $serverPort = 0;
     public ?string $serverName = null;
     public ?string $charset = null;
 
