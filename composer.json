@@ -14,7 +14,9 @@
             "baykit\\bayserver\\docker\\fcgi\\": "packages/bayserver-docker-fcgi/baykit/bayserver/docker/fcgi",
             "baykit\\bayserver\\docker\\http\\": "packages/bayserver-docker-http/baykit/bayserver/docker/http",
             "baykit\\bayserver\\docker\\h3\\": "packages/bayserver-docker-http3/baykit/bayserver/docker/h3",
-            "baykit\\bayserver\\docker\\wordpress\\": "packages/bayserver-docker-wordpress/baykit/bayserver/docker/wordpress"
+            "baykit\\bayserver\\docker\\wordpress\\": "packages/bayserver-docker-wordpress/baykit/bayserver/docker/wordpress",
+            "baykit\\bayserver\\docker\\phpverse\\": "packages/bayserver-docker-phpverse/baykit/bayserver/docker/phpverse",
+            "phpverse\\": "packages/phpverse/src"
         }
     },
     "bin": ["packages/bayserver/bin/bayserver_php"]

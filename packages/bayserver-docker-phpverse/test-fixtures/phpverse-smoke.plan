@@ -1,0 +1,30 @@
+#
+# Minimal BayServer plan for PhpVerseDocker smoke testing.
+#
+# - one plain HTTP port on 8080
+# - one city "*" with town "/" rooted at this test-fixtures dir
+# - club *.php routed through PhpVerseDocker → phpverse daemon → user PHP
+#
+# PhpVerse defaults will be used:
+#   - workers=4
+#   - socketDir=sys_get_temp_dir()
+#   - phpverseBin=packages/phpverse/bin/phpverse (auto-resolved)
+#   - php=PHP_BINARY
+#
+
+[harbor]
+    grandAgents 1
+
+[port 8080]
+    docker http
+
+[city *]
+    [town /]
+        location packages/bayserver-docker-phpverse/test-fixtures
+        welcome  index.html
+
+        [club *.php]
+            docker phpverse
+            workers 2
+            docRoot packages/bayserver-docker-phpverse/test-fixtures
+            scriptBase packages/bayserver-docker-phpverse/test-fixtures
