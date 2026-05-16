@@ -35,13 +35,13 @@ use baykit\bayserver\util\StringUtil;
  * that the backend sends back.
  *
  * Wire-up:
- *  * HtpWarpDocker registers H2WarpProtocolHandlerFactory for
- *    protocol "h2" on the warp side.
- *  * On the first sendReqHeaders call we lazily emit the H2 prelude
- *    (24-byte PRI preface + SETTINGS + connection-level
- *    WINDOW_UPDATE).
- *  * Tours are looked up by the QUIC-like odd stream id assigned in
- *    nextWarpId().
+ * * HtpWarpDocker registers H2WarpProtocolHandlerFactory for
+ *   protocol "h2" on the warp side.
+ * * On the first sendReqHeaders call we lazily emit the H2 prelude
+ *   (24-byte PRI preface + SETTINGS + connection-level
+ *   WINDOW_UPDATE).
+ * * Tours are looked up by the QUIC-like odd stream id assigned in
+ *   nextWarpId().
  */
 class H2WarpHandler implements WarpHandler, H2Handler
 {

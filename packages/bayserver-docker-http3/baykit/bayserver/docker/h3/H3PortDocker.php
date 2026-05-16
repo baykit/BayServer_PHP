@@ -19,7 +19,7 @@ use Croute\Quic\Config as QuicConfig;
 /**
  * Port docker for HTTP/3. UDP listener + QicTransporter; spins up
  * a server-side Croute (libquiche) configuration during init().
- *
+
  */
 class H3PortDocker extends PortBase implements H3Docker
 {
@@ -92,10 +92,9 @@ class H3PortDocker extends PortBase implements H3Docker
 
     public function onConnected(int $agentId, Rudder $rd) : void
     {
-        // Mirrors the upstream H3PortDocker.onConnected. The accepted UDP rudder
-        // is registered with the agent's net multiplexer and immediately
-        // armed for read; the QicTransporter takes over demux from
-        // there.
+        // The accepted UDP rudder is registered with the agent's net
+        // multiplexer and immediately armed for read; the QicTransporter
+        // takes over demux from there.
         $tp = new QicTransporter();
 
         $st = RudderStateStore::getStore($agentId)->rent();

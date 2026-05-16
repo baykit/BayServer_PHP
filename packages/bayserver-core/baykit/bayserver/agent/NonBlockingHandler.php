@@ -400,13 +400,13 @@ class NonBlockingHandler implements TimerHandler
         if ($chState->accepted)
             $this->agent->acceptHandler->onClosed();
 
-//       $meta = stream_get_meta_data($ch);
-//       $type = strtolower($meta["stream_type"]);
+//      $meta = stream_get_meta_data($ch);
+//      $type = strtolower($meta["stream_type"]);
 
-//       if(StringUtil::startsWith($type, "tcp_socket"))
-//           $ret = stream_socket_shutdown($ch,  STREAM_SHUT_RDWR);
+//      if(StringUtil::startsWith($type, "tcp_socket"))
+//          $ret = stream_socket_shutdown($ch,  STREAM_SHUT_RDWR);
 
-/*       switch($type) {
+/*      switch($type) {
             case "stdio":
                 $ret = fclose($ch);
                 break;

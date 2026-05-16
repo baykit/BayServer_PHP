@@ -125,7 +125,7 @@ class TourReq implements Reusable {
         BayLog::debug("%s set content handler", $this->tour);
 
         //if ($this->contentHandler !== null)
-        //   throw new Sink("content handler already set");
+        //  throw new Sink("content handler already set");
 
         $this->contentHandler = $hnd;
     }

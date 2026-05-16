@@ -14,22 +14,22 @@ use baykit\bayserver\util\StringUtil;
 
 /**
  * AJP protocol
- *   https://tomcat.apache.org/connectors-doc/ajp/ajpv13a.html
+ *  https://tomcat.apache.org/connectors-doc/ajp/ajpv13a.html
  *
  * AJP13_FORWARD_REQUEST :=
- *    prefix_code      (byte) 0x02 = JK_AJP13_FORWARD_REQUEST
- *    method           (byte)
- *    protocol         (string)
- *    req_uri          (string)
- *    remote_addr      (string)
- *    remote_host      (string)
- *    server_name      (string)
- *    server_port      (integer)
- *    is_ssl           (boolean)
- *    num_headers      (integer)
- *    request_headers *(req_header_name req_header_value)
- *    attributes      *(attribut_name attribute_value)
- *    request_terminator (byte) OxFF
+ *   prefix_code      (byte) 0x02 = JK_AJP13_FORWARD_REQUEST
+ *   method           (byte)
+ *   protocol         (string)
+ *   req_uri          (string)
+ *   remote_addr      (string)
+ *   remote_host      (string)
+ *   server_name      (string)
+ *   server_port      (integer)
+ *   is_ssl           (boolean)
+ *   num_headers      (integer)
+ *   request_headers *(req_header_name req_header_value)
+ *   attributes      *(attribut_name attribute_value)
+ *   request_terminator (byte) OxFF
  */
 class CmdForwardRequest extends AjpCommand
 {

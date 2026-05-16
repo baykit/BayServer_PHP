@@ -9,7 +9,7 @@ use baykit\bayserver\protocol\PacketPartAccessor;
 
 /**
  * Http2 spec
- *  https://www.rfc-editor.org/rfc/rfc7540.txt
+ * https://www.rfc-editor.org/rfc/rfc7540.txt
  *
  * Http2 Frame format
  * +-----------------------------------------------+

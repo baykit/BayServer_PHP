@@ -160,10 +160,10 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
     }
 
     public function reqTransfer(Rudder $rd, Rudder $fileRd, int $ofs, int $len, ?callable $callback): void {
-        // PHP has no non-blocking sendfile equivalent (stream_copy_to_stream
-        // is synchronous and would stall the event loop under high concurrency). The
-        // framework wiring is preserved for parity with upstream but the actual
-        // transfer path is not available.
+        // PHP has no non-blocking sendfile equivalent
+        // (stream_copy_to_stream is synchronous and would stall the
+        // event loop). The framework wiring is preserved but no
+        // working transfer path is reachable.
         throw new Sink();
     }
 
@@ -414,8 +414,7 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
         // pipe; without the suppression-and-drop the producer thread
         // (= the same thread that drains the pipe in onWakedUp) would
         // see an error path and fatal_e the agent, dropping every
-        // connection it was serving (= load test read errors / timeouts on
-        // the larger-body cells).
+        // connection it was serving.
         // Symmetric with onWakedUp's direct fread.
         @fwrite($this->selectWakeupPipe[1], self::WAKEUP_BUF);
     }

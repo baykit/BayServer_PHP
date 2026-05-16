@@ -13,31 +13,31 @@ use baykit\bayserver\util\StringUtil;
  *
  * AJP packet spec
  *
- *  packet:  preamble, length, body
- *  preamble:
- *       0x12, 0x34  (client->server)
- *    | 'A', 'B'     (server->client)
- *  length:
- *     2 byte
- *  body:
- *     $length byte
+ * packet:  preamble, length, body
+ * preamble:
+ *      0x12, 0x34  (client->server)
+ *   | 'A', 'B'     (server->client)
+ * length:
+ *    2 byte
+ * body:
+ *    $length byte
  *
  * Body format
- *   client->server
- *   Code     Type of Packet    Meaning
- *      2     Forward Request   Begin the request-processing cycle with the following data
- *      7     Shutdown          The web server asks the container to shut itself down.
- *      8     Ping              The web server asks the container to take control (secure login phase).
- *     10     CPing             The web server asks the container to respond quickly with a CPong.
- *   none     Data              Size (2 bytes) and corresponding body data.
+ *  client->server
+ *  Code     Type of Packet    Meaning
+ *     2     Forward Request   Begin the request-processing cycle with the following data
+ *     7     Shutdown          The web server asks the container to shut itself down.
+ *     8     Ping              The web server asks the container to take control (secure login phase).
+ *    10     CPing             The web server asks the container to respond quickly with a CPong.
+ *  none     Data              Size (2 bytes) and corresponding body data.
  *
- *   server->client
- *   Code     Type of Packet    Meaning
- *      3     Send Body Chunk   Send a chunk of the body from the servlet container to the web server (and presumably, onto the browser).
- *      4     Send Headers      Send the response headers from the servlet container to the web server (and presumably, onto the browser).
- *      5     End Response      Marks the end of the response (and thus the request-handling cycle).
- *      6     Get Body Chunk    Get further data from the request if it hasn't all been transferred yet.
- *      9     CPong Reply       The reply to a CPing request
+ *  server->client
+ *  Code     Type of Packet    Meaning
+ *     3     Send Body Chunk   Send a chunk of the body from the servlet container to the web server (and presumably, onto the browser).
+ *     4     Send Headers      Send the response headers from the servlet container to the web server (and presumably, onto the browser).
+ *     5     End Response      Marks the end of the response (and thus the request-handling cycle).
+ *     6     Get Body Chunk    Get further data from the request if it hasn't all been transferred yet.
+ *     9     CPong Reply       The reply to a CPing request
  *
  */
 class AjpPacketPartAccessor extends PacketPartAccessor

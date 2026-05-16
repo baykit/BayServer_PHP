@@ -14,15 +14,15 @@ use baykit\bayserver\util\StringUtil;
 
 /**
  * FCGI spec
- *  http://www.mit.edu/~yandros/doc/specs/fcgi-spec.html
+ * http://www.mit.edu/~yandros/doc/specs/fcgi-spec.html
  *
  * Begin request command format
- *        typedef struct {
- *            unsigned char roleB1;
- *            unsigned char roleB0;
- *            unsigned char flags;
- *            unsigned char reserved[5];
- *        } FCGI_BeginRequestBody;
+ *       typedef struct {
+ *           unsigned char roleB1;
+ *           unsigned char roleB0;
+ *           unsigned char flags;
+ *           unsigned char reserved[5];
+ *       } FCGI_BeginRequestBody;
  */
 class CmdBeginRequest extends FcgCommand
 {

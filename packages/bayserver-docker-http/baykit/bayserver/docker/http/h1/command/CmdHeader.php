@@ -21,18 +21,18 @@ use const Grpc\CHANNEL_READY;
 /**
  * Header format
  *
- *       generic-message = start-line
- *                          *(message-header CRLF)
- *                          CRLF
- *                          [ message-body ]
- *       start-line      = Request-Line | Status-Line
+ *      generic-message = start-line
+ *                         *(message-header CRLF)
+ *                         CRLF
+ *                         [ message-body ]
+ *      start-line      = Request-Line | Status-Line
  *
- *       message-header = field-name ":" [ field-value ]
- *       field-name     = token
- *       field-value    = *(field-content | LWS )
- *       field-content  = <the OCTETs making up the field-value
- *                        and consisting of either *TEXT or combinations
- *                        of token, separators, and quoted-string>
+ *      message-header = field-name ":" [ field-value ]
+ *      field-name     = token
+ *      field-value    = *(field-content | LWS )
+ *      field-content  = <the OCTETs making up the field-value
+ *                       and consisting of either *TEXT or combinations
+ *                       of token, separators, and quoted-string>
  */
 class CmdHeader extends H1Command
 {

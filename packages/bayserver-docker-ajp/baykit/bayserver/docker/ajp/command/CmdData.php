@@ -12,7 +12,7 @@ use baykit\bayserver\protocol\Packet;
 /**
  * Data command format
  *
- *  raw data
+ * raw data
  */
 class CmdData extends AjpCommand
 {

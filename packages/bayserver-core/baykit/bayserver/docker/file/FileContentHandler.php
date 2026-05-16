@@ -85,7 +85,7 @@ class FileContentHandler implements ReqContentHandler
     private function handleDirectory(Tour $tur, string $path) : void
     {
         if ($this->listFiles) {
-            // DirectoryTrain is not ported to PHP; mirror upstream's
+            // DirectoryTrain is not implemented in PHP; honor the
             // listFiles=true control by returning 403 with a clear
             // message instead of silently producing nothing.
             throw new HttpException(HttpStatus::FORBIDDEN, "Directory listing not supported in PHP");

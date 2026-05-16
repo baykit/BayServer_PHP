@@ -17,14 +17,14 @@ use baykit\bayserver\util\StringUtil;
  * Send headers format
  *
  * AJP13_SEND_HEADERS :=
- *  prefix_code       4
- *  http_status_code  (integer)
- *  http_status_msg   (string)
- *  num_headers       (integer)
- *  response_headers *(res_header_name header_value)
+ * prefix_code       4
+ * http_status_code  (integer)
+ * http_status_msg   (string)
+ * num_headers       (integer)
+ * response_headers *(res_header_name header_value)
  *
  * res_header_name :=
- *    sc_res_header_name | (string)   [see below for how this is parsed]
+ *   sc_res_header_name | (string)   [see below for how this is parsed]
  *
  * sc_res_header_name := 0xA0 (byte)
  *

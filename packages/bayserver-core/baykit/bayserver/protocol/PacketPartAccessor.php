@@ -34,10 +34,9 @@ class PacketPartAccessor
             $this->checkWrite($len);
             // Previously a per-char `$buf[i] = $src[i]` loop, which is
             // O(len) PHP-level iterations and the dominant cost when
-            // streaming a 1MB body in 64KB chunks (~1M char-writes per
-            // request,  cap measured on loopback). Use native
-            // string ops instead -- a single substr_replace / concat is
-            // an internal memcpy and orders of magnitude faster.
+            // streaming a large body in chunks. Use native string ops
+            // instead -- a single substr_replace / concat is an internal
+            // memcpy and orders of magnitude faster.
             $writePos = $this->start + $this->pos;
             $slice = ($ofs === 0 && $len === strlen($buf)) ? $buf : substr($buf, $ofs, $len);
             $curLen = strlen($this->packet->buf);

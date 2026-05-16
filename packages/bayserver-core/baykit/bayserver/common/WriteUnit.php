@@ -6,10 +6,10 @@ use baykit\bayserver\rudder\Rudder;
 
 /**
  * One pending write to a rudder. Holds either:
- *  - a buffered byte string ($buf, the normal write path), or
- *  - a file rudder + (offset, length) for Direct Boarding (the sendfile
- *    fast-path -- not implemented in PHP, so the multiplexer just throws
- *    Sink when it sees a WriteUnit with $file set).
+ * - a buffered byte string ($buf, the normal write path), or
+ * - a file rudder + (offset, length) for Direct Boarding (the sendfile
+ *   fast-path -- not implemented in PHP, so the multiplexer just throws
+ *   Sink when it sees a WriteUnit with $file set).
  *
 baykit.bayserver.common.WriteUnit (moved from
  * agent/multiplexer/ extended for Direct Boarding in

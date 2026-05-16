@@ -31,8 +31,7 @@ class HeaderTable
      * Maximum byte size of the dynamic table. RFC 7541 default = 4096
      * (may be raised by SETTINGS_HEADER_TABLE_SIZE). Without the
      * cap, idxMap grew unbounded and ArrayUtil::insert(new, list, 0)
-     * stayed O(N) per insert -- throughput degraded ~5x over the life of an
-     * H2 connection.
+     * stayed O(N) per insert, degrading long-lived H2 connections.
      */
     private int $maxByteSize = 4096;
 

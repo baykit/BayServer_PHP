@@ -25,15 +25,15 @@ use Croute\CrouteError;
  * QicProtocolHandler to BayServer Tours.
  *
  * Send path  (server -> client): sendResHeaders / sendResContent /
- *  sendEndTour translate to {@link \Croute\H3\Connection::sendResponse}
- *  / sendBody. When libquiche reports the stream is blocked the
- *  send is buffered as a {@link PartialResponse} on the protocol
- *  handler and replayed from QicProtocolHandler::onStreamWritable.
+ * sendEndTour translate to {@link \Croute\H3\Connection::sendResponse}
+ * / sendBody. When libquiche reports the stream is blocked the
+ * send is buffered as a {@link PartialResponse} on the protocol
+ * handler and replayed from QicProtocolHandler::onStreamWritable.
  *
  * Receive path (client -> server): handleHeaders maps pseudo-headers
- *  to Tour fields and starts the tour; handleData pulls body bytes
- *  with {@link \Croute\H3\Connection::recvBody} and feeds them to
- *  the request content handler; handleFinished is informational.
+ * to Tour fields and starts the tour; handleData pulls body bytes
+ * with {@link \Croute\H3\Connection::recvBody} and feeds them to
+ * the request content handler; handleFinished is informational.
  *
 
  */

@@ -28,9 +28,8 @@ class WaitCargoShip extends ReadOnlyShip
     private int $tourId = 0;
 
     /**
-     * upstream has init(Rudder,Transporter,Tour,Cargo,Club) as an overload of
-     * Ship.init(int,Rudder,Transporter). PHP can't overload so we rename
-     * the cargo-waiter initializer to keep the parent signature intact.
+     * Cargo-waiter initializer renamed so the Ship parent's init()
+     * signature stays intact (PHP cannot overload methods).
      */
     public function initWaiter(Rudder $rd, Transporter $tp, Tour $tur, Barge_Cargo $cgo, Club $clb) : void
     {

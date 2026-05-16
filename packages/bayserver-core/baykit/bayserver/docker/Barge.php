@@ -27,9 +27,9 @@ interface Barge extends Docker
      *
      * Returns [Barge_Cargo|null cargo, Rudder|null waitRudder].
      * - When cargo is already loaded, returns [cargo, null] and the caller
-     *  serves directly from cargo->content().
+     * serves directly from cargo->content().
      * - When cargo is in flight, returns [cargo, rudder] and the caller
-     *  wires up a waiter on the rudder.
+     * wires up a waiter on the rudder.
      * - When path is uncacheable, returns [null, null].
      */
     public function getCargo(Tour $tour) : array;

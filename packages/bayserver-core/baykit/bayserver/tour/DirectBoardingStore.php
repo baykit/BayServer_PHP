@@ -12,9 +12,9 @@ use baykit\bayserver\util\DirectoryException;
  * PHP cannot do a true sendfile(2) without blocking the agent's event
  * loop (stream_copy_to_stream is synchronous), so SpiderMultiplexer.
  * reqTransfer throws Sink and Direct Boarding never actually runs in
- * production. This class is kept so the configuration parameters and
- * the call-graph match upstream -- it is wired up but its outputs are not
- * consumed by a working transfer path.
+ * production. This class is kept so the configuration parameters
+ * remain accepted by the parser; it is wired up but its outputs are
+ * not consumed by a working transfer path.
  */
 class DirectBoardingStore
 {

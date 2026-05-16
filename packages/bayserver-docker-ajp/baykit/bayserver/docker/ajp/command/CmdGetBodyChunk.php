@@ -12,8 +12,8 @@ use baykit\bayserver\protocol\Packet;
  * Get Body Chunk format
  *
  * AJP13_GET_BODY_CHUNK :=
- *  prefix_code       6
- *  requested_length  (integer)
+ * prefix_code       6
+ * requested_length  (integer)
  */
 class CmdGetBodyChunk extends AjpCommand
 {

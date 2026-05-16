@@ -32,11 +32,11 @@ interface Multiplexer
      * fires with bufferAvailable=true.
      *
      * @param bool $flush  When false the multiplexer may keep the data
-     *                    in its writeQueue without registering OP_WRITE
-     *                    until enough pending bytes accumulate. Callers
-     *                    should pass true on the final write of a
-     *                    logical message so the peer actually sees it.
-     *                    Mirrors
+     *                   in its writeQueue without registering OP_WRITE
+     *                   until enough pending bytes accumulate. Callers
+     *                   should pass true on the final write of a
+     *                   logical message so the peer actually sees it.
+     *                   Mirrors
      */
     public function reqWrite(Rudder $rd, string $buf, ?string $adr, $tag, bool $flush, ?callable $callback): bool;
 

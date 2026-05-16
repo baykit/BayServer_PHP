@@ -374,12 +374,11 @@ class H2InboundHandler implements H2Handler, InboundHandler
                     break;
                 case CmdSettings::INITIAL_WINDOW_SIZE:
                     // RFC 7540 § 6.5.2: INITIAL_WINDOW_SIZE must not
-                    // exceed 2^31-1. upstream parses the 32-bit field as a
-                    // signed int so it tests value < 0; PHP's
-                    // PacketPartAccessor::getInt() uses unpack("N") and
-                    // returns the value unsigned in a 64-bit PHP int, so
-                    // overflow shows up as a value above 0x7fffffff
-                    // rather than as a negative.
+                    // exceed 2^31-1. PHP's PacketPartAccessor::getInt()
+                    // uses unpack("N") and returns the value unsigned
+                    // in a 64-bit PHP int, so overflow shows up as a
+                    // value above 0x7fffffff rather than as a negative
+                    // signed int.
                     if ($item->value < 0 || $item->value > 0x7fffffff)
                         throw new H2ProtocolException(H2ErrorCode::FLOW_CONTROL_ERROR, "SETTINGS_INITIAL_WINDOW_SIZE exceeds 2^31-1: {$item->value}");
                     $this->settings->initialWindowSize =$item->value;

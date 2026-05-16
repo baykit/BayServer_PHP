@@ -226,16 +226,13 @@ class TourRes implements Reusable {
 
     /**
      * Open the given file and stream its contents to the client.
-sendFile
      *
-     * In upstream this method picks between (a) Direct Boarding via
-     * DirectBoardingStore + transferContent, which uses sendfile(2), and
-     * (b) opening an async file channel and pumping through SendFileShip.
-     *
-     * PHP cannot do non-blocking sendfile so we only implement path (b);
-     * the directBoarding flag is wired up but reqTransfer throws Sink in
-     * SpiderMultiplexer so the framework code in BuiltInCityDocker /
-     * MemBargeDocker can still consult it.
+     * The implementation opens an async file channel and pumps through
+     * SendFileShip. PHP cannot do non-blocking sendfile(2), so the
+     * Direct Boarding code path that would route through reqTransfer
+     * is not available; reqTransfer throws Sink in SpiderMultiplexer,
+     * but the directBoarding flag is still wired up so the framework
+     * code in BuiltInCityDocker / MemBargeDocker can consult it.
      */
     public function sendFile(string $path, ?string $charset) : void
     {
@@ -309,10 +306,10 @@ sendFile
     }
 
     /**
-     * Direct Boarding transfer (mirrors upstream's TourRes.transferContent).
-     * PHP forwards via the ship -> handler -> multiplexer chain; the
-     * SpiderMultiplexer override throws Sink, so this method only exists
-     * to keep the call graph identical to upstream.
+     * Direct Boarding transfer entry point. PHP forwards via the ship
+     * -> handler -> multiplexer chain; the SpiderMultiplexer override
+     * throws Sink, so this method exists to keep the wiring intact
+     * even though no working transfer path is reachable.
      */
     public function transferContent(int $checkId, Rudder $fileRd, int $ofs, int $len) : void
     {

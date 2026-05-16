@@ -342,7 +342,7 @@ class BayServer
 
                 // Non blocking mode does not work for accepting
                 //if (stream_set_blocking($skt, false) == false)
-                //   throw new \Exception("Cannot set non blocking: ". socket_strerror(socket_last_error()));
+                //  throw new \Exception("Cannot set non blocking: ". socket_strerror(socket_last_error()));
 
                 BayLog::debug("Server socket=%s", $skt);
                 $portMap = new PortMap(new StreamRudder($skt), $dkr);

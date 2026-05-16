@@ -157,12 +157,12 @@ class SignalAgent
 
         if (SysUtil::runOnWindows()) {
             # Available signals on Windows
-            #   SIGABRT
-            #   SIGFPE
-            #   SIGILL
-            #   SIGINT
-            #   SIGSEGV
-            #   SIGTERM
+            #  SIGABRT
+            #  SIGFPE
+            #  SIGILL
+            #  SIGINT
+            #  SIGSEGV
+            #  SIGTERM
             #self::$signalMap[SIGSEGV] = self::COMMAND_RELOAD_CERT;
             #self::$signalMap[SIGILL] = self::COMMAND_MEM_USAGE;
             #self::$signalMap[SIGINT] = self::COMMAND_SHUTDOWN;

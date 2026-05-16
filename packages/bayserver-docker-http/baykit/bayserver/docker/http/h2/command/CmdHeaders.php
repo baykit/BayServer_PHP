@@ -41,8 +41,7 @@ class CmdHeaders extends H2Command
      * Raw header-block fragment bytes captured at unpack time. HPACK
      * decoding is deferred to H2InboundHandler so that a header block
      * split across HEADERS + CONTINUATION can be reassembled before
-     * decoding (a partial slice is not valid HPACK input). upstream keeps
-     * data/start/length references on CmdHeaders for the same reason.
+     * decoding (a partial slice is not valid HPACK input).
      */
     public string $rawHeaderBlock = "";
 

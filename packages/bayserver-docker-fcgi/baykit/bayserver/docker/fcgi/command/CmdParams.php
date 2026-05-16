@@ -14,53 +14,53 @@ use baykit\bayserver\util\StringUtil;
 
 /**
  * FCGI spec
- *  http://www.mit.edu/~yandros/doc/specs/fcgi-spec.html
+ * http://www.mit.edu/~yandros/doc/specs/fcgi-spec.html
  *
  * Params command format (Name-Value list)
  *
- *        typedef struct {
- *            unsigned char nameLengthB0;  // nameLengthB0  >> 7 == 0
- *            unsigned char valueLengthB0; // valueLengthB0 >> 7 == 0
- *            unsigned char nameData[nameLength];
- *            unsigned char valueData[valueLength];
- *        } FCGI_NameValuePair11;
+ *       typedef struct {
+ *           unsigned char nameLengthB0;  // nameLengthB0  >> 7 == 0
+ *           unsigned char valueLengthB0; // valueLengthB0 >> 7 == 0
+ *           unsigned char nameData[nameLength];
+ *           unsigned char valueData[valueLength];
+ *       } FCGI_NameValuePair11;
  *
- *        typedef struct {
- *            unsigned char nameLengthB0;  // nameLengthB0  >> 7 == 0
- *            unsigned char valueLengthB3; // valueLengthB3 >> 7 == 1
- *            unsigned char valueLengthB2;
- *            unsigned char valueLengthB1;
- *            unsigned char valueLengthB0;
- *            unsigned char nameData[nameLength];
- *            unsigned char valueData[valueLength
- *                    ((B3 & 0x7f) << 24) + (B2 << 16) + (B1 << 8) + B0];
- *        } FCGI_NameValuePair14;
+ *       typedef struct {
+ *           unsigned char nameLengthB0;  // nameLengthB0  >> 7 == 0
+ *           unsigned char valueLengthB3; // valueLengthB3 >> 7 == 1
+ *           unsigned char valueLengthB2;
+ *           unsigned char valueLengthB1;
+ *           unsigned char valueLengthB0;
+ *           unsigned char nameData[nameLength];
+ *           unsigned char valueData[valueLength
+ *                   ((B3 & 0x7f) << 24) + (B2 << 16) + (B1 << 8) + B0];
+ *       } FCGI_NameValuePair14;
  *
- *        typedef struct {
- *            unsigned char nameLengthB3;  // nameLengthB3  >> 7 == 1
- *            unsigned char nameLengthB2;
- *            unsigned char nameLengthB1;
- *            unsigned char nameLengthB0;
- *            unsigned char valueLengthB0; // valueLengthB0 >> 7 == 0
- *            unsigned char nameData[nameLength
- *                    ((B3 & 0x7f) << 24) + (B2 << 16) + (B1 << 8) + B0];
- *            unsigned char valueData[valueLength];
- *        } FCGI_NameValuePair41;
+ *       typedef struct {
+ *           unsigned char nameLengthB3;  // nameLengthB3  >> 7 == 1
+ *           unsigned char nameLengthB2;
+ *           unsigned char nameLengthB1;
+ *           unsigned char nameLengthB0;
+ *           unsigned char valueLengthB0; // valueLengthB0 >> 7 == 0
+ *           unsigned char nameData[nameLength
+ *                   ((B3 & 0x7f) << 24) + (B2 << 16) + (B1 << 8) + B0];
+ *           unsigned char valueData[valueLength];
+ *       } FCGI_NameValuePair41;
  *
- *        typedef struct {
- *            unsigned char nameLengthB3;  // nameLengthB3  >> 7 == 1
- *            unsigned char nameLengthB2;
- *            unsigned char nameLengthB1;
- *            unsigned char nameLengthB0;
- *            unsigned char valueLengthB3; // valueLengthB3 >> 7 == 1
- *            unsigned char valueLengthB2;
- *            unsigned char valueLengthB1;
- *            unsigned char valueLengthB0;
- *            unsigned char nameData[nameLength
- *                    ((B3 & 0x7f) << 24) + (B2 << 16) + (B1 << 8) + B0];
- *            unsigned char valueData[valueLength
- *                    ((B3 & 0x7f) << 24) + (B2 << 16) + (B1 << 8) + B0];
- *        } FCGI_NameValuePair44;
+ *       typedef struct {
+ *           unsigned char nameLengthB3;  // nameLengthB3  >> 7 == 1
+ *           unsigned char nameLengthB2;
+ *           unsigned char nameLengthB1;
+ *           unsigned char nameLengthB0;
+ *           unsigned char valueLengthB3; // valueLengthB3 >> 7 == 1
+ *           unsigned char valueLengthB2;
+ *           unsigned char valueLengthB1;
+ *           unsigned char valueLengthB0;
+ *           unsigned char nameData[nameLength
+ *                   ((B3 & 0x7f) << 24) + (B2 << 16) + (B1 << 8) + B0];
+ *           unsigned char valueData[valueLength
+ *                   ((B3 & 0x7f) << 24) + (B2 << 16) + (B1 << 8) + B0];
+ *       } FCGI_NameValuePair44;
  *
  */
 class CmdParams extends FcgCommand

@@ -8,21 +8,21 @@ use baykit\bayserver\protocol\Packet;
 
 /**
  * FCGI spec
- *  http://www.mit.edu/~yandros/doc/specs/fcgi-spec.html
+ * http://www.mit.edu/~yandros/doc/specs/fcgi-spec.html
  *
  * FCGI Packet (Record) format
- *        typedef struct {
- *            unsigned char version;
- *            unsigned char type;
- *            unsigned char requestIdB1;
- *            unsigned char requestIdB0;
- *            unsigned char contentLengthB1;
- *            unsigned char contentLengthB0;
- *            unsigned char paddingLength;
- *            unsigned char reserved;
- *            unsigned char contentData[contentLength];
- *            unsigned char paddingData[paddingLength];
- *        } FCGI_Record;
+ *       typedef struct {
+ *           unsigned char version;
+ *           unsigned char type;
+ *           unsigned char requestIdB1;
+ *           unsigned char requestIdB0;
+ *           unsigned char contentLengthB1;
+ *           unsigned char contentLengthB0;
+ *           unsigned char paddingLength;
+ *           unsigned char reserved;
+ *           unsigned char contentData[contentLength];
+ *           unsigned char paddingData[paddingLength];
+ *       } FCGI_Record;
  */
 class FcgPacket extends Packet {
 

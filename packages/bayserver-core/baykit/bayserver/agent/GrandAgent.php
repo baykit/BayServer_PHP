@@ -125,8 +125,7 @@ class GrandAgent
             }
         }
         else {
-            // Adds server socket up of unanchorable (UDP / H3) ports.
-            // Mirrors the upstream GrandAgent.run's unanchorable branch:
+            // Adds server socket up of unanchorable (UDP / H3) ports;
             // delegate to portDocker->onConnected so the H3 port docker
             // gets to install its QicTransporter on the rudder before
             // the multiplexer starts reading datagrams.
@@ -175,7 +174,7 @@ class GrandAgent
                     $let = array_shift($this->letterQueue);
 
                     // Fetch the live RudderState from the rudder. After
-                    // dba6e99 the state lives directly on the rudder
+                    // after the refactor the state lives directly on the rudder
                     // (via $rd->state), so null here means the rudder
                     // was already cleaned up by an earlier letter in
                     // this batch -- the letter is stale and we skip it.
@@ -291,9 +290,8 @@ class GrandAgent
         // this class. The original code dereferenced an undefined
         // property $this->selectWakeupPipe and PHP returned null,
         // causing fwrite(null) fatals whenever reqShutdown()
-        // (CMD_SHUTDOWN) or NonBlockingHandler.wakeup() fired.
-        // Mirror upstream's sendLetter(wakeup=true) which calls
-        // recipient.wakeup() directly.
+        // (CMD_SHUTDOWN) or NonBlockingHandler.wakeup() fired. Delegate
+        // to the recipient's wakeup() directly.
         $this->recipient->wakeup();
     }
 
@@ -491,9 +489,8 @@ class GrandAgent
             // Benign: a previous onWritable might have drained the
             // queue and queued letters faster than they are processed
             // (e.g. OP_WRITE event firing on top of a tryWriteList
-            // drain produces duplicate WroteLetters). upstream treats
-            // this as a debug-log + return; only a true protocol
-            // mismatch would warrant throwing.
+            // drain produces duplicate WroteLetters). Log and return;
+            // only a true protocol mismatch would warrant throwing.
             BayLog::debug("%s Write queue is empty: rd=%s", $this, $st->rudder);
             return;
         }
