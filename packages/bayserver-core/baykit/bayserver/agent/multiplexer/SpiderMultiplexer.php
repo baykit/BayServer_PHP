@@ -375,8 +375,28 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
         return !empty($selectedMap);
     }
 
+    /**
+     * Frozen 4-byte buffer reused for every wakeup write. The bytes
+     * themselves are arbitrary -- onWakedUp drains the pipe and
+     * discards the content -- so a single shared string avoids the
+     * per-call pack("N", 0) allocation that IOUtil::writeInt32 would
+     * otherwise do.
+     */
+    private const WAKEUP_BUF = "\x00\x00\x00\x00";
+
     public final function wakeup() : void {
-        IOUtil::writeInt32($this->selectWakeupPipe[1], 0);
+        // Non-blocking fwrite: returns 4 normally, 0 or false when the
+        // pipe is full. A full pipe means a wakeup byte is already
+        // pending so dropping this write is correct -- the buffered
+        // byte will wake select() once the consumer reaches it. The
+        // @ suppresses PHP's "send of N bytes failed" notice on full
+        // pipe; without the suppression-and-drop the producer thread
+        // (= the same thread that drains the pipe in onWakedUp) would
+        // see an error path and fatal_e the agent, dropping every
+        // connection it was serving (= load test read errors / timeouts on
+        // the larger-body cells).
+        // Symmetric with onWakedUp's direct fread.
+        @fwrite($this->selectWakeupPipe[1], self::WAKEUP_BUF);
     }
 
     ////////////////////////////////////////////
@@ -678,13 +698,18 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
     public function onWakedUp() : void
     {
         BayLog::trace("%s On Waked Up", $this);
-        try {
-            while (true) {
-                IOUtil::recvInt32($this->selectWakeupPipe[0]);
+        // Drain in 4096-byte chunks instead of 4-byte recvInt32 calls.
+        // Under high concurrency and multi-chunk responses, wakeup() fires
+        // several times per request and the pipe accumulates thousands
+        // of 4-byte wakeup tokens; recvInt32 would burn a full syscall
+        // per token. fread on a non-blocking stream returns "" when
+        // the pipe is empty, so the loop terminates after one extra
+        // empty read.
+        while (true) {
+            $ret = @fread($this->selectWakeupPipe[0], 4096);
+            if ($ret === false || $ret === "") {
+                break;
             }
-        }
-        catch(BlockingIOException $e) {
-            /* Data not received */
         }
     }
 
