@@ -487,8 +487,16 @@ class GrandAgent
         BayLog::debug("%s wrote %d bytes rd=%s qlen=%d", $this, $let->nBytes, $st->rudder, count($st->writeQueue));
         $st->bytesWrote += $let->nBytes;
 
-        if(empty($st->writeQueue))
-            throw new Sink("%s Write queue is empty: rd=%s", $this, $st->rudder);
+        if(empty($st->writeQueue)) {
+            // Benign: a previous onWritable might have drained the
+            // queue and queued letters faster than they are processed
+            // (e.g. OP_WRITE event firing on top of a tryWriteList
+            // drain produces duplicate WroteLetters). upstream treats
+            // this as a debug-log + return; only a true protocol
+            // mismatch would warrant throwing.
+            BayLog::debug("%s Write queue is empty: rd=%s", $this, $st->rudder);
+            return;
+        }
 
         $unit = $st->writeQueue[0];
         if (strlen($unit->buf) > 0) {

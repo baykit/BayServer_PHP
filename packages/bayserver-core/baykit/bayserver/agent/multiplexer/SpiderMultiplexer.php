@@ -229,7 +229,28 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
     }
 
     public final function nextWrite(RudderState $st) : void {
+        // GrandAgent::onWrote calls us when the WroteLetter for a
+        // previous send leaves the writeQueue non-empty. Register
+        // OP_WRITE so the next select() cycle reschedules onWritable
+        // once the kernel send buffer has room. Without this the
+        // rudder is in tryWriteList only until the first drain
+        // attempt and never gets retried, freezing the connection
+        // until something else happens to wakeup the agent.
+        //
+        // Only register when queue[0] actually has bytes left
+        // (= partial write that needs retry). If queue[0] is already
+        // drained (buf==""), its WroteLetter is in flight and will
+        // pop it shortly; registering OP_WRITE in that case just
+        // burns a spurious onWritable+cancelWrite roundtrip.
 
+        if (empty($st->writeQueue)) {
+            return;
+        }
+        $first = $st->writeQueue[0];
+        if ($first->buf !== null && strlen($first->buf) === 0) {
+            return;
+        }
+        $this->addOperation($st->rudder, Selector::OP_WRITE);
     }
 
     public final function closeRudder(RudderState $st) : void {
@@ -639,6 +660,20 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
 
             for($i = 0; $i < count($st->writeQueue); $i++) {
                 $wunit = $st->writeQueue[$i];
+
+                // Skip units already drained by a previous onWritable
+                // whose WroteLetter is still in flight. Without this,
+                // a second onWritable on the same queue snapshot (e.g.
+                // an OP_WRITE selector event firing on top of a recent
+                // tryWriteList drain) would emit duplicate
+                // zero-length WroteLetters, eventually outrunning the
+                // queue depth and triggering "Write queue is empty"
+                // in GrandAgent::onWrote. Originally-empty units
+                // (initialSize == 0, used as terminators) are still
+                // processed via the strlen==0 branch below.
+                if ($wunit->initialSize > 0 && strlen($wunit->buf) === 0) {
+                    continue;
+                }
 
                 BayLog::debug("%s Try to write: pkt=%s buflen=%d rd=%s", $this, $wunit->tag,
                     strlen($wunit->buf), $st->rudder);
