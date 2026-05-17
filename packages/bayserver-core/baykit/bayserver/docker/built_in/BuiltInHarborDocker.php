@@ -26,7 +26,7 @@ use function baykit\bayserver\docker\getRecipientTypeName;
 
 class BuiltInHarborDocker extends DockerBase implements Harbor
 {
-    const DEFAULT_MAX_SHIPS = 100;
+    const DEFAULT_MAX_SHIPS = 256;
     const DEFAULT_MAX_TOURS_PER_SHIP = 128;
     const DEFAULT_GRAND_AGENTS = 0;
     const DEFAULT_TRAIN_RUNNERS = 8;
