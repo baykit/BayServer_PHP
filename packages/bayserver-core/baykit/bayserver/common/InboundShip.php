@@ -259,19 +259,27 @@ class InboundShip extends Ship
     {
         $this->checkShipId($chkId);
 
+        // Hoist the per-call lookups (maxLen, tour handler) and walk
+        // chunks with a while loop. Previously this method recursed --
+        // a 1 MB body @ 64 KB packet size took 16 stack frames and
+        // re-evaluated protocolHandler->maxResPacketDataSize() / the
+        // chkId guard on each level. All but the last chunk pass null
+        // as the listener so the callback fires exactly once when the
+        // final chunk drains.
         $maxLen = $this->protocolHandler->maxResPacketDataSize();
-        if($len > $maxLen) {
-            $this->sendResContent(Ship::SHIP_ID_NOCHECK, $tur, $bytes, $ofs, $maxLen, null);
-            return $this->sendResContent(Ship::SHIP_ID_NOCHECK, $tur, $bytes, $ofs + $maxLen, $len - $maxLen, $callback);
+        $handler = $this->tourHandler();
+
+        try {
+            while ($len > $maxLen) {
+                $handler->sendResContent($tur, $bytes, $ofs, $maxLen, null);
+                $ofs += $maxLen;
+                $len -= $maxLen;
+            }
+            return $handler->sendResContent($tur, $bytes, $ofs, $len, $callback);
         }
-        else {
-            try {
-                return $this->tourHandler()->sendResContent($tur, $bytes, $ofs, $len, $callback);
-            }
-            catch(IOException $e) {
-                $tur->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ABORTED);
-                throw $e;
-            }
+        catch(IOException $e) {
+            $tur->changeState(Tour::TOUR_ID_NOCHECK, Tour::STATE_ABORTED);
+            throw $e;
         }
     }
 
