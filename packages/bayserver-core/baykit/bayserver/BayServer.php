@@ -315,17 +315,35 @@ class BayServer
 
                 BayLog::info(BayMessage::get(Symbol::MSG_OPENING_TCP_PORT, $dkr->host(), $dkr->port(), $dkr->protocol()));
 
+                // PHP's stream_socket_server defaults listen(2) backlog
+                // to 32, which throttles new-connection bursts (e.g.
+                // 1024 concurrent clients SYN'ing at once will see SYN
+                // drops and reconnect storms, surfacing as wrk-side
+                // socket "read" errors). Override via socket-level
+                // context options. Also enable SO_REUSEPORT so the
+                // listen socket can coexist with future per-agent
+                // listeners.
+                $sktOpts = [
+                    'socket' => [
+                        'backlog'      => 65535,
+                        'so_reuseport' => true,
+                    ],
+                ];
                 if ($dkr->secure()) {
                     BayLog::debug("Open secure port");
+                    $sslOpts = stream_context_get_options($dkr->sslCtx());
+                    $sslOpts = array_merge_recursive($sslOpts, $sktOpts);
                     $skt = stream_socket_server("ssl://{$adr[0]}:{$adr[1]}",
                         $errno,
                         $errstr,
                         STREAM_SERVER_BIND | STREAM_SERVER_LISTEN,
-                        $dkr->sslCtx());
+                        stream_context_create($sslOpts));
                 } elseif ($adr[1]) {
                     $skt = stream_socket_server("tcp://{$adr[0]}:{$adr[1]}",
                         $errno,
-                        $errstr);
+                        $errstr,
+                        STREAM_SERVER_BIND | STREAM_SERVER_LISTEN,
+                        stream_context_create($sktOpts));
                 } else {
                     if (file_exists($adr[0])) {
                         if (!unlink($adr[0])) {
