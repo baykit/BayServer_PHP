@@ -131,14 +131,15 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
         $st->writeQueueBytes += strlen($buf);
 
         // Flush when the caller asked for it or the buffered data has
-        // crossed bufSize. Instead of registering OP_WRITE
-        // with the selector, push the state on tryWriteList and wake
-        // select; receive() drains the list right after the read loop
-        //. Saves both the per-write addOperation linear
-        // scan and the OP_WRITE bookkeeping when the socket is ready
-        // immediately, which it almost always is on loopback / a freshly
-        // drained TCP buffer.
-        if ($st->remaining() > 0 && ($flush || $st->remaining() >= $st->bufSize)) {
+        // crossed the flush threshold. The threshold is min(bufSize,
+        // shipBufferSize): bufSize coalesces headers + small bodies
+        // into one syscall while shipBufferSize is the back-pressure
+        // boundary set by harbor config. Without the min, when
+        // shipBufferSize < bufSize the producer hits back-pressure
+        // (bufferAvailable=false) before the drain trigger fires, and
+        // both producer and consumer deadlock with the unit queued.
+        $flushThreshold = min($st->bufSize, BayServer::$harbor->shipBufferSize());
+        if ($st->remaining() > 0 && ($flush || $st->remaining() >= $flushThreshold)) {
             // Dedup: each onWritable() drains the rudder's full
             // writeQueue, so pushing the same state twice would replay
             // the loop and fire spurious zero-length WroteLetters
