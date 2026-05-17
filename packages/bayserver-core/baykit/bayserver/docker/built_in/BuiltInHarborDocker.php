@@ -33,7 +33,7 @@ class BuiltInHarborDocker extends DockerBase implements Harbor
     const DEFAULT_TAXI_RUNNERS = 8;
     const DEFAULT_WAIT_TIMEOUT_SEC = 120;
     const DEFAULT_KEEP_TIMEOUT_SEC = 20;
-    const DEFAULT_SHIP_BUFFER_SIZE = 1024 * 1024;  # 1M
+    const DEFAULT_SHIP_BUFFER_SIZE = 64 * 1024;  # 64K
     const DEFAULT_TRACE_HEADER = False;
     const DEFAULT_CHARSET = "UTF-8";
     const DEFAULT_CONTROL_PORT = -1;
