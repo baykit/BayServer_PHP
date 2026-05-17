@@ -47,6 +47,16 @@ class H1InboundHandler implements H1Handler, InboundHandler {
     public ?Tour $curTour = null;
     public int $curTourId = -1;
 
+    /**
+     * Whether the response in flight is being framed as HTTP/1.1
+     * "Transfer-Encoding: chunked". Set in sendResHeaders() when no
+     * Content-Length was supplied and the client speaks HTTP/1.1, so we
+     * can keep the connection alive without a known body length. Each
+     * subsequent sendResContent / sendEndTour call inspects this to
+     * decide whether to wrap bytes in chunked frames.
+     */
+    public bool $chunkedResponse = false;
+
     public function __construct()
     {
         $this->resetState();
@@ -83,6 +93,8 @@ class H1InboundHandler implements H1Handler, InboundHandler {
 
     public function sendResHeaders(Tour $tur): void
     {
+        $this->chunkedResponse = false;
+
         // determine Connection header value
         if ($tur->req->headers->getConnection() != Headers::CONNECTION_KEEP_ALIVE
             && $tur->req->headers->getConnection() != Headers::CONNECTION_UNKOWN)
@@ -93,14 +105,28 @@ class H1InboundHandler implements H1Handler, InboundHandler {
         }
         else {
             # Client supports "Keep-Alive" (or did not say): default to
-            # Keep-Alive, only downgrade to Close when content-length is
-            # missing and the body is text.
+            # Keep-Alive. If Content-Length is missing we still need to
+            # delimit the body somehow -- HTTP/1.1 supports
+            # Transfer-Encoding: chunked for this exact case; falling
+            # back to "Connection: Close" (= read until EOF) used to be
+            # the historical behaviour but kills keep-alive against any
+            # backend that doesn't pre-compute Content-Length (e.g.
+            # php-fpm), and persistent client connections collapse to
+            # single-shot TCP per request.
             $res_con = "Keep-Alive";
             if ($tur->res->headers->contentLength() == -1) {
-                # If content-length not specified
-                if ($tur->res->headers->contentType() !== null &&
-                    StringUtil::startsWith("text/", $tur->res->headers->contentType())) {
-                    # If content is text, connection must be closed
+                $existingTE = $tur->res->headers->get(Headers::HDR_TRANSFER_ENCODING);
+                $upstreamAlreadyChunked = $existingTE !== null
+                    && strpos(strtolower($existingTE), "chunked") !== false;
+
+                if ($tur->req->protocol === "HTTP/1.1") {
+                    if (!$upstreamAlreadyChunked) {
+                        $tur->res->headers->set(Headers::HDR_TRANSFER_ENCODING, "chunked");
+                    }
+                    $this->chunkedResponse = true;
+                }
+                else {
+                    # HTTP/1.0 / 0.9 have no chunked: connection-close framing.
                     $res_con = "Close";
                 }
             }
@@ -125,6 +151,14 @@ class H1InboundHandler implements H1Handler, InboundHandler {
 
     public function sendResContent(Tour $tur, string $bytes, int $ofs, int $len, ?callable $callback): bool
     {
+        if ($this->chunkedResponse && $len > 0) {
+            // Wrap in HTTP/1.1 chunked transfer-encoding frame:
+            //   <hex-len>\r\n<data>\r\n
+            $hex = dechex($len);
+            $frame = $hex . "\r\n" . substr($bytes, $ofs, $len) . "\r\n";
+            $cmd = new CmdContent($frame, 0, strlen($frame));
+            return $this->protocolHandler->post($cmd, false, $callback);
+        }
         $cmd = new CmdContent($bytes, $ofs, $len);
         // flush=false: more chunks (or endTour) will follow; the final
         // CmdEndContent forces the actual socket write.
@@ -145,6 +179,21 @@ class H1InboundHandler implements H1Handler, InboundHandler {
         $sip = $this->ship();
         $keepAlive = $tur->res->headers->getConnection() == Headers::CONNECTION_KEEP_ALIVE;
         BayLog::trace("%s sendEndTour: tur=%s keep=%s", $sip, $tur, $keepAlive);
+
+        # Close out the chunked stream with the last-chunk terminator
+        # "0\r\n\r\n". post() is fire-and-forget here -- the actual end
+        # signal is the CmdEndContent below, which carries the keepalive
+        # callback.
+        if ($this->chunkedResponse) {
+            try {
+                $this->protocolHandler->post(new CmdContent("0\r\n\r\n", 0, 5), false);
+            }
+            catch(IOException $e) {
+                BayLog::debug_e($e, "%s post(last-chunk) failed", $sip);
+                throw $e;
+            }
+            $this->chunkedResponse = false;
+        }
 
         # Send dummy end request command
         $cmd = new CmdEndContent();
@@ -435,6 +484,7 @@ class H1InboundHandler implements H1Handler, InboundHandler {
         $this->headerRead = false;
         $this->changeState(self::STATE_FINISHED);
         $this->curTour = null;
+        $this->chunkedResponse = false;
     }
 
 }
