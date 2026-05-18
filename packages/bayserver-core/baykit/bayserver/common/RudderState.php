@@ -38,6 +38,22 @@ class RudderState implements Reusable {
 
     public bool $accepting = false;
     public bool $connecting = false;
+
+    /**
+     * If true, the SpiderMultiplexer re-arms TCP_QUICKACK on this socket
+     * after every read so the kernel sends the ACK immediately instead
+     * of holding it on the delayed-ACK timer (~40ms on Linux). Only
+     * meaningful for warp upstream connections to backends that keep
+     * Nagle on (= php-fpm and friends): the 40ms delayed-ACK timer
+     * combined with backend Nagle stalls multi-MSS responses badly.
+     *
+     * Inbound (= client-facing) sockets don't need this -- the client
+     * is a wrk / browser / load balancer that sets TCP_NODELAY itself,
+     * and setsockopt per read measurably costs CPU at 50k+ rps -- so
+     * warp code sets the flag explicitly when wiring up the upstream
+     * socket, leaving inbound sockets untouched.
+     */
+    public bool $quickAck = false;
     /**
      * True while this state is enqueued in SpiderMultiplexer's
      * tryWriteList. Used to dedup pushes from
@@ -146,5 +162,6 @@ class RudderState implements Reusable {
         $this->connecting = false;
         $this->skipFormalities = false;
         $this->inTryWriteList = false;
+        $this->quickAck = false;
     }
 }

@@ -639,11 +639,46 @@ class SpiderMultiplexer extends MultiplexerBase implements TimerHandler, Recipie
 
             $st->readBuf = $st->rudder->read($st->bufSize);
 
+            // Warp upstreams (= php-fpm, AJP backends) leave Nagle on,
+            // and Linux's delayed-ACK timer (~40ms) pairs with that to
+            // add a stall to every response in the few-MTU body range.
+            // Re-arm TCP_QUICKACK on those sockets after each read so
+            // the next ACK fires immediately. Skip for inbound (=
+            // client-facing) sockets to avoid the per-read syscall
+            // cost; clients (wrk / browsers / load balancers) set
+            // TCP_NODELAY themselves and don't need this.
+            if ($st->quickAck)
+                self::applyQuickAck($st->rudder);
+
             $this->agent->sendReadLetter($st->rudder, $this, strlen($st->readBuf), null, false);
         }
         catch(\Exception $e) {
             BayLog::debug_e($e, "%s Unhandled error", $this);
             $this->agent->sendErrorLetter($st->rudder, $this, $e, false);
+        }
+    }
+
+    /**
+     * Set TCP_QUICKACK on the rudder's socket. Linux auto-resets the
+     * option per packet so callers re-arm after each read. Best-effort:
+     * swallow per-call failures (not a socket, no sockets extension,
+     * non-Linux kernel) rather than logging on the hot path.
+     */
+    private static function applyQuickAck(Rudder $rd) : void
+    {
+        if (!defined('TCP_QUICKACK'))
+            return;
+        try {
+            $key = $rd->key();
+            if (!is_resource($key))
+                return;
+            $sock = @socket_import_stream($key);
+            if ($sock === false || $sock === null)
+                return;
+            @socket_set_option($sock, SOL_TCP, TCP_QUICKACK, 1);
+        }
+        catch (\Throwable $ignore) {
+            // best-effort, hot path
         }
     }
 
