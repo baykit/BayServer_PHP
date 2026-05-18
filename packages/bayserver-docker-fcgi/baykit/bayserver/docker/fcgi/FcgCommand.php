@@ -8,11 +8,15 @@ use baykit\bayserver\protocol\Packet;
 
 abstract class FcgCommand extends Command {
 
-    public $reqId;
+    public $reqId = 0;
 
-    public function __construct(int $type, int $reqId)
+    public function __construct(int $type)
     {
         parent::__construct($type);
+    }
+
+    public function init(int $reqId) : void
+    {
         $this->reqId = $reqId;
     }
 

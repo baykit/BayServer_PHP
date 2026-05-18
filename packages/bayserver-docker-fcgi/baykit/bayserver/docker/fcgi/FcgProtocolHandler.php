@@ -3,6 +3,7 @@
 namespace baykit\bayserver\docker\fcgi;
 
 use baykit\bayserver\protocol\CommandPacker;
+use baykit\bayserver\protocol\CommandStore;
 use baykit\bayserver\protocol\PacketPacker;
 use baykit\bayserver\protocol\ProtocolHandler;
 
@@ -14,9 +15,10 @@ class FcgProtocolHandler extends ProtocolHandler
                         PacketPacker $packetPacker,
                         FcgCommandUnpacker $commandUnpacker,
                         CommandPacker $commandPacker,
+                        CommandStore $cmdStore,
                         bool $svrMode)
     {
-        parent::__construct($packetUnpacker, $packetPacker, $commandUnpacker, $commandPacker, $h1Handler, $svrMode);
+        parent::__construct($packetUnpacker, $packetPacker, $commandUnpacker, $commandPacker, $h1Handler, $cmdStore, $svrMode);
         $this->commandHandler->reset();
     }
 

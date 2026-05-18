@@ -9,13 +9,18 @@ use baykit\bayserver\protocol\Packet;
 abstract class H2Command extends Command {
 
     public $flags;
-    public $streamId;
+    public $streamId = 0;
 
-    public function __construct(int $type, int $streamId, H2Flags $flags = null)
+    public function __construct(int $type)
     {
         parent::__construct($type);
+        $this->flags = new H2Flags();
+    }
+
+    public function init(int $streamId, H2Flags $flags = null) : void
+    {
         $this->streamId = $streamId;
-        if($flags == null)
+        if ($flags == null)
             $this->flags = new H2Flags();
         else
             $this->flags = $flags;

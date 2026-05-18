@@ -19,16 +19,27 @@ class CmdData extends AjpCommand
     const LENGTH_SIZE = 2;
     const MAX_DATA_LEN = AjpPacket::MAX_DATA_LEN - self::LENGTH_SIZE;
 
-    public $start;
-    public $length;
-    public $data;
+    public $start = 0;
+    public $length = 0;
+    public $data = null;
 
-    public function __construct(?string $data = null, int $start = 0, int $len = 0)
+    public function __construct()
     {
         parent::__construct(AjpType::DATA, true);
+    }
+
+    public function init(?string $data, int $start, int $len) : void
+    {
         $this->data = $data;
         $this->start = $start;
         $this->length = $len;
+    }
+
+    public function reset() : void
+    {
+        $this->data = null;
+        $this->start = 0;
+        $this->length = 0;
     }
 
     public function unpack(Packet $pkt): void

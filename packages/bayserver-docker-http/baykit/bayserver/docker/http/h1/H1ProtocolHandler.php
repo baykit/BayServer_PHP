@@ -6,6 +6,7 @@ namespace baykit\bayserver\docker\http\h1;
 
 use baykit\bayserver\docker\http\HtpDocker;
 use baykit\bayserver\protocol\CommandPacker;
+use baykit\bayserver\protocol\CommandStore;
 use baykit\bayserver\protocol\PacketPacker;
 use baykit\bayserver\protocol\PacketStore;
 use baykit\bayserver\protocol\PacketUnPacker;
@@ -20,9 +21,10 @@ class H1ProtocolHandler extends ProtocolHandler{
                         PacketPacker $packetPacker,
                         H1CommandUnpacker $commandUnpacker,
                         CommandPacker $commandPacker,
+                        CommandStore $cmdStore,
                         bool $svrMode)
     {
-        parent::__construct($packetUnpacker, $packetPacker, $commandUnpacker, $commandPacker, $h1Handler, $svrMode);
+        parent::__construct($packetUnpacker, $packetPacker, $commandUnpacker, $commandPacker, $h1Handler, $cmdStore, $svrMode);
         $this->keeping = false;
     }
 

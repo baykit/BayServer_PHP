@@ -121,7 +121,8 @@ class H2InboundHandler implements H2Handler, InboundHandler
 
     public function sendResHeaders(Tour $tur): void
     {
-        $cmd = new CmdHeaders($tur->req->key);
+        $cmd = $this->protocolHandler->commandStore->rent(H2Type::HEADERS);
+        $cmd->init($tur->req->key);
 
         $bld = new HeaderBlockBuilder();
 
@@ -153,6 +154,7 @@ class H2InboundHandler implements H2Handler, InboundHandler
         $cmd->flags->setPadded(false);
 
         $this->protocolHandler->post($cmd, false);
+        $this->protocolHandler->commandStore->Return($cmd);
     }
 
     public function sendResContent(Tour $tur, string $bytes, int $ofs, int $len, ?callable $callback): bool
@@ -168,8 +170,12 @@ class H2InboundHandler implements H2Handler, InboundHandler
             $strWin = ($this->streamSendWindows[$streamId] ?? self::DEFAULT_INITIAL_WINDOW) - $len;
             $this->streamSendWindows[$streamId] = $strWin;
         }
-        $cmd = new CmdData($tur->req->key, null, $bytes, $ofs, $len);
-        return $this->protocolHandler->post($cmd, false, $callback);
+        $cmd = $this->protocolHandler->commandStore->rent(H2Type::DATA);
+        $cmd->init($tur->req->key, null);
+        $cmd->setData($bytes, $ofs, $len);
+        $available = $this->protocolHandler->post($cmd, false, $callback);
+        $this->protocolHandler->commandStore->Return($cmd);
+        return $available;
     }
 
     public function transferContent(Tour $tur, \baykit\bayserver\rudder\Rudder $fileRd, int $ofs, int $len, ?callable $callback): void
@@ -182,15 +188,19 @@ class H2InboundHandler implements H2Handler, InboundHandler
     public function sendEndTour(Tour $tur, ?callable $callback): void
     {
         $data = "";
-        $cmd = new CmdData($tur->req->key, null, $data, 0, 0);
+        $cmd = $this->protocolHandler->commandStore->rent(H2Type::DATA);
+        $cmd->init($tur->req->key, null);
+        $cmd->setData($data, 0, 0);
         $cmd->flags->setEndStream(true);
         $this->protocolHandler->post($cmd, true, $callback);
+        $this->protocolHandler->commandStore->Return($cmd);
     }
 
     function onProtocolError(ProtocolException $e): bool
     {
         BayLog::debug_e($e, "%s Protocol error: %s", $this, $e->getMessage());
-        $cmd = new CmdGoAway(H2ProtocolHandler::CTL_STREAM_ID);
+        $cmd = $this->protocolHandler->commandStore->rent(H2Type::GOAWAY);
+        $cmd->init(H2ProtocolHandler::CTL_STREAM_ID);
         $cmd->streamId = 0;
         $cmd->lastStreamId = 0;
         // H2ProtocolException carries a caller-specified error code
@@ -215,6 +225,9 @@ class H2InboundHandler implements H2Handler, InboundHandler
         catch(IOException $ex) {
             BayLog::error_e($ex);
         }
+        finally {
+            $this->protocolHandler->commandStore->Return($cmd);
+        }
         return false;
     }
 
@@ -229,7 +242,8 @@ class H2InboundHandler implements H2Handler, InboundHandler
 
         $httpProtocol = $cmd->protocol;
 
-        $set = new CmdSettings(H2ProtocolHandler::CTL_STREAM_ID);
+        $set = $this->protocolHandler->commandStore->rent(H2Type::SETTINGS);
+        $set->init(H2ProtocolHandler::CTL_STREAM_ID);
         $set->streamId = 0;
         // Use the harbor-configured per-ship tour limit so a single TLS
         // connection can't open MAX_TOURS streams in parallel. Mirrors
@@ -237,10 +251,13 @@ class H2InboundHandler implements H2Handler, InboundHandler
         $set->items[] = new CmdSettings_Item(CmdSettings::MAX_CONCURRENT_STREAMS, BayServer::$harbor->maxToursPerShip());
         $set->items[] = new CmdSettings_Item(CmdSettings::INITIAL_WINDOW_SIZE, $this->windowSize);
         $this->protocolHandler->post($set, true);
+        $this->protocolHandler->commandStore->Return($set);
 
-        $set = new CmdSettings(H2ProtocolHandler::CTL_STREAM_ID);
+        $set = $this->protocolHandler->commandStore->rent(H2Type::SETTINGS);
+        $set->init(H2ProtocolHandler::CTL_STREAM_ID);
         $set->streamId = 0;
         $set->flags->setAck(true);
+        $this->protocolHandler->commandStore->Return($set);
 
         return NextSocketAction::CONTINUE;
     }
@@ -299,9 +316,11 @@ class H2InboundHandler implements H2Handler, InboundHandler
                                                 $tur->checkTourId($tid);
 
                                                 if ($len > 0) {
-                                                    $upd = new CmdWindowUpdate($cmd->streamId);
+                                                    $upd = $this->protocolHandler->commandStore->rent(H2Type::WINDOW_UPDATE);
+                                                    $upd->init($cmd->streamId);
                                                     $upd->windowSizeIncrement = $len;
-                                                    $upd2 = new CmdWindowUpdate(0);
+                                                    $upd2 = $this->protocolHandler->commandStore->rent(H2Type::WINDOW_UPDATE);
+                                                    $upd2->init(0);
                                                     $upd2->windowSizeIncrement = $len;
                                                     try {
                                                         // WINDOW_UPDATE pair: emit the connection-level
@@ -312,6 +331,10 @@ class H2InboundHandler implements H2Handler, InboundHandler
                                                     }
                                                     catch(IOException $e) {
                                                         BayLog::error_e($e);
+                                                    }
+                                                    finally {
+                                                        $this->protocolHandler->commandStore->Return($upd);
+                                                        $this->protocolHandler->commandStore->Return($upd2);
                                                     }
                                                 }
 
@@ -399,8 +422,10 @@ class H2InboundHandler implements H2Handler, InboundHandler
             }
         }
 
-        $res = new CmdSettings(0, new H2Flags(H2Flags::FLAGS_ACK));
+        $res = $this->protocolHandler->commandStore->rent(H2Type::SETTINGS);
+        $res->init(0, new H2Flags(H2Flags::FLAGS_ACK));
         $this->protocolHandler->post($res, true);
+        $this->protocolHandler->commandStore->Return($res);
         return NextSocketAction::CONTINUE;
     }
 
@@ -423,9 +448,11 @@ class H2InboundHandler implements H2Handler, InboundHandler
             $win = ($this->streamSendWindows[$cmd->streamId] ?? self::DEFAULT_INITIAL_WINDOW)
                 + $cmd->windowSizeIncrement;
             if ($win > self::MAX_WINDOW) {
-                $rst = new CmdRstStream($cmd->streamId);
+                $rst = $this->protocolHandler->commandStore->rent(H2Type::RST_STREAM);
+                $rst->init($cmd->streamId);
                 $rst->errorCode = H2ErrorCode::FLOW_CONTROL_ERROR;
                 $this->protocolHandler->post($rst, true);
+                $this->protocolHandler->commandStore->Return($rst);
                 unset($this->streamSendWindows[$cmd->streamId]);
                 return NextSocketAction::CONTINUE;
             }
@@ -452,8 +479,11 @@ class H2InboundHandler implements H2Handler, InboundHandler
         if ($cmd->flags->ack())
             return NextSocketAction::CONTINUE;
 
-        $res = new CmdPing($cmd->streamId, new H2Flags(H2Flags::FLAGS_ACK), $cmd->opaqueData);
+        $res = $this->protocolHandler->commandStore->rent(H2Type::PING);
+        $res->init($cmd->streamId, new H2Flags(H2Flags::FLAGS_ACK));
+        $res->setOpaqueData($cmd->opaqueData);
         $this->protocolHandler->post($res, true);
+        $this->protocolHandler->commandStore->Return($res);
         return NextSocketAction::CONTINUE;
     }
 

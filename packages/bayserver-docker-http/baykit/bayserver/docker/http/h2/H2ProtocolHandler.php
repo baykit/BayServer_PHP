@@ -3,6 +3,7 @@
 namespace baykit\bayserver\docker\http\h2;
 
 use baykit\bayserver\protocol\CommandPacker;
+use baykit\bayserver\protocol\CommandStore;
 use baykit\bayserver\protocol\PacketPacker;
 use baykit\bayserver\protocol\ProtocolHandler;
 
@@ -15,9 +16,10 @@ class H2ProtocolHandler extends ProtocolHandler
                         PacketPacker $packetPacker,
                         H2CommandUnPacker $commandUnPacker,
                         CommandPacker $commandPacker,
+                        CommandStore $cmdStore,
                         bool $svrMode)
     {
-        parent::__construct($packetUnPacker, $packetPacker, $commandUnPacker, $commandPacker, $h2Handler, $svrMode);
+        parent::__construct($packetUnPacker, $packetPacker, $commandUnPacker, $commandPacker, $h2Handler, $cmdStore, $svrMode);
     }
 
     ////////////////////////////////////////////////////

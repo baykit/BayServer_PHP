@@ -5,6 +5,7 @@ namespace baykit\bayserver\docker\ajp;
 use baykit\bayserver\docker\ajp\command\CmdData;
 use baykit\bayserver\docker\ajp\command\CmdSendBodyChunk;
 use baykit\bayserver\protocol\CommandPacker;
+use baykit\bayserver\protocol\CommandStore;
 use baykit\bayserver\protocol\PacketPacker;
 use baykit\bayserver\protocol\ProtocolHandler;
 
@@ -16,9 +17,10 @@ class AjpProtocolHandler extends ProtocolHandler
                         PacketPacker $packetPacker,
                         AjpCommandUnpacker $commandUnpacker,
                         CommandPacker $commandPacker,
+                        CommandStore $cmdStore,
                         bool $svrMode)
     {
-        parent::__construct($packetUnpacker, $packetPacker, $commandUnpacker, $commandPacker, $ajpHandler, $svrMode);
+        parent::__construct($packetUnpacker, $packetPacker, $commandUnpacker, $commandPacker, $ajpHandler, $cmdStore, $svrMode);
     }
 
     /////////////////////////////////////////////

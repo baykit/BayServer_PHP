@@ -31,13 +31,19 @@ class CmdBeginRequest extends FcgCommand
     const FCGI_AUTHORIZER = 2;
     const FCGI_FILTER = 3;
 
-    public $role;
-    public $keepConn;
+    public $role = 0;
+    public $keepConn = false;
 
-    public function __construct(int $reqId)
+    public function __construct()
     {
-        parent::__construct(FcgType::BEGIN_REQUEST, $reqId);
-        $this->headers = new Headers();
+        parent::__construct(FcgType::BEGIN_REQUEST);
+    }
+
+    public function reset() : void
+    {
+        $this->reqId = 0;
+        $this->role = 0;
+        $this->keepConn = false;
     }
 
     public function unpack(Packet $pkt): void

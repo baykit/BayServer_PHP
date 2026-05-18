@@ -31,10 +31,10 @@ use baykit\bayserver\protocol\ProtocolException;
  */
 class CmdHeaders extends H2Command
 {
-    public $padLength;
-    public $excluded;
-    public $streamDependency;
-    public $weight;
+    public $padLength = 0;
+    public $excluded = false;
+    public $streamDependency = 0;
+    public $weight = 0;
     /** Pre-decoded blocks; populated on the outbound path only. */
     public $headerBlocks = [];
     /**
@@ -45,9 +45,19 @@ class CmdHeaders extends H2Command
      */
     public string $rawHeaderBlock = "";
 
-    public function __construct(int $streamId, H2Flags $flags = null)
+    public function __construct()
     {
-        parent::__construct(H2Type::HEADERS, $streamId, $flags);
+        parent::__construct(H2Type::HEADERS);
+    }
+
+    public function reset() : void
+    {
+        $this->padLength = 0;
+        $this->excluded = false;
+        $this->streamDependency = 0;
+        $this->weight = 0;
+        $this->headerBlocks = [];
+        $this->rawHeaderBlock = "";
     }
 
     public function unpack(Packet $pkt): void

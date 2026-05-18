@@ -16,6 +16,7 @@ use baykit\bayserver\docker\http\h2\command\CmdPriority;
 use baykit\bayserver\docker\http\h2\command\CmdRstStream;
 use baykit\bayserver\docker\http\h2\command\CmdSettings;
 use baykit\bayserver\docker\http\h2\command\CmdWindowUpdate;
+use baykit\bayserver\protocol\CommandStore;
 use baykit\bayserver\protocol\CommandUnPacker;
 use baykit\bayserver\protocol\Packet;
 use baykit\bayserver\protocol\ProtocolException;
@@ -38,6 +39,7 @@ class H2CommandUnPacker extends CommandUnPacker {
     const STATE_CLOSED = 3;
 
     public $cmdHandler;
+    public CommandStore $store;
 
     /** RFC 7540 §6.2/§6.10: header-block continuity tracking */
     public bool $inHeaderBlock = false;
@@ -53,9 +55,10 @@ class H2CommandUnPacker extends CommandUnPacker {
     /** Highest client-initiated (odd) stream id observed so far. */
     public int $highestSeenStreamId = 0;
 
-    public function __construct(H2CommandHandler $handler)
+    public function __construct(H2CommandHandler $handler, CommandStore $store)
     {
         $this->cmdHandler = $handler;
+        $this->store = $store;
         $this->reset();
     }
 
@@ -96,49 +99,23 @@ class H2CommandUnPacker extends CommandUnPacker {
         $this->validateFrame($pkt);
         $this->validateStreamState($pkt);
 
+        // Unreachable default: isKnownType() guards above.
         switch ($type) {
             case H2Type::PREFACE:
-                $cmd = new CmdPreface($pkt->streamId, $pkt->flags);
-                break;
-
             case H2Type::HEADERS:
-                $cmd = new CmdHeaders($pkt->streamId, $pkt->flags);
-                break;
-
             case H2Type::PRIORITY:
-                $cmd = new CmdPriority($pkt->streamId, $pkt->flags);
-                break;
-
             case H2Type::SETTINGS:
-                $cmd = new CmdSettings($pkt->streamId, $pkt->flags);
-                break;
-
             case H2Type::WINDOW_UPDATE:
-                $cmd = new CmdWindowUpdate($pkt->streamId, $pkt->flags);
-                break;
-
             case H2Type::DATA:
-                $cmd = new CmdData($pkt->streamId, $pkt->flags);
-                break;
-
             case H2Type::GOAWAY:
-                $cmd = new CmdGoAway($pkt->streamId, $pkt->flags);
-                break;
-
             case H2Type::PING:
-                $cmd = new CmdPing($pkt->streamId, $pkt->flags);
-                break;
-
             case H2Type::RST_STREAM:
-                $cmd = new CmdRstStream($pkt->streamId);
-                break;
-
             case H2Type::CONTINUATION:
-                $cmd = new CmdContinuation($pkt->streamId, $pkt->flags);
+                $cmd = $this->store->rent($type);
+                $cmd->init($pkt->streamId, $pkt->flags);
                 break;
 
             default:
-                // Unreachable: isKnownType() guards this above.
                 throw new ProtocolException("Received packet with unknown type: $type");
         }
 
@@ -146,7 +123,9 @@ class H2CommandUnPacker extends CommandUnPacker {
         $this->updateStreamState($pkt);
 
         $cmd->unpack($pkt);
-        return $cmd->handle($this->cmdHandler);
+        $res = $cmd->handle($this->cmdHandler);
+        $this->store->Return($cmd);
+        return $res;
     }
 
     private static function isKnownType(int $type) : bool

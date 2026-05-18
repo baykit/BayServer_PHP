@@ -22,16 +22,29 @@ abstract class InOutCommandBase extends FcgCommand
     /**
      * This class refers external byte array, so this IS NOT mutable
      */
-    public $start;
-    public $length;
-    public $data;
+    public $start = 0;
+    public $length = 0;
+    public $data = null;
 
-    public function __construct(int $type, int $reqId, string $data=null, int $start=0, int $length=0)
+    public function __construct(int $type)
     {
-        parent::__construct($type, $reqId);
+        parent::__construct($type);
+    }
+
+    public function init(int $reqId, ?string $data = null, int $start = 0, int $length = 0) : void
+    {
+        parent::init($reqId);
         $this->data = $data;
         $this->start = $start;
         $this->length = $length;
+    }
+
+    public function reset() : void
+    {
+        $this->reqId = 0;
+        $this->data = null;
+        $this->start = 0;
+        $this->length = 0;
     }
 
     public function unpack(Packet $pkt): void

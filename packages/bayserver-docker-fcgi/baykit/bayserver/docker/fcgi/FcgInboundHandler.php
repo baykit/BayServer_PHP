@@ -102,14 +102,19 @@ class FcgInboundHandler implements InboundHandler, FcgHandler
         $buf = new SimpleBuffer();
         HttpUtil::sendMimeHeaders($tur->res->headers, $buf);
         HttpUtil::sendNewLine($buf);
-        $cmd = new CmdStdOut($tur->req->key, $buf->buf, 0, $buf->len);
+        $cmd = $this->protocolHandler->commandStore->rent(FcgType::STDOUT);
+        $cmd->init($tur->req->key, $buf->buf, 0, $buf->len);
         $this->protocolHandler->post($cmd, false);
+        $this->protocolHandler->commandStore->Return($cmd);
     }
 
     public function sendResContent(Tour $tur, string $bytes, int $ofs, int $len, ?callable $callback): bool
     {
-        $cmd = new CmdStdOut($tur->req->key, $bytes, $ofs, $len);
-        return $this->protocolHandler->post($cmd, false, $callback);
+        $cmd = $this->protocolHandler->commandStore->rent(FcgType::STDOUT);
+        $cmd->init($tur->req->key, $bytes, $ofs, $len);
+        $available = $this->protocolHandler->post($cmd, false, $callback);
+        $this->protocolHandler->commandStore->Return($cmd);
+        return $available;
     }
 
     public function transferContent(Tour $tur, \baykit\bayserver\rudder\Rudder $fileRd, int $ofs, int $len, ?callable $callback): void
@@ -123,11 +128,14 @@ class FcgInboundHandler implements InboundHandler, FcgHandler
         BayLog::debug("%s PH:endTour: tur=%s", $sip, $tur);
 
         // Send empty stdout command
-        $cmd = new CmdStdOut($tur->req->key);
+        $cmd = $this->protocolHandler->commandStore->rent(FcgType::STDOUT);
+        $cmd->init($tur->req->key);
         $this->protocolHandler->post($cmd, false);
+        $this->protocolHandler->commandStore->Return($cmd);
 
         // Send end request command
-        $cmd = new CmdEndRequest($tur->req->key);
+        $cmd = $this->protocolHandler->commandStore->rent(FcgType::END_REQUEST);
+        $cmd->init($tur->req->key);
         $ensureFunc = function () use ($sip) {
             // DO NOT close socket by FCGI server
             //$sip->postClose();
@@ -144,6 +152,9 @@ class FcgInboundHandler implements InboundHandler, FcgHandler
             BayLog::debug("%s post faile in sendEndTour: tur=%s", $sip, $tur);
             $ensureFunc();
             throw $e;
+        }
+        finally {
+            $this->protocolHandler->commandStore->Return($cmd);
         }
     }
 

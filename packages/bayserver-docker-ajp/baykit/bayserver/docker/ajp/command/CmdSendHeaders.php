@@ -66,6 +66,13 @@ class CmdSendHeaders extends AjpCommand
         $this->desc = null;
     }
 
+    public function reset() : void
+    {
+        $this->headers = [];
+        $this->status = HttpStatus::OK;
+        $this->desc = null;
+    }
+
     public function pack(Packet $pkt): void
     {
         $acc = $pkt->newAjpDataAccessor();

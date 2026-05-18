@@ -22,13 +22,20 @@ use baykit\bayserver\protocol\ProtocolException;
  */
 class CmdPriority extends H2Command
 {
-    public $weight;
-    public $excluded;
-    public $streamDependency;
+    public $weight = 0;
+    public $excluded = false;
+    public $streamDependency = 0;
 
-    public function __construct(int $streamId, H2Flags $flags)
+    public function __construct()
     {
-        parent::__construct(H2Type::PRIORITY, $streamId, $flags);
+        parent::__construct(H2Type::PRIORITY);
+    }
+
+    public function reset() : void
+    {
+        $this->weight = 0;
+        $this->excluded = false;
+        $this->streamDependency = 0;
     }
 
     public function unpack(Packet $pkt): void

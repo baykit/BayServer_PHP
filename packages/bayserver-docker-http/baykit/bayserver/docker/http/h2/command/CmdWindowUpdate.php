@@ -19,11 +19,16 @@ use baykit\bayserver\protocol\Packet;
  */
 class CmdWindowUpdate extends H2Command
 {
-    public $windowSizeIncrement;
+    public $windowSizeIncrement = 0;
 
-    public function __construct(int $streamId, H2Flags $flags = null)
+    public function __construct()
     {
-        parent::__construct(H2Type::WINDOW_UPDATE, $streamId, $flags);
+        parent::__construct(H2Type::WINDOW_UPDATE);
+    }
+
+    public function reset() : void
+    {
+        $this->windowSizeIncrement = 0;
     }
 
     public function unpack(Packet $pkt): void

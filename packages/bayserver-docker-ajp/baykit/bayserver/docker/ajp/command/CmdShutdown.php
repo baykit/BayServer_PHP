@@ -19,6 +19,10 @@ class CmdShutdown extends AjpCommand
         parent::__construct(AjpType::SHUTDOWN, true);
     }
 
+    public function reset() : void
+    {
+    }
+
     public function handle(CommandHandler $handler): int
     {
         return $handler->handleShutdown($this);

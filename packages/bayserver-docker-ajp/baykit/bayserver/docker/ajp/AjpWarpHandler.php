@@ -235,6 +235,11 @@ class AjpWarpHandler implements WarpHandler, AjpHandler
         BayLog::debug($tur. " construct header");
         $wsip = $this->ship();
 
+        // WarpShip::post() buffers commands while the upstream socket
+        // is still connecting and only pack()s them on flush — reusing
+        // a pooled command and Return()ing it here resets its fields
+        // before flush. Allocate fresh per call (matches Java's
+        // `new CmdForwardRequest(...)`).
         $cmd = new CmdForwardRequest();
         $cmd->toServer = true;
         $cmd->method = $tur->req->method;
@@ -279,7 +284,8 @@ class AjpWarpHandler implements WarpHandler, AjpHandler
     {
         BayLog::debug("%s construct contents", $tur);
 
-        $cmd = new CmdData($data, $ofs, $len);
+        $cmd = new CmdData();
+        $cmd->init($data, $ofs, $len);
         $cmd->toServer = true;
         $this->ship()->post($cmd, $lis);
     }

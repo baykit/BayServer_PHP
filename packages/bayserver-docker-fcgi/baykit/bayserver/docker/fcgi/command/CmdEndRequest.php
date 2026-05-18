@@ -34,9 +34,16 @@ class CmdEndRequest extends FcgCommand
     public $appStatus = 0;
     public $protocolStatus = self::FCGI_REQUEST_COMPLETE;
 
-    public function __construct(int $reqId)
+    public function __construct()
     {
-        parent::__construct(FcgType::END_REQUEST, $reqId);
+        parent::__construct(FcgType::END_REQUEST);
+    }
+
+    public function reset() : void
+    {
+        $this->reqId = 0;
+        $this->appStatus = 0;
+        $this->protocolStatus = self::FCGI_REQUEST_COMPLETE;
     }
 
     public function unpack(Packet $pkt): void

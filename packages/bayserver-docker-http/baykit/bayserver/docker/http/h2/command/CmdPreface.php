@@ -19,11 +19,16 @@ class CmdPreface extends H2Command
 {
     public $PREFACE_BYTES = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
 
-    public $protocol;
+    public $protocol = null;
 
-    public function __construct(int $streamId, H2Flags $flags)
+    public function __construct()
     {
-        parent::__construct(H2Type::PREFACE, $streamId, $flags);
+        parent::__construct(H2Type::PREFACE);
+    }
+
+    public function reset() : void
+    {
+        $this->protocol = null;
     }
 
     public function unpack(Packet $pkt): void

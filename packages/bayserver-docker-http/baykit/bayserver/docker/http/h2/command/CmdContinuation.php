@@ -25,9 +25,15 @@ class CmdContinuation extends H2Command
     /** See CmdHeaders::$rawHeaderBlock. */
     public string $rawHeaderBlock = "";
 
-    public function __construct(int $streamId, H2Flags $flags = null)
+    public function __construct()
     {
-        parent::__construct(H2Type::CONTINUATION, $streamId, $flags);
+        parent::__construct(H2Type::CONTINUATION);
+    }
+
+    public function reset() : void
+    {
+        $this->headerBlocks = [];
+        $this->rawHeaderBlock = "";
     }
 
     public function unpack(Packet $pkt): void

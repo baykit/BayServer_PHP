@@ -18,11 +18,16 @@ use baykit\bayserver\protocol\Packet;
  */
 class CmdRstStream extends H2Command
 {
-    public $errorCode;
+    public $errorCode = 0;
 
-    public function __construct(int $streamId, H2Flags $flags = null)
+    public function __construct()
     {
-        parent::__construct(H2Type::RST_STREAM, $streamId, $flags);
+        parent::__construct(H2Type::RST_STREAM);
+    }
+
+    public function reset() : void
+    {
+        $this->errorCode = 0;
     }
 
     public function unpack(Packet $pkt): void

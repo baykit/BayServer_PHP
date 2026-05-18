@@ -272,13 +272,20 @@ class FcgWarpHandler implements WarpHandler, FcgHandler
 
     private function sendStdIn(Tour $tur, ?string $data, int $ofs, int $len, ?callable $callback) : void
     {
-        $cmd = new CmdStdIn(WarpData::get($tur)->warpId, $data, $ofs, $len);
+        // WarpShip::post() buffers commands while the upstream socket is
+        // still connecting and only pack()s them on flush. Reusing a
+        // pooled command + Return()ing it here would reset its data
+        // before flush, so we allocate a fresh command per call (matches
+        // Java's `new CmdStdIn(...)` path).
+        $cmd = new CmdStdIn();
+        $cmd->init(WarpData::get($tur)->warpId, $data, $ofs, $len);
         $this->ship()->post($cmd, $callback);
     }
 
     private function sendBeginReq(Tour $tur) : void
     {
-        $cmd = new CmdBeginRequest(WarpData::get($tur)->warpId);
+        $cmd = new CmdBeginRequest();
+        $cmd->init(WarpData::get($tur)->warpId);
         $cmd->role = CmdBeginRequest::FCGI_RESPONDER;
         $cmd->keepConn = true;
         $this->ship()->post($cmd);
@@ -303,7 +310,8 @@ class FcgWarpHandler implements WarpHandler, FcgHandler
         }
 
         $warpId = WarpData::get($tur)->warpId;
-        $cmd = new CmdParams($warpId);
+        $cmd = new CmdParams();
+        $cmd->init($warpId);
 
         $scriptFname = "";
         try {
@@ -334,7 +342,8 @@ class FcgWarpHandler implements WarpHandler, FcgHandler
 
         $this->ship()->post($cmd);
 
-        $cmdParamsEnd = new CmdParams($warpId);
+        $cmdParamsEnd = new CmdParams();
+        $cmdParamsEnd->init($warpId);
         $this->ship()->post($cmdParamsEnd);
     }
 

@@ -67,9 +67,15 @@ class CmdParams extends FcgCommand
 {
     public $params = [];
 
-    public function __construct(int $reqId)
+    public function __construct()
     {
-        parent::__construct(FcgType::PARAMS, $reqId);
+        parent::__construct(FcgType::PARAMS);
+    }
+
+    public function reset() : void
+    {
+        $this->reqId = 0;
+        $this->params = [];
     }
 
     public function unpack(Packet $pkt): void

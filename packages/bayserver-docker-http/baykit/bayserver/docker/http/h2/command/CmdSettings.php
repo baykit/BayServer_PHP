@@ -48,9 +48,14 @@ class CmdSettings extends H2Command
 
     public $items = [];
 
-    public function __construct(int $streamId, H2Flags $flags = null)
+    public function __construct()
     {
-        parent::__construct(H2Type::SETTINGS, $streamId, $flags);
+        parent::__construct(H2Type::SETTINGS);
+    }
+
+    public function reset() : void
+    {
+        $this->items = [];
     }
 
     public function unpack(Packet $pkt): void

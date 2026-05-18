@@ -24,6 +24,11 @@ class CmdEndResponse extends AjpCommand
         parent::__construct(AjpType::END_RESPONSE, false);
     }
 
+    public function reset() : void
+    {
+        $this->reuse = false;
+    }
+
     public function pack(Packet $pkt): void
     {
         $acc = $pkt->newAjpDataAccessor();

@@ -275,9 +275,8 @@ class H1WarpHandler implements WarpHandler, H1Handler {
         $sip = $this->ship();
         $newUri = $sip->docker->warpBase. substr($tur->req->uri, strlen($townPath));
 
-        $cmd = CmdHeader::newReqHeader($tur->req->method,
-            $newUri,
-            "HTTP/1.1");
+        $cmd = $this->protocolHandler->commandStore->rent(H1Type::HEADER);
+        $cmd->initReqHeader($tur->req->method, $newUri, "HTTP/1.1");
 
         foreach($tur->req->headers->names() as $name) {
             foreach ($tur->req->headers->values($name) as $value) {
@@ -314,18 +313,23 @@ class H1WarpHandler implements WarpHandler, H1Handler {
         }
 
         $sip->post($cmd);
+        $this->protocolHandler->commandStore->Return($cmd);
     }
 
     public function sendReqContents(Tour $tur, string $buf, int $start, int $len,? callable $callback): void
     {
-        $cmd = new CmdContent($buf, $start, $len);
+        $cmd = $this->protocolHandler->commandStore->rent(H1Type::CONTENT);
+        $cmd->init($buf, $start, $len);
         $this->ship()->post($cmd, $callback);
+        $this->protocolHandler->commandStore->Return($cmd);
      }
 
     public function sendEndReq(Tour $tur, bool $keepAlive, ?callable $callback): void
     {
-        $cmd = new CmdContent();
+        $cmd = $this->protocolHandler->commandStore->rent(H1Type::CONTENT);
+        $cmd->init(null, 0, 0);
         $this->ship()->post($cmd, $callback);
+        $this->protocolHandler->commandStore->Return($cmd);
     }
 
     public function verifyProtocol(string $protocol): void

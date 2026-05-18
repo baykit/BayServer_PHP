@@ -12,16 +12,26 @@ use baykit\bayserver\util\StringUtil;
 
 class CmdPing extends H2Command
 {
-    public $opaqueData;
+    public $opaqueData = null;
 
-    public function __construct(int $streamId, H2Flags $flags, ?string $opaqueData = null)
+    public function __construct()
     {
-        parent::__construct(H2Type::PING, $streamId, $flags);
+        parent::__construct(H2Type::PING);
+        $this->opaqueData = StringUtil::allocate(8);
+    }
+
+    public function setOpaqueData(string $opaqueData) : void
+    {
         // Mirror: echo the received 8-byte opaque_data back
         // so PING-ACK round-trips. The previous constructor silently
         // dropped the argument and always emitted zeros, which is an
         // RFC 7540 §6.7 conformance failure.
-        $this->opaqueData = $opaqueData ?? StringUtil::allocate(8);
+        $this->opaqueData = $opaqueData;
+    }
+
+    public function reset() : void
+    {
+        $this->opaqueData = StringUtil::allocate(8);
     }
 
     public function unpack(Packet $pkt): void

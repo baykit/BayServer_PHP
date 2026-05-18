@@ -17,11 +17,16 @@ use baykit\bayserver\protocol\Packet;
  */
 class CmdGetBodyChunk extends AjpCommand
 {
-    public $reqLen;
+    public $reqLen = 0;
 
     public function __construct()
     {
         parent::__construct(AjpType::GET_BODY_CHUNK, false);
+    }
+
+    public function reset() : void
+    {
+        $this->reqLen = 0;
     }
 
     public function pack(Packet $pkt): void

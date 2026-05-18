@@ -136,17 +136,21 @@ class H2WarpHandler implements WarpHandler, H2Handler
                 $wd = WarpData::get($tur);
                 $wd->pendingStreamWindow += $cmd->length;
                 if ($wd->pendingStreamWindow >= self::WINDOW_UPDATE_THRESHOLD) {
-                    $upd = new CmdWindowUpdate($cmd->streamId);
+                    $upd = $this->protocolHandler->commandStore->rent(H2Type::WINDOW_UPDATE);
+                    $upd->init($cmd->streamId);
                     $upd->windowSizeIncrement = $wd->pendingStreamWindow;
                     $this->ship()->post($upd);
+                    $this->protocolHandler->commandStore->Return($upd);
                     $wd->pendingStreamWindow = 0;
                 }
             }
             $this->pendingConnWindow += $cmd->length;
             if ($this->pendingConnWindow >= self::WINDOW_UPDATE_THRESHOLD) {
-                $upd2 = new CmdWindowUpdate(0);
+                $upd2 = $this->protocolHandler->commandStore->rent(H2Type::WINDOW_UPDATE);
+                $upd2->init(0);
                 $upd2->windowSizeIncrement = $this->pendingConnWindow;
                 $this->ship()->post($upd2);
+                $this->protocolHandler->commandStore->Return($upd2);
                 $this->pendingConnWindow = 0;
             }
         }
@@ -232,8 +236,10 @@ class H2WarpHandler implements WarpHandler, H2Handler
     public function handleSettings(CmdSettings $cmd) : int
     {
         if (!$cmd->flags->ack()) {
-            $res = new CmdSettings(0, new H2Flags(H2Flags::FLAGS_ACK));
+            $res = $this->protocolHandler->commandStore->rent(H2Type::SETTINGS);
+            $res->init(0, new H2Flags(H2Flags::FLAGS_ACK));
             $this->protocolHandler->post($res, true);
+            $this->protocolHandler->commandStore->Return($res);
         }
         return NextSocketAction::CONTINUE;
     }
@@ -269,8 +275,11 @@ class H2WarpHandler implements WarpHandler, H2Handler
 
     public function handlePing(CmdPing $cmd) : int
     {
-        $res = new CmdPing($cmd->streamId, new H2Flags(H2Flags::FLAGS_ACK), $cmd->opaqueData);
+        $res = $this->protocolHandler->commandStore->rent(H2Type::PING);
+        $res->init($cmd->streamId, new H2Flags(H2Flags::FLAGS_ACK));
+        $res->setOpaqueData($cmd->opaqueData);
         $this->protocolHandler->post($res, true);
+        $this->protocolHandler->commandStore->Return($res);
         return NextSocketAction::CONTINUE;
     }
 
@@ -348,9 +357,13 @@ class H2WarpHandler implements WarpHandler, H2Handler
             return;
         }
         $streamId = WarpData::get($tur)->warpId;
-        $cmd = new CmdData($streamId, null, "", 0, 0);
+        $emptyBuf = "";
+        $cmd = $this->protocolHandler->commandStore->rent(H2Type::DATA);
+        $cmd->init($streamId, null);
+        $cmd->setData($emptyBuf, 0, 0);
         $cmd->flags->setEndStream(true);
         $this->ship()->post($cmd, $callback);
+        $this->protocolHandler->commandStore->Return($cmd);
     }
 
     public function verifyProtocol(string $protocol) : void
@@ -385,22 +398,28 @@ class H2WarpHandler implements WarpHandler, H2Handler
 
         // 1. Connection preface -- empty CmdPreface. Its pack()
         // emits the 24 preface bytes raw (not in H2 frame format).
-        $preface = new CmdPreface(0, new H2Flags());
+        $preface = $this->protocolHandler->commandStore->rent(H2Type::PREFACE);
+        $preface->init(0, new H2Flags());
         $sip->post($preface);
+        $this->protocolHandler->commandStore->Return($preface);
 
         // 2. Initial SETTINGS frame on stream 0, no ACK.
-        $set = new CmdSettings(H2ProtocolHandler::CTL_STREAM_ID);
+        $set = $this->protocolHandler->commandStore->rent(H2Type::SETTINGS);
+        $set->init(H2ProtocolHandler::CTL_STREAM_ID);
         $set->streamId = 0;
         $set->items[] = new CmdSettings_Item(CmdSettings::MAX_CONCURRENT_STREAMS,
             max(BayServer::$harbor->maxToursPerShip(), 100));
         $set->items[] = new CmdSettings_Item(CmdSettings::INITIAL_WINDOW_SIZE,
             self::INITIAL_WINDOW_SIZE_OUT);
         $sip->post($set);
+        $this->protocolHandler->commandStore->Return($set);
 
         // 3. Connection-level WINDOW_UPDATE on stream 0.
-        $connUp = new CmdWindowUpdate(0);
+        $connUp = $this->protocolHandler->commandStore->rent(H2Type::WINDOW_UPDATE);
+        $connUp->init(0);
         $connUp->windowSizeIncrement = self::INITIAL_WINDOW_SIZE_OUT;
         $sip->post($connUp);
+        $this->protocolHandler->commandStore->Return($connUp);
 
         $this->preludeSent = true;
     }
@@ -447,20 +466,25 @@ class H2WarpHandler implements WarpHandler, H2Handler
         // far below DEFAULT_PAYLOAD_MAXLEN (16384) even with HPACK
         // expansion. CONTINUATION splitting for huge header blocks
         // is not implemented (bench traffic doesn't trigger it).
-        $hcmd = new CmdHeaders($streamId);
+        $hcmd = $this->protocolHandler->commandStore->rent(H2Type::HEADERS);
+        $hcmd->init($streamId);
         $hcmd->excluded = false;
         $hcmd->headerBlocks = $blocks;
         $hcmd->flags->setEndHeaders(true);
         if ($endStream) $hcmd->flags->setEndStream(true);
         $hcmd->flags->setPadded(false);
         $sip->post($hcmd);
+        $this->protocolHandler->commandStore->Return($hcmd);
     }
 
     private function sendReqDataCommand(Tour $tur, string $buf, int $start, int $len, ?callable $callback) : void
     {
         $streamId = WarpData::get($tur)->warpId;
-        $cmd = new CmdData($streamId, null, $buf, $start, $len);
+        $cmd = $this->protocolHandler->commandStore->rent(H2Type::DATA);
+        $cmd->init($streamId, null);
+        $cmd->setData($buf, $start, $len);
         $this->ship()->post($cmd, $callback);
+        $this->protocolHandler->commandStore->Return($cmd);
     }
 
     private function endResContent(Tour $tur) : void

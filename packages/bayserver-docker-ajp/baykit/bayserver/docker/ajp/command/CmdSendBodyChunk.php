@@ -20,18 +20,29 @@ use baykit\bayserver\util\StringUtil;
  */
 class CmdSendBodyChunk extends AjpCommand
 {
-    public $chunk;
-    public $offset;
-    public $length;
+    public $chunk = null;
+    public $offset = 0;
+    public $length = 0;
 
     const MAX_CHUNKLEN = AjpPacket::MAX_DATA_LEN - 4;
 
-    public function __construct(string $buf, int $ofs, int $len)
+    public function __construct()
     {
         parent::__construct(AjpType::SEND_BODY_CHUNK, false);
+    }
+
+    public function init(string $buf, int $ofs, int $len) : void
+    {
         $this->chunk = $buf;
         $this->offset = $ofs;
         $this->length = $len;
+    }
+
+    public function reset() : void
+    {
+        $this->chunk = null;
+        $this->offset = 0;
+        $this->length = 0;
     }
 
     public function pack(Packet $pkt): void

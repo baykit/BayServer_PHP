@@ -143,10 +143,12 @@ class H1InboundHandler implements H1Handler, InboundHandler {
             }
         }
 
-        $cmd = CmdHeader::newResHeader($tur->res->headers, $tur->req->protocol);
+        $cmd = $this->protocolHandler->commandStore->rent(H1Type::HEADER);
+        $cmd->initResHeader($tur->res->headers, $tur->req->protocol);
         // flush=false: defer registration until the body comes through, so
         // headers + content batch into one socket write.
         $this->protocolHandler->post($cmd, false);
+        $this->protocolHandler->commandStore->Return($cmd);
     }
 
     public function sendResContent(Tour $tur, string $bytes, int $ofs, int $len, ?callable $callback): bool
@@ -156,13 +158,19 @@ class H1InboundHandler implements H1Handler, InboundHandler {
             //   <hex-len>\r\n<data>\r\n
             $hex = dechex($len);
             $frame = $hex . "\r\n" . substr($bytes, $ofs, $len) . "\r\n";
-            $cmd = new CmdContent($frame, 0, strlen($frame));
-            return $this->protocolHandler->post($cmd, false, $callback);
+            $cmd = $this->protocolHandler->commandStore->rent(H1Type::CONTENT);
+            $cmd->init($frame, 0, strlen($frame));
+            $available = $this->protocolHandler->post($cmd, false, $callback);
+            $this->protocolHandler->commandStore->Return($cmd);
+            return $available;
         }
-        $cmd = new CmdContent($bytes, $ofs, $len);
+        $cmd = $this->protocolHandler->commandStore->rent(H1Type::CONTENT);
+        $cmd->init($bytes, $ofs, $len);
         // flush=false: more chunks (or endTour) will follow; the final
         // CmdEndContent forces the actual socket write.
-        return $this->protocolHandler->post($cmd, false, $callback);
+        $available = $this->protocolHandler->post($cmd, false, $callback);
+        $this->protocolHandler->commandStore->Return($cmd);
+        return $available;
     }
 
     public function transferContent(Tour $tur, \baykit\bayserver\rudder\Rudder $fileRd, int $ofs, int $len, ?callable $callback): void
@@ -186,7 +194,10 @@ class H1InboundHandler implements H1Handler, InboundHandler {
         # callback.
         if ($this->chunkedResponse) {
             try {
-                $this->protocolHandler->post(new CmdContent("0\r\n\r\n", 0, 5), false);
+                $lastChunkCmd = $this->protocolHandler->commandStore->rent(H1Type::CONTENT);
+                $lastChunkCmd->init("0\r\n\r\n", 0, 5);
+                $this->protocolHandler->post($lastChunkCmd, false);
+                $this->protocolHandler->commandStore->Return($lastChunkCmd);
             }
             catch(IOException $e) {
                 BayLog::debug_e($e, "%s post(last-chunk) failed", $sip);
@@ -196,7 +207,7 @@ class H1InboundHandler implements H1Handler, InboundHandler {
         }
 
         # Send dummy end request command
-        $cmd = new CmdEndContent();
+        $cmd = $this->protocolHandler->commandStore->rent(H1Type::END_CONTENT);
 
         $sid = $sip->shipId;
         $ensure_func = function() use ($callback, $keepAlive, $sip, $sid) {
@@ -219,6 +230,9 @@ class H1InboundHandler implements H1Handler, InboundHandler {
         catch(IOException $e) {
             $ensure_func();
             throw $e;
+        }
+        finally {
+            $this->protocolHandler->commandStore->Return($cmd);
         }
 
     }

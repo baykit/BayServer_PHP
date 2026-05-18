@@ -40,44 +40,64 @@ class CmdHeader extends H1Command
     const STATE_READ_MESSAGE_HEADERS = 2;
 
     public $headers = [];
-    public $isReqHeader;
-    public $method;
-    public $uri;
-    public $version;
-    public $status;
+    public $isReqHeader = false;
+    public $method = null;
+    public $uri = null;
+    public $version = null;
+    public $status = 0;
 
-    public function __construct(bool $isReqHeader)
+    public function __construct()
     {
         parent::__construct(H1Type::HEADER);
         $this->headers = [];
+    }
+
+    public function init(bool $isReqHeader) : void
+    {
         $this->isReqHeader = $isReqHeader;
     }
+
+    public function initReqHeader(string $method, string $uri, string $version) : void
+    {
+        $this->isReqHeader = true;
+        $this->method = $method;
+        $this->uri = $uri;
+        $this->version = $version;
+    }
+
+    public function initResHeader($headers, string $version) : void
+    {
+        $this->isReqHeader = false;
+        $this->version = $version;
+        $this->status = $headers->status;
+        foreach ($headers->names() as $name) {
+            foreach ($headers->values($name) as $value) {
+                $this->addHeader($name, $value);
+            }
+        }
+    }
+
+    ///////////////////////////////////////////////
+    // Implements Reusable
+    ///////////////////////////////////////////////
+
+    public function reset() : void
+    {
+        $this->headers = [];
+        $this->isReqHeader = false;
+        $this->method = null;
+        $this->uri = null;
+        $this->version = null;
+        $this->status = 0;
+    }
+
+    ///////////////////////////////////////////////
+    // Other methods
+    ///////////////////////////////////////////////
 
     public function __toString()
     {
         return "CommandHeader[H1]";
-    }
-
-    public static function newReqHeader($method, $uri, $version) : CmdHeader
-    {
-        $h = new CmdHeader(true);
-        $h->method = $method;
-        $h->uri = $uri;
-        $h->version = $version;
-        return $h;
-    }
-
-    public static function newResHeader($headers, $version) : CmdHeader
-    {
-        $h = new CmdHeader(false);
-        $h->version = $version;
-        $h->status = $headers->status;
-        foreach ($headers->names() as $name) {
-            foreach ($headers->values($name) as $value) {
-                $h->addHeader($name, $value);
-            }
-        }
-        return $h;
     }
 
     public function addHeader(string $name, ?string $value) : void

@@ -2,7 +2,9 @@
 
 namespace baykit\bayserver\protocol;
 
-abstract class Command
+use baykit\bayserver\util\Reusable;
+
+abstract class Command implements Reusable
 {
     public $type;
 

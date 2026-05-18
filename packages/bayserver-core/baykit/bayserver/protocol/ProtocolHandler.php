@@ -13,6 +13,12 @@ abstract class ProtocolHandler implements Reusable
     public CommandUnPacker $commandUnpacker;
     public CommandPacker $commandPacker;
     public CommandHandler $commandHandler;
+    // Per-protocol Command object pool; PHP-specific (Java's ProtocolHandler
+    // does not have this field). H3 / QicProtocolHandler does not use it
+    // (= QicNull{CommandUn,}Packer never rent commands), so the slot is
+    // nullable to mirror Java's super(...) call shape (handler + serverMode
+    // only). All real H1/H2/FCGI/AJP subclasses still pass a concrete store.
+    public ?CommandStore $commandStore;
     public bool $server_mode;
     public ?Ship $ship = null;
 
@@ -21,6 +27,7 @@ abstract class ProtocolHandler implements Reusable
         CommandUnPacker $commandUnpacker,
         CommandPacker $commandPacker,
         CommandHandler $commandHandler,
+        ?CommandStore $commandStore,
         bool $server_mode)
     {
         $this->packetUnpacker = $packetUnpacker;
@@ -28,6 +35,7 @@ abstract class ProtocolHandler implements Reusable
         $this->commandUnpacker = $commandUnpacker;
         $this->commandPacker = $commandPacker;
         $this->commandHandler = $commandHandler;
+        $this->commandStore = $commandStore;
         $this->server_mode = $server_mode;
     }
 

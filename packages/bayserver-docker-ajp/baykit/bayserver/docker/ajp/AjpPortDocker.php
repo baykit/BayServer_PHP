@@ -43,7 +43,9 @@ PacketStore::registerProtocol(AjpDocker::PROTO_NAME,
     new AjpPacketFactory()
 );
 
-
+\baykit\bayserver\protocol\CommandStore::registerProtocol(AjpDocker::PROTO_NAME,
+    new AjpCommandFactory()
+);
 
 ProtocolHandlerStore::registerProtocol(AjpDocker::PROTO_NAME,
     true,

@@ -85,6 +85,10 @@ class AjpInboundHandler implements InboundHandler, AjpHandler
     public function sendResHeaders(Tour $tur): void
     {
         $chunked = false;
+        // Allocate a fresh command per call. post() may pack the AJP frame
+        // asynchronously, so a pooled command that gets Return()'d here
+        // would be reset (= empty headers) before serialization. Java
+        // takes the same per-call-new approach.
         $cmd = new CmdSendHeaders();
         $cmd->setStatus($tur->res->headers->status);
         if(BayServer::$harbor->traceHeader()) {
@@ -103,7 +107,8 @@ class AjpInboundHandler implements InboundHandler, AjpHandler
 
     public function sendResContent(Tour $tur, string $bytes, int $ofs, int $len, ?callable $callback): bool
     {
-        $cmd = new CmdSendBodyChunk($bytes, $ofs, $len);
+        $cmd = new CmdSendBodyChunk();
+        $cmd->init($bytes, $ofs, $len);
         return $this->protocolHandler->post($cmd, false, $callback);
     }
 
@@ -116,6 +121,12 @@ class AjpInboundHandler implements InboundHandler, AjpHandler
     {
         $sip = $this->ship();
         BayLog::debug("%s endTour: tur=%s", $sip, $tur);
+        // Per-call instantiation: post() may pack the END_RESPONSE frame
+        // asynchronously, and a pooled CmdEndResponse Return()'d in the
+        // finally below resets $reuse back to false. Apache then sees
+        // "reuse=0" and closes the AJP connection, causing the next
+        // request on the same TCP socket to fail with EOF (= the
+        // listener bug that caused half the wrk requests to 5xx).
         $cmd = new CmdEndResponse();
         $cmd->reuse = true;  // Always reuse connection
 

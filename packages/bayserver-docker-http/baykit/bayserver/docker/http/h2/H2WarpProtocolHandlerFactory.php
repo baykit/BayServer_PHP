@@ -2,6 +2,7 @@
 namespace baykit\bayserver\docker\http\h2;
 
 use baykit\bayserver\protocol\CommandPacker;
+use baykit\bayserver\protocol\CommandStore;
 use baykit\bayserver\protocol\PacketPacker;
 use baykit\bayserver\protocol\PacketStore;
 use baykit\bayserver\protocol\ProtocolHandler;
@@ -14,10 +15,10 @@ use baykit\bayserver\protocol\ProtocolHandlerFactory;
  */
 class H2WarpProtocolHandlerFactory implements ProtocolHandlerFactory
 {
-    public function createProtocolHandler(PacketStore $pktStore): ProtocolHandler
+    public function createProtocolHandler(PacketStore $pktStore, CommandStore $cmdStore): ProtocolHandler
     {
         $warpHandler = new H2WarpHandler();
-        $commandUnpacker = new H2CommandUnPacker($warpHandler);
+        $commandUnpacker = new H2CommandUnPacker($warpHandler, $cmdStore);
         $packetUnpacker = new H2PacketUnPacker($commandUnpacker, $pktStore);
         $packetPacker = new PacketPacker();
         $commandPacker = new CommandPacker($packetPacker, $pktStore);
@@ -28,6 +29,7 @@ class H2WarpProtocolHandlerFactory implements ProtocolHandlerFactory
             $packetPacker,
             $commandUnpacker,
             $commandPacker,
+            $cmdStore,
             false);
         $warpHandler->init($protocolHandler);
         return $protocolHandler;

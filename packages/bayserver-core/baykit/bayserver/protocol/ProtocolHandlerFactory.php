@@ -4,5 +4,5 @@ namespace baykit\bayserver\protocol;
 
 interface ProtocolHandlerFactory
 {
-    public function createProtocolHandler(PacketStore $pktStore) : ProtocolHandler;
+    public function createProtocolHandler(PacketStore $pktStore, CommandStore $cmdStore) : ProtocolHandler;
 }

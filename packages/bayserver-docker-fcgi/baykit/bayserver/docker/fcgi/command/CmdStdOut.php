@@ -16,9 +16,9 @@ use baykit\bayserver\protocol\CommandHandler;
  */
 class CmdStdOut extends InOutCommandBase
 {
-    public function __construct(int $reqId, ?string $data=null, int $start=0, int $len=0)
+    public function __construct()
     {
-        parent::__construct(FcgType::STDOUT, $reqId, $data, $start, $len);
+        parent::__construct(FcgType::STDOUT);
     }
 
     public function handle(CommandHandler $handler): int

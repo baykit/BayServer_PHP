@@ -45,8 +45,9 @@ class ProtocolHandlerStore_ProtocolInfo
 
     public function addAgent(int $agtId) :void
     {
-        $store = PacketStore::getStore($this->protocol, $agtId);
-        $this->stores[$agtId] =  new ProtocolHandlerStore($this->protocol, $this->serverMode, $this->protocolHandlerFactory, $store);
+        $pktStore = PacketStore::getStore($this->protocol, $agtId);
+        $cmdStore = CommandStore::getStore($this->protocol, $agtId);
+        $this->stores[$agtId] =  new ProtocolHandlerStore($this->protocol, $this->serverMode, $this->protocolHandlerFactory, $pktStore, $cmdStore);
     }
 
     public function removeAgent(int $agtId) : void
@@ -66,13 +67,13 @@ class ProtocolHandlerStore extends ObjectStore
     public $serverMode;
 
 
-    public function __construct($protocol, $serverMode, $protoHndFactory, $pktStore)
+    public function __construct($protocol, $serverMode, $protoHndFactory, $pktStore, $cmdStore)
     {
         parent::__construct();
         $this->protocol = $protocol;
         $this->serverMode = $serverMode;
-        $this->factory = function () use ($pktStore, $protoHndFactory) {
-            return $protoHndFactory->createProtocolHandler($pktStore);
+        $this->factory = function () use ($pktStore, $cmdStore, $protoHndFactory) {
+            return $protoHndFactory->createProtocolHandler($pktStore, $cmdStore);
         };
     }
 

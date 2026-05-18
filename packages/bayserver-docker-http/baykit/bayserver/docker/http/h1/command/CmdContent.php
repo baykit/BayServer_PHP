@@ -9,17 +9,36 @@ use baykit\bayserver\protocol\Packet;
 
 class CmdContent extends H1Command
 {
-    public ?string $buf;
-    public int $start;
-    public int $len;
+    public ?string $buf = null;
+    public int $start = 0;
+    public int $len = 0;
 
-    public function __construct(string $buf=null, int $start=0, int $length=0)
+    public function __construct()
     {
         parent::__construct(H1Type::CONTENT);
+    }
+
+    public function init(?string $buf, int $start, int $length) : void
+    {
         $this->buf = $buf;
         $this->start = $start;
         $this->len = $length;
     }
+
+    ///////////////////////////////////////////////
+    // Implements Reusable
+    ///////////////////////////////////////////////
+
+    public function reset() : void
+    {
+        $this->buf = null;
+        $this->start = 0;
+        $this->len = 0;
+    }
+
+    ///////////////////////////////////////////////
+    // Implements Command
+    ///////////////////////////////////////////////
 
     public function unpack(Packet $pkt): void
     {

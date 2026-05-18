@@ -28,6 +28,7 @@ use baykit\bayserver\common\InboundShipStore;
 use baykit\bayserver\docker\City;
 use baykit\bayserver\docker\Harbor;
 use baykit\bayserver\docker\Port;
+use baykit\bayserver\protocol\CommandStore;
 use baykit\bayserver\protocol\PacketStore;
 use baykit\bayserver\protocol\ProtocolHandlerStore;
 use baykit\bayserver\rudder\SocketRudder;
@@ -266,6 +267,7 @@ class BayServer
                 #sys.stderr = $f;
 
                 PacketStore::init();
+                CommandStore::init();
                 \baykit\bayserver\common\RudderStateStore::init();
                 InboundShipStore::init();
                 ProtocolHandlerStore::init();

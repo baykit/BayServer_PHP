@@ -228,6 +228,10 @@ PacketStore::registerProtocol(HtpDocker::H1_PROTO_NAME,
     new H1PacketFactory()
 );
 
+\baykit\bayserver\protocol\CommandStore::registerProtocol(HtpDocker::H1_PROTO_NAME,
+    new \baykit\bayserver\docker\http\h1\H1CommandFactory()
+);
+
 ProtocolHandlerStore::registerProtocol(HtpDocker::H1_PROTO_NAME,
     false,
     new H1WarpProtocolHandlerFactory());
@@ -237,6 +241,10 @@ ProtocolHandlerStore::registerProtocol(HtpDocker::H1_PROTO_NAME,
 // same one the inbound H2 listener already uses.
 PacketStore::registerProtocol(HtpDocker::H2_PROTO_NAME,
     new H2PacketFactory());
+
+\baykit\bayserver\protocol\CommandStore::registerProtocol(HtpDocker::H2_PROTO_NAME,
+    new \baykit\bayserver\docker\http\h2\H2CommandFactory()
+);
 
 ProtocolHandlerStore::registerProtocol(HtpDocker::H2_PROTO_NAME,
     false,

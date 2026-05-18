@@ -3,13 +3,15 @@
 namespace baykit\bayserver\docker\ajp;
 
 use baykit\bayserver\protocol\CommandPacker;
+use baykit\bayserver\protocol\CommandStore;
 use baykit\bayserver\protocol\PacketPacker;
+use baykit\bayserver\protocol\PacketStore;
 use baykit\bayserver\protocol\ProtocolHandler;
 use baykit\bayserver\protocol\ProtocolHandlerFactory;
 
 class AjpInboundProtocolHandlerFactory implements ProtocolHandlerFactory
 {
-    public function createProtocolHandler($pktStore) : ProtocolHandler
+    public function createProtocolHandler(PacketStore $pktStore, CommandStore $cmdStore) : ProtocolHandler
     {
         $inboundHandler = new AjpInboundHandler();
         $commandUnpacker = new AjpCommandUnPacker($inboundHandler);
@@ -22,9 +24,9 @@ class AjpInboundProtocolHandlerFactory implements ProtocolHandlerFactory
                 $packetPacker,
                 $commandUnpacker,
                 $commandPacker,
+                $cmdStore,
                 true);
         $inboundHandler->init($protocolHandler);
         return $protocolHandler;
     }
 }
-

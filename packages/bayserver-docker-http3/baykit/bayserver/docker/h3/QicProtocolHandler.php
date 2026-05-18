@@ -68,11 +68,15 @@ class QicProtocolHandler extends ProtocolHandler
         H3Config $h3Config,
         Multiplexer $multiplexer)
     {
+        // Java's super(null, null, null, null, handler, true) — H3 doesn't
+        // use the command pool; pass null for the PHP-specific CommandStore
+        // slot (= ProtocolHandler::commandStore is ?CommandStore).
         parent::__construct(new QicNullPacketUnPacker(),
             new PacketPacker(),
             new QicNullCommandUnPacker(),
             new QicNullCommandPacker(),
             $inboundHandler,
+            null,
             true);
 
         $this->con = $con;

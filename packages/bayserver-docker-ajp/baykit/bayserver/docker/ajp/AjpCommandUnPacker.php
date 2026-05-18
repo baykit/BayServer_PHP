@@ -42,35 +42,20 @@ class AjpCommandUnPacker extends CommandUnPacker {
     {
         BayLog::debug("ajp:  packet received: type=%s datalen=%d", $pkt->type, $pkt->dataLen());
 
+        // AJP intentionally bypasses the per-agent CommandStore pool: allocate
+        // a fresh CmdXxx per incoming packet, matching Java's AjpCommandUnPacker
+        // which also calls `new CmdXxx(...)` directly.
         switch ($pkt->type) {
-            case AjpType::DATA:
-                $cmd = new CmdData();
-                break;
-
-            case AjpType::FORWARD_REQUEST:
-                $cmd = new CmdForwardRequest();
-                break;
-
+            case AjpType::DATA:             $cmd = new CmdData(); break;
+            case AjpType::FORWARD_REQUEST:  $cmd = new CmdForwardRequest(); break;
+            case AjpType::SEND_HEADERS:     $cmd = new CmdSendHeaders(); break;
+            case AjpType::END_RESPONSE:     $cmd = new CmdEndResponse(); break;
+            case AjpType::SHUTDOWN:         $cmd = new CmdShutdown(); break;
+            case AjpType::GET_BODY_CHUNK:   $cmd = new CmdGetBodyChunk(); break;
             case AjpType::SEND_BODY_CHUNK:
-                $cmd = new CmdSendBodyChunk($pkt->buf, $pkt->headerLen, $pkt->dataLen());
+                $cmd = new CmdSendBodyChunk();
+                $cmd->init($pkt->buf, $pkt->headerLen, $pkt->dataLen());
                 break;
-
-            case AjpType::SEND_HEADERS:
-                $cmd = new CmdSendHeaders();
-                break;
-
-            case AjpType::END_RESPONSE:
-                $cmd = new CmdEndResponse();
-                break;
-
-            case AjpType::SHUTDOWN:
-                $cmd = new CmdShutdown();
-                break;
-
-            case AjpType::GET_BODY_CHUNK:
-                $cmd = new CmdGetBodyChunk();
-                break;
-
             default:
                 throw new \Exception("Invalid packet". $pkt);
         }

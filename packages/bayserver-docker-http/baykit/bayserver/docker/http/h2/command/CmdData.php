@@ -27,16 +27,27 @@ class CmdData extends H2Command
     /**
      * This class refers external byte array, so this IS NOT mutable
      */
-    public $start;
-    public $length;
-    public $data;
+    public $start = 0;
+    public $length = 0;
+    public $data = null;
 
-    public function __construct(int $streamId, ?H2Flags $flags, string &$data = null, int $start = 0, int $len = 0)
+    public function __construct()
     {
-        parent::__construct(H2Type::DATA, $streamId, $flags);
+        parent::__construct(H2Type::DATA);
+    }
+
+    public function setData(?string &$data, int $start, int $len) : void
+    {
         $this->data = $data;
         $this->start = $start;
         $this->length = $len;
+    }
+
+    public function reset() : void
+    {
+        $this->start = 0;
+        $this->length = 0;
+        $this->data = null;
     }
 
     public function unpack(Packet $pkt): void

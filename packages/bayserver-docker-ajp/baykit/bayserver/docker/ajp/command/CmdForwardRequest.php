@@ -140,6 +140,20 @@ class CmdForwardRequest extends AjpCommand
         $this->headers = new Headers();
     }
 
+    public function reset() : void
+    {
+        $this->method = null;
+        $this->protocol = null;
+        $this->reqUri = null;
+        $this->remoteAddr = null;
+        $this->remoteHost = null;
+        $this->serverName = null;
+        $this->serverPort = 0;
+        $this->isSsl = false;
+        $this->headers = new Headers();
+        $this->attributes = [];
+    }
+
     public function pack(Packet $pkt): void
     {
         $acc = $pkt->newAjpDataAccessor();

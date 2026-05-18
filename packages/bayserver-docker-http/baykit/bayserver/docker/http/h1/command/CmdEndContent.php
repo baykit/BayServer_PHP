@@ -14,6 +14,18 @@ class CmdEndContent extends H1Command
         parent::__construct(H1Type::END_CONTENT);
     }
 
+    ///////////////////////////////////////////////
+    // Implements Reusable
+    ///////////////////////////////////////////////
+
+    public function reset() : void
+    {
+    }
+
+    ///////////////////////////////////////////////
+    // Implements Command
+    ///////////////////////////////////////////////
+
     public function unpack(Packet $pkt): void
     {
     }

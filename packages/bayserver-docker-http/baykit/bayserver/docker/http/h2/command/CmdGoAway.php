@@ -25,13 +25,20 @@ use baykit\bayserver\protocol\Packet;
  */
 class CmdGoAway extends H2Command
 {
-    public $lastStreamId;
-    public $errorCode;
-    public $debugData;
+    public $lastStreamId = 0;
+    public $errorCode = 0;
+    public $debugData = null;
 
-    public function __construct(int $streamId, H2Flags $flags=null)
+    public function __construct()
     {
-        parent::__construct(H2Type::GOAWAY, $streamId, $flags);
+        parent::__construct(H2Type::GOAWAY);
+    }
+
+    public function reset() : void
+    {
+        $this->lastStreamId = 0;
+        $this->errorCode = 0;
+        $this->debugData = null;
     }
 
     public function unpack(Packet $pkt): void

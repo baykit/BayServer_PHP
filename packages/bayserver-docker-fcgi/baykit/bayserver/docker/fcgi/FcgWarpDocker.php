@@ -97,6 +97,10 @@ PacketStore::registerProtocol(FcgDocker::PROTO_NAME,
     new FcgPacketFactory()
 );
 
+\baykit\bayserver\protocol\CommandStore::registerProtocol(FcgDocker::PROTO_NAME,
+    new FcgCommandFactory()
+);
+
 ProtocolHandlerStore::registerProtocol(FcgDocker::PROTO_NAME,
     false,
     new FcgWarpProtocolHandlerFactory());
