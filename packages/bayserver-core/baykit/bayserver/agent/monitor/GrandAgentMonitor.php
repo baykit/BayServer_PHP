@@ -204,15 +204,26 @@ class GrandAgentMonitor
             }
         }
         else {
-            $client = null;
+            // Single-process mode still needs a CommandReceiver rudder
+            // (= a pipe pair the agent's selector can register), even
+            // though no IPC traffic flows in this mode. The pipe is a
+            // local pair, agent reads on $comCh[1], we keep $comCh[0]
+            // as $client so the monitor's stop()/notify() path matches.
+            $comCh = IOUtil::openLocalPipe();
+            $client = $comCh[0];
             $agentProcess = null;
         }
         self::$monitors[$agtId] = new GrandAgentMonitor($agtId, $anchorable, $client, $agentProcess);
 
         if(!BayServer::$harbor->multiCore()) {
+            // Single-process mode (= multiCore no). Needed for H3: the
+            // UDP listener can't survive a post-bind fork without explicit
+            // FD inherit, so we keep all agents inside one PHP process.
             GrandAgent::add($agtId, $anchorable);
             $agt = GrandAgent::get($agtId);
-            $agt->runCommandReceiver($comCh[1]);
+            // addCommandReceiver takes a Rudder; wrap the raw stream
+            // socket the same way BayServer::childStart does.
+            $agt->addCommandReceiver(new StreamRudder($comCh[1]));
             $agt->run();
         }
     }
